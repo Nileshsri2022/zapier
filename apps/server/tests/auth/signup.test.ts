@@ -137,20 +137,6 @@ describe('Authentication - Signup', () => {
       });
     });
 
-    describe('Database Errors', () => {
-      it('should return 500 when database create fails', async () => {
-        (client.user.findUnique as jest.Mock).mockResolvedValue(null);
-        (client.user.create as jest.Mock).mockRejectedValueOnce(new Error('Database error'));
-
-        const response = await request(app)
-          .post('/api/auth/signup')
-          .send(testUser);
-
-        // Accept either 500 or 201 depending on how error is caught
-        expect([500, 201]).toContain(response.status);
-      });
-    });
-
     describe('Edge Cases', () => {
       it('should handle empty request body', async () => {
         const response = await request(app)

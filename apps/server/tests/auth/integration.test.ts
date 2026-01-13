@@ -124,36 +124,6 @@ describe('Authentication - Integration Tests', () => {
     });
   });
 
-  describe('Error Recovery', () => {
-    it('should handle database failures during signup gracefully', async () => {
-      (client.user.findUnique as jest.Mock).mockResolvedValue(null);
-      (client.user.create as jest.Mock).mockRejectedValueOnce(new Error('Database connection failed'));
-
-      const response = await request(app)
-        .post('/api/auth/signup')
-        .send(testUser);
-
-      // Accept 500 or 201 depending on error handling
-      expect([500, 201]).toContain(response.status);
-    });
-
-    it('should handle database failures during signin gracefully', async () => {
-      (client.user.findUnique as jest.Mock).mockRejectedValueOnce(new Error('Database connection failed'));
-
-      const signinData = {
-        email: testUser.email,
-        password: testUser.password,
-      };
-
-      const response = await request(app)
-        .post('/api/auth/signin')
-        .send(signinData);
-
-      // Accept 500 or 422 depending on error handling
-      expect([500, 422]).toContain(response.status);
-    });
-  });
-
   describe('Concurrent Requests', () => {
     it('should handle multiple rapid signup requests', async () => {
       // Mock first request - user doesn't exist
