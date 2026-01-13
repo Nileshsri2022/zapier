@@ -1,0 +1,132 @@
+# ZapMate CI/CD Pipeline
+# Deploys: Web → Vercel, Server/Hooks → Render, Processor/Worker → Railway
+
+name: Deploy ZapMate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # ============================================
+  # LINT & TEST
+  # ============================================
+  test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: cd packages/db && npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build packages
+        run: npm run build
+
+  # ============================================
+  # DEPLOY FRONTEND TO VERCEL
+  # ============================================
+  deploy-web:
+    name: Deploy Web (Vercel)
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./apps/web
+
+  # ============================================
+  # DEPLOY SERVER TO RENDER
+  # ============================================
+  deploy-server:
+    name: Deploy Server (Render)
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Deploy to Render
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ secrets.RENDER_SERVER_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
+
+  # ============================================
+  # DEPLOY HOOKS TO RENDER
+  # ============================================
+  deploy-hooks:
+    name: Deploy Hooks (Render)
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Deploy to Render
+        uses: johnbeynon/render-deploy-action@v0.0.8
+        with:
+          service-id: ${{ secrets.RENDER_HOOKS_SERVICE_ID }}
+          api-key: ${{ secrets.RENDER_API_KEY }}
+
+  # ============================================
+  # DEPLOY PROCESSOR TO RAILWAY
+  # ============================================
+  deploy-processor:
+    name: Deploy Processor (Railway)
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: railway up --service processor
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+  # ============================================
+  # DEPLOY WORKER TO RAILWAY
+  # ============================================
+  deploy-worker:
+    name: Deploy Worker (Railway)
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        run: railway up --service worker
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
