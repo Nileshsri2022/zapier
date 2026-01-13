@@ -1,8 +1,10 @@
 {
   "name": "@repo/email",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -18,9 +20,13 @@
   },
   "devDependencies": {
     "@types/lodash": "^4.17.13",
-    "@types/nodemailer": "^6.4.16"
+    "@types/nodemailer": "^6.4.16",
+    "typescript": "^5"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
   }
 }
