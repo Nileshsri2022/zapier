@@ -36,9 +36,72 @@ jest.mock('@repo/db', () => ({
       create: jest.fn(),
       findFirst: jest.fn(),
     },
+    zap: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    trigger: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    action: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    availableTriggers: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    availableActions: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    zapRun: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+    },
+    zapRunOutbox: {
+      findMany: jest.fn(),
+      create: jest.fn(),
+      delete: jest.fn(),
+    },
+    gmailServer: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    gmailTrigger: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
     $transaction: jest.fn((callback: any) => callback({
       user: {
         findUnique: jest.fn(),
+        create: jest.fn(),
+      },
+      zap: {
+        create: jest.fn(),
+      },
+      trigger: {
+        create: jest.fn(),
+      },
+      action: {
         create: jest.fn(),
       },
     })),
