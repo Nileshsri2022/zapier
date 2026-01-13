@@ -23,30 +23,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
         with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Cache npm dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm install
+        run: bun install
 
       - name: Generate Prisma Client
-        run: cd packages/db && npx prisma generate
+        run: cd packages/db && bunx prisma generate
 
       - name: Lint
-        run: npm run lint
+        run: bun run lint
 
       - name: Build packages
-        run: npm run build
+        run: bun run build
 
   # ============================================
   # DEPLOY FRONTEND TO VERCEL
