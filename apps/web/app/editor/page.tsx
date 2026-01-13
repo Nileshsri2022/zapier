@@ -4,9 +4,9 @@ import PublishZap from '@/components/PublishZap';
 import { useSearchParams } from 'next/navigation';
 import React from 'react'
 
-function page() {
+export default function Page() {
   const searchParams = useSearchParams();
-  const zapId: String | null = searchParams.get("zapId");
+  const zapId: string | null = searchParams.get("zapId");
 
   return (
     <MainSection>
@@ -16,5 +16,3 @@ function page() {
     </MainSection>
   )
 }
-
-export default page;
