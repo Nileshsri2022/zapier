@@ -8,13 +8,9 @@ dotenv.config();
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
 
-// CORS configuration
+// CORS configuration - allow all origins (auth is handled by JWT)
 const corsOptions = {
-    origin: [
-        'http://localhost:3000',
-        'https://zapier-web-seven.vercel.app',
-        /\.vercel\.app$/  // Allow all Vercel preview deployments
-    ],
+    origin: true,  // Allow all origins
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
