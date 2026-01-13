@@ -1,4 +1,5 @@
 'use client';
+import { API_URL } from '@/lib/config';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -41,7 +42,7 @@ const GmailStatusMonitor = () => {
         return;
       }
 
-      const response = await axios.get('http://localhost:5000/api/gmail/servers', {
+      const response = await axios.get('${API_URL}/api/gmail/servers', {
         headers: { Authorization: token }
       });
 
@@ -60,7 +61,7 @@ const GmailStatusMonitor = () => {
         return;
       }
 
-      const response = await axios.get(`http://localhost:5000/api/gmail/servers/${serverId}/ratelimit`, {
+      const response = await axios.get(`${API_URL}/api/gmail/servers/${serverId}/ratelimit`, {
         headers: { Authorization: token }
       });
 
@@ -82,7 +83,7 @@ const GmailStatusMonitor = () => {
         return;
       }
 
-      await axios.post(`http://localhost:5000/api/gmail/servers/${serverId}/reset-circuit`, {}, {
+      await axios.post(`${API_URL}/api/gmail/servers/${serverId}/reset-circuit`, {}, {
         headers: { Authorization: token }
       });
 
@@ -297,3 +298,4 @@ const GmailStatusMonitor = () => {
 };
 
 export default GmailStatusMonitor;
+

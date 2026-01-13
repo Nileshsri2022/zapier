@@ -1,4 +1,5 @@
 'use client';
+import { API_URL } from '@/lib/config';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -58,7 +59,7 @@ const GmailTriggerConfig = () => {
         return;
       }
 
-      const response = await axios.get('http://localhost:5000/api/gmail/servers', {
+      const response = await axios.get('${API_URL}/api/gmail/servers', {
         headers: { Authorization: token }
       });
 
@@ -77,7 +78,7 @@ const GmailTriggerConfig = () => {
         return;
       }
 
-      const response = await axios.get(`http://localhost:5000/api/gmail/triggers${serverId ? `/${serverId}` : ''}`, {
+      const response = await axios.get(`${API_URL}/api/gmail/triggers${serverId ? `/${serverId}` : ''}`, {
         headers: { Authorization: token }
       });
 
@@ -102,7 +103,7 @@ const GmailTriggerConfig = () => {
         return;
       }
 
-      await axios.post('http://localhost:5000/api/gmail/triggers', {
+      await axios.post('${API_URL}/api/gmail/triggers', {
         serverId: selectedServer,
         zapId: formData.zapId,
         triggerType: formData.triggerType,
@@ -134,7 +135,7 @@ const GmailTriggerConfig = () => {
         return;
       }
 
-      await axios.delete(`http://localhost:5000/api/gmail/triggers/${triggerId}`, {
+      await axios.delete(`${API_URL}/api/gmail/triggers/${triggerId}`, {
         headers: { Authorization: token }
       });
 
@@ -332,3 +333,4 @@ const GmailTriggerConfig = () => {
 };
 
 export default GmailTriggerConfig;
+

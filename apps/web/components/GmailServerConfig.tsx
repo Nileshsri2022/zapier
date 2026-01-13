@@ -4,6 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import FormInput from './FormInput';
 import Button from './Button';
+import { API_URL } from '@/lib/config';
 
 interface GmailServer {
   id: string;
@@ -30,7 +31,7 @@ const GmailServerConfig = () => {
         return;
       }
 
-      const response = await axios.get('http://localhost:5000/api/gmail/servers', {
+      const response = await axios.get(`${API_URL}/api/gmail/servers`, {
         headers: { Authorization: token }
       });
 
@@ -55,7 +56,7 @@ const GmailServerConfig = () => {
         return;
       }
 
-      const response = await axios.post('http://localhost:5000/api/gmail/auth/initiate', {
+      const response = await axios.post(`${API_URL}/api/gmail/auth/initiate`, {
         name: newServerName
       }, {
         headers: { Authorization: token }
@@ -76,7 +77,7 @@ const GmailServerConfig = () => {
         return;
       }
 
-      await axios.post(`http://localhost:5000/api/gmail/servers/${serverId}/test`, {}, {
+      await axios.post(`${API_URL}/api/gmail/servers/${serverId}/test`, {}, {
         headers: { Authorization: token }
       });
 
@@ -98,7 +99,7 @@ const GmailServerConfig = () => {
         return;
       }
 
-      await axios.delete(`http://localhost:5000/api/gmail/servers/${serverId}`, {
+      await axios.delete(`${API_URL}/api/gmail/servers/${serverId}`, {
         headers: { Authorization: token }
       });
 
@@ -117,7 +118,7 @@ const GmailServerConfig = () => {
         return;
       }
 
-      await axios.put(`http://localhost:5000/api/gmail/servers/${serverId}`, {
+      await axios.put(`${API_URL}/api/gmail/servers/${serverId}`, {
         isActive: !isActive
       }, {
         headers: { Authorization: token }
@@ -197,11 +198,10 @@ const GmailServerConfig = () => {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    server.isActive
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
+                  <span className={`px-2 py-1 text-xs rounded-full ${server.isActive
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                    }`}>
                     {server.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
@@ -239,3 +239,4 @@ const GmailServerConfig = () => {
 };
 
 export default GmailServerConfig;
+
