@@ -223,7 +223,7 @@ describe('ZapController - Delete Zap', () => {
 
             await ZapController.deleteZapWithId(mockRequest as Request, mockResponse as Response);
 
-            expect(statusMock).toHaveBeenCalledWith(200);
+            expect(statusMock).toHaveBeenCalledWith(202);
         });
     });
 });
