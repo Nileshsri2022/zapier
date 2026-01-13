@@ -1,0 +1,20 @@
+{
+  "name": "processor",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "tsc -b && node ./dist/index.js",
+    "dev": "nodemon src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@repo/db": "*",
+    "@repo/kafka": "*",
+    "@repo/typescript-config": "*",
+    "express": "^4.21.1"
+  }
+}

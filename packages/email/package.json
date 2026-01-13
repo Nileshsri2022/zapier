@@ -1,0 +1,26 @@
+{
+  "name": "@repo/email",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@repo/typescript-config": "*",
+    "dotenv": "^16.4.5",
+    "handlebars": "^4.7.8",
+    "lodash": "^4.17.21",
+    "nodemailer": "^6.9.16"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.13",
+    "@types/nodemailer": "^6.4.16"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

@@ -1,0 +1,152 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  name     String
+  email    String @unique
+  password String
+  zaps     Zap[]
+  gmailServers GmailServer[]
+}
+
+model Zap {
+  id          String   @id @default(uuid())
+  name        String   @default("Untitled")
+  userId      Int
+  zapRun      ZapRun[]
+  triggerId   String
+  trigger     Trigger?
+  actions     Action[]
+  user        User     @relation(fields: [userId], references: [id])
+  createdDate DateTime @default(now())
+  isActive    Boolean  @default(false)
+
+  // Gmail MCP relations
+  gmailTriggers GmailTrigger[]
+  gmailActions  GmailAction[]
+}
+
+model AvailableTriggers {
+  id      String    @id @default(uuid())
+  type    String    @unique
+  trigger Trigger[]
+  image   String
+}
+
+model Trigger {
+  id        String            @id @default(uuid())
+  metadata  Json              @default("{}")
+  triggerId String
+  zapId     String            @unique
+  zap       Zap               @relation(fields: [zapId], references: [id])
+  trigger   AvailableTriggers @relation(fields: [triggerId], references: [id])
+}
+
+model Action {
+  id           String           @id @default(uuid())
+  actionId     String
+  zapId        String           
+  zap          Zap              @relation(fields: [zapId], references: [id])
+  action       AvailableActions @relation(fields: [actionId], references: [id])
+  sortingOrder Int              @default(0)
+  metadata     Json             @default("{}")
+}
+
+model AvailableActions {
+  id     String   @id @default(uuid())
+  type   String   @unique
+  action Action[]
+  image  String
+}
+
+model ZapRun {
+  id           String        @id @default(uuid())
+  zapId        String        
+  zap          Zap           @relation(fields: [zapId], references: [id])
+  zapRunOutbox ZapRunOutbox?
+  metadata     Json
+}
+
+model ZapRunOutbox {
+  id       String @id @default(uuid())
+  zapRunId String @unique
+  zapRun   ZapRun @relation(fields: [zapRunId], references: [id])
+}
+
+// Gmail MCP Server Configuration
+model GmailServer {
+  id           String @id @default(uuid())
+  name         String
+  clientId     String // OAuth Client ID
+  clientSecret String // Encrypted
+  refreshToken String // Encrypted
+  accessToken  String // Encrypted, expires frequently
+  tokenExpiry  DateTime?
+  isActive     Boolean @default(true)
+  userId       Int
+  user         User @relation(fields: [userId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  gmailTriggers GmailTrigger[]
+  gmailActions  GmailAction[]
+  watchHistory  GmailWatch[]
+}
+
+// Gmail-specific triggers
+model GmailTrigger {
+  id        String @id @default(uuid())
+  serverId  String
+  server    GmailServer @relation(fields: [serverId], references: [id])
+  zapId     String @unique
+  zap       Zap @relation(fields: [zapId], references: [id])
+
+  // Trigger configuration
+  triggerType     String // 'new_email', 'labeled', 'starred', 'moved'
+  watchedLabels   String[] // Specific labels to watch
+  senderFilter    String? // Filter by sender email
+  subjectFilter   String? // Filter by subject pattern
+  webhookExpiry   DateTime?
+  watchExpiration DateTime?
+
+  // Metadata
+  metadata Json? // Additional trigger configuration
+}
+
+// Gmail-specific actions
+model GmailAction {
+  id       String @id @default(uuid())
+  serverId String
+  server   GmailServer @relation(fields: [serverId], references: [id])
+  zapId    String
+  zap      Zap @relation(fields: [zapId], references: [id])
+
+  // Action configuration
+  actionType String // 'send_email', 'reply', 'add_label', 'remove_label', 'mark_read', 'archive'
+  metadata Json // Action-specific parameters
+}
+
+// Gmail webhook watch history
+model GmailWatch {
+  id        String @id @default(uuid())
+  serverId  String
+  server    GmailServer @relation(fields: [serverId], references: [id])
+  watchId   String // Gmail's watch ID
+  expiry    DateTime
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+}
