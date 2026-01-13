@@ -2,9 +2,9 @@
 import MainSection from '@/components/MainSection';
 import PublishZap from '@/components/PublishZap';
 import { useSearchParams } from 'next/navigation';
-import React from 'react'
+import React, { Suspense } from 'react'
 
-export default function Page() {
+function EditorContent() {
   const searchParams = useSearchParams();
   const zapId: string | null = searchParams.get("zapId");
 
@@ -14,5 +14,13 @@ export default function Page() {
         <PublishZap zapId={zapId ?? ""} />
       </div>
     </MainSection>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <EditorContent />
+    </Suspense>
   )
 }
