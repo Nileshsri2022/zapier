@@ -48,7 +48,7 @@
 ### DevOps & Tools
 ![TurboRepo](https://img.shields.io/badge/TurboRepo-EF4444?style=for-the-badge&logo=turborepo&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2CA5E0?style=for-the-badge&logo=docker&logoColor=white)
-![NPM](https://img.shields.io/badge/NPM-%23CB3837.svg?style=for-the-badge&logo=npm&logoColor=white)
+![Bun](https://img.shields.io/badge/Bun-000000?style=for-the-badge&logo=bun&logoColor=white)
 
 </div>
 
@@ -65,31 +65,46 @@ graph TB
     D --> E[Database]
     B --> E
     D --> F[Kafka Message Queue]
-    F --> G[Processor Service]
-    G --> E
-    G --> F
-    F --> H[Worker Service]
-    H --> I[Email Service]
-    H --> J[Blockchain Service]
+    G[GitHub Actions Cron] --> H[Processor Service]
     H --> E
+    H --> F
+    G --> I[Worker Service]
+    I --> J[Email Service]
+    I --> K[Blockchain Service]
+    I --> E
+    F --> I
 ```
 
 ### Service Architecture
 
-| Service | Port | Purpose | Technology |
+| Service | Port | Purpose | Deployment |
 |---------|------|---------|------------|
-| **Main Server** | 5000 | User management & Zap operations | Node.js + Express |
-| **Web Frontend** | 3000 | User interface | Next.js + React |
-| **Hooks Service** | 8000 | Webhook handling | Node.js + Express |
-| **Processor** | - | Event processing | Node.js + Kafka |
-| **Worker** | - | Action execution | Node.js + Kafka |
+| **Main Server** | 5000 | User management & Zap operations | Render (Free) |
+| **Web Frontend** | 3000 | User interface | Vercel (Free) |
+| **Hooks Service** | 8000 | Webhook handling | Render (Free) |
+| **Processor** | 3001 | Outbox → Kafka publishing | Render (Free + Cron) |
+| **Worker** | 3002 | Action execution | Render (Free + Cron) |
 
 ### Data Flow
 
 1. **Trigger**: External service sends webhook to Hooks Service
-2. **Processing**: Processor picks up events and publishes to Kafka
-3. **Execution**: Worker consumes messages and executes actions
-4. **Completion**: Results stored in database and notifications sent
+2. **Queue**: Hooks creates ZapRunOutbox entry in database
+3. **Processing**: GitHub Actions triggers Processor every 5 min → publishes to Kafka
+4. **Execution**: GitHub Actions triggers Worker → consumes Kafka → executes actions
+5. **Completion**: Results stored in database and notifications sent
+
+### CI/CD Pipeline
+
+```mermaid
+graph LR
+    A[Push to main] --> B[GitHub Actions]
+    B --> C[Test & Lint]
+    C --> D[Deploy Web to Vercel]
+    C --> E[Deploy Server to Render]
+    C --> F[Deploy Hooks to Render]
+    C --> G[Deploy Processor to Render]
+    C --> H[Deploy Worker to Render]
+```
 
 ---
 
@@ -97,10 +112,10 @@ graph TB
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 18+ or Bun 1.1+
 - PostgreSQL
-- Apache Kafka
-- npm or yarn
+- Apache Kafka (or Upstash Kafka for cloud)
+- Bun (recommended) or npm
 
 ### Installation
 
@@ -112,7 +127,7 @@ graph TB
 
 2. **Install dependencies**
    ```bash
-   npm install
+   bun install
    ```
 
 3. **Set up environment variables**
@@ -130,12 +145,12 @@ graph TB
 5. **Start services**
    ```bash
    # Start all services
-   npm run dev
+   bun run dev
    
    # Or start individual services
-   cd apps/server && npm run dev  # API Server
-   cd apps/web && npm run dev     # Frontend
-   cd apps/hooks && npm run dev   # Webhook Handler
+   cd apps/server && bun run dev  # API Server
+   cd apps/web && bun run dev     # Frontend
+   cd apps/hooks && bun run dev   # Webhook Handler
    ```
 
 6. **Access the application**

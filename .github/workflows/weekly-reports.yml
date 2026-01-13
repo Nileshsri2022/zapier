@@ -1,0 +1,88 @@
+# Weekly Reports - Generate usage reports
+# Runs every Monday at 9 AM UTC
+
+name: Weekly Reports
+
+on:
+  schedule:
+    - cron: '0 9 * * 1' # Every Monday at 9 AM UTC
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  generate-report:
+    name: Generate Weekly Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: cd packages/db && npx prisma generate
+
+      - name: Generate Report
+        id: report
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          node -e "
+            const client = require('@repo/db').default;
+            
+            async function generateReport() {
+              const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+              
+              // Count active users
+              const activeUsers = await client.user.count({
+                where: {
+                  zaps: {
+                    some: {
+                      zapRuns: {
+                        some: {
+                          createdAt: { gte: oneWeekAgo }
+                        }
+                      }
+                    }
+                  }
+                }
+              });
+              
+              // Count total zap runs
+              const totalRuns = await client.zapRun.count({
+                where: {
+                  createdAt: { gte: oneWeekAgo }
+                }
+              });
+              
+              // Count active zaps
+              const activeZaps = await client.zap.count({
+                where: { isActive: true }
+              });
+              
+              console.log('📊 Weekly ZapMate Report');
+              console.log('========================');
+              console.log('Active Users:', activeUsers);
+              console.log('Zap Executions:', totalRuns);
+              console.log('Active Zaps:', activeZaps);
+              
+              return { activeUsers, totalRuns, activeZaps };
+            }
+            
+            generateReport().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
+          "
+
+      # Optional: Send report to Slack/Discord
+      # - name: Send to Slack
+      #   uses: slackapi/slack-github-action@v1
+      #   with:
+      #     payload: |
+      #       {
+      #         "text": "Weekly ZapMate Report"
+      #       }
