@@ -87,7 +87,8 @@ export const LoginForm = () => {
             }, 500)
             
         }).catch(error => {
-            toast.error(error.response.data.message)
+            const message = error?.response?.data?.message || error?.message || "Login failed. Is the server running?";
+            toast.error(message);
             setLoading(false);
         })
     }

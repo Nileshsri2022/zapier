@@ -1,5 +1,5 @@
 import { google, gmail_v1 } from 'googleapis';
-import { OAuth2Client } from 'google-auth-library';
+// OAuth2Client type imported from googleapis to avoid version conflicts
 import client from '@repo/db';
 import { GmailRateLimiter } from './GmailRateLimiter';
 import { GmailErrorHandler, GmailErrorType } from './GmailErrorHandler';
@@ -34,12 +34,13 @@ export interface EmailMetadata {
 }
 
 export class GmailService {
-  private oauth2Client: OAuth2Client;
+  private oauth2Client: any;
   private gmail: gmail_v1.Gmail;
   private rateLimiter: GmailRateLimiter;
   private errorHandler: GmailErrorHandler;
 
   constructor(config: GmailConfig) {
+    // @ts-ignore - OAuth2Client version conflict between googleapis and google-auth-library
     this.oauth2Client = new google.auth.OAuth2(
       config.clientId,
       config.clientSecret
@@ -52,7 +53,8 @@ export class GmailService {
       expiry_date: config.tokenExpiry?.getTime(),
     });
 
-    this.gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
+    // @ts-ignore - OAuth2Client version conflict
+    this.gmail = google.gmail({ version: 'v1', auth: this.oauth2Client as any });
 
     // Initialize rate limiter and error handler
     this.rateLimiter = new GmailRateLimiter();

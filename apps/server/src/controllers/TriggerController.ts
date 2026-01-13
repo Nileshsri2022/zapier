@@ -31,7 +31,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<any> =
         }
 
         // Process the webhook trigger
-        await processWebhookTrigger(zapId, payload);
+        await processWebhookTrigger(zapId as string, payload);
 
         return res.status(200).json({
             message: "Webhook processed successfully",
@@ -56,7 +56,7 @@ export const handleGmailTrigger = async (req: Request, res: Response): Promise<a
         }
 
         // Process the Gmail trigger
-        await processGmailTrigger(zapId, emailData);
+        await processGmailTrigger(zapId as string, emailData);
 
         return res.status(200).json({
             message: "Gmail trigger processed successfully",

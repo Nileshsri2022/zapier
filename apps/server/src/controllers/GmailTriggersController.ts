@@ -208,7 +208,7 @@ export const getGmailTriggers = async (req: Request, res: Response): Promise<any
       where: {
         server: {
           userId: parseInt(userId),
-          ...(serverId && { id: serverId }),
+          ...(serverId && { id: serverId as string }),
         },
       },
       include: {
@@ -239,7 +239,7 @@ export const updateGmailTrigger = async (req: Request, res: Response): Promise<a
 
     const gmailTrigger = await client.gmailTrigger.updateMany({
       where: {
-        id: triggerId,
+        id: triggerId as string,
         server: {
           userId: parseInt(userId),
         },
@@ -279,7 +279,7 @@ export const deleteGmailTrigger = async (req: Request, res: Response): Promise<a
 
     const gmailTrigger = await client.gmailTrigger.deleteMany({
       where: {
-        id: triggerId,
+        id: triggerId as string,
         server: {
           userId: parseInt(userId),
         },

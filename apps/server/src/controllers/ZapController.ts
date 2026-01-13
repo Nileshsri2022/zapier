@@ -11,7 +11,7 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
         // @ts-ignore
         const id: string = req.id;
 
-        if(validation.error) { 
+        if (validation.error) {
             return res.status(411).json({
                 message: "Incorrect inputs",
                 error: formatZodError(validation.error)
@@ -55,7 +55,7 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
         return res.status(201).json({
             message: "Zap created successfully",
             zapId
-            
+
         });
     } catch (error) {
         console.log(error)
@@ -95,7 +95,7 @@ export const fetchZapList = async (req: Request, res: Response): Promise<any> =>
                 total: zaps.length
             }
         })
-    } catch(error: any) {
+    } catch (error: any) {
         res.status(500).json({
             message: "Could not fetch the zaps!",
             error: error?.response
@@ -110,7 +110,7 @@ export const fetchZapWithId = async (req: Request, res: Response): Promise<any> 
         const zap = await client.zap.findUnique({
             where: {
                 userId: id,
-                id: req.params.zapId
+                id: req.params.zapId as string
             },
             include: {
                 actions: {
@@ -130,7 +130,7 @@ export const fetchZapWithId = async (req: Request, res: Response): Promise<any> 
             message: "Zap fetched successfully",
             zap
         })
-    } catch(error: any) {
+    } catch (error: any) {
         res.status(500).json({
             message: "Could not fetch the zap",
             error: error
@@ -233,19 +233,19 @@ export const deleteZapWithId = async (req: Request, res: Response): Promise<any>
         const zap = await client.$transaction(async tx => {
             await tx.trigger.delete({
                 where: {
-                    zapId: req.params.zapId
+                    zapId: req.params.zapId as string
                 }
             })
 
             await tx.action.deleteMany({
                 where: {
-                    zapId: req.params.zapId
+                    zapId: req.params.zapId as string
                 }
             })
 
             return await tx.zap.delete({
                 where: {
-                    id: req.params.zapId,
+                    id: req.params.zapId as string,
                     userId: id
                 }
             })
@@ -255,7 +255,7 @@ export const deleteZapWithId = async (req: Request, res: Response): Promise<any>
             message: "Zap deleted successfully",
             deletedZap: zap
         })
-    } catch(error: any) {
+    } catch (error: any) {
         res.status(401).json({
             message: "Could not delete the zap, Please try again",
             error: error.response
@@ -272,7 +272,7 @@ export const renameZapWithId = async (req: Request, res: Response): Promise<any>
         const zap = await client.zap.update({
             where: {
                 userId: id,
-                id: req.params.zapId
+                id: req.params.zapId as string
             },
             data: {
                 name: name
@@ -301,7 +301,7 @@ export const enableZapExecution = async (req: Request, res: Response): Promise<a
         const zap = await client.zap.update({
             where: {
                 userId: id,
-                id: req.params.zapId
+                id: req.params.zapId as string
             },
             data: {
                 isActive: isActive
@@ -329,18 +329,18 @@ export const updateZapWithId = async (req: Request, res: Response): Promise<any>
 
         const zap = await client.$transaction(async tx => {
 
-            if(actions.length) {
+            if (actions.length) {
                 await tx.action.deleteMany({
                     where: {
-                        zapId: req.params.zapId
+                        zapId: req.params.zapId as string
                     }
                 })
 
                 await tx.zap.update({
                     where: {
                         userId: id,
-                        id: req.params.zapId
-                    }, 
+                        id: req.params.zapId as string
+                    },
                     data: {
                         actions: {
                             create: actions.map((x: any, index: number) => ({
@@ -358,7 +358,7 @@ export const updateZapWithId = async (req: Request, res: Response): Promise<any>
             message: "Zap updated successfully",
             zap
         })
-    } catch(error: any) {
+    } catch (error: any) {
         res.status(401).json({
             message: "Could not update the zap, please try again",
             error: error.response

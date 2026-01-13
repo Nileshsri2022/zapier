@@ -169,7 +169,7 @@ export const getGmailServer = async (req: Request, res: Response): Promise<any> 
 
     const gmailServer = await client.gmailServer.findFirst({
       where: {
-        id: serverId,
+        id: serverId as string,
         userId: parseInt(userId),
       },
       include: {
@@ -215,7 +215,7 @@ export const updateGmailServer = async (req: Request, res: Response): Promise<an
 
     const gmailServer = await client.gmailServer.updateMany({
       where: {
-        id: serverId,
+        id: serverId as string,
         userId: parseInt(userId),
       },
       data: {
@@ -250,7 +250,7 @@ export const deleteGmailServer = async (req: Request, res: Response): Promise<an
 
     // Stop watching first
     if (serverId) {
-      const gmailService = await getGmailService(serverId);
+      const gmailService = await getGmailService(serverId as string);
       if (gmailService) {
         await gmailService.stopWatching();
       }
@@ -259,20 +259,20 @@ export const deleteGmailServer = async (req: Request, res: Response): Promise<an
     // Delete all related records
     await client.$transaction(async (tx) => {
       await tx.gmailWatch.deleteMany({
-        where: { serverId },
+        where: { serverId: serverId as string },
       });
 
       await tx.gmailTrigger.deleteMany({
-        where: { serverId },
+        where: { serverId: serverId as string },
       });
 
       await tx.gmailAction.deleteMany({
-        where: { serverId },
+        where: { serverId: serverId as string },
       });
 
       await tx.gmailServer.deleteMany({
         where: {
-          id: serverId,
+          id: serverId as string,
           userId: parseInt(userId),
         },
       });
@@ -298,7 +298,7 @@ export const testGmailConnection = async (req: Request, res: Response): Promise<
 
     const gmailServer = await client.gmailServer.findFirst({
       where: {
-        id: serverId,
+        id: serverId as string,
         userId: parseInt(userId),
       },
     });
@@ -365,7 +365,7 @@ export const getGmailRateLimitStatus = async (req: Request, res: Response): Prom
 
     const gmailServer = await client.gmailServer.findFirst({
       where: {
-        id: serverId,
+        id: serverId as string,
         userId: parseInt(userId),
       },
     });
@@ -409,7 +409,7 @@ export const resetGmailCircuitBreaker = async (req: Request, res: Response): Pro
 
     const gmailServer = await client.gmailServer.findFirst({
       where: {
-        id: serverId,
+        id: serverId as string,
         userId: parseInt(userId),
       },
     });
