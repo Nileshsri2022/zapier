@@ -11,7 +11,7 @@
     "test:signin": "jest tests/auth/signin.test.ts",
     "test:webhook": "npx ts-node src/test-webhook.ts",
     "test:gmail": "npx ts-node src/test-gmail-integration.ts",
-    "build": "tsc -b",
+    "build": "npx swc src -d dist --copy-files",
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "seed": "npx ts-node src/seed.ts"
