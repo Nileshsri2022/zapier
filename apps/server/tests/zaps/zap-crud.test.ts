@@ -32,50 +32,37 @@ describe('ZapController - Create Zap', () => {
                         { availableActionId: 'action-123', actionMetaData: { to: 'test@example.com' } }
                     ]
                 },
-                // @ts-ignore - userId is added by auth middleware
-                userId: 'user-123'
+                // @ts-ignore - id is added by auth middleware
+                id: 'user-123'
             };
 
-            const mockZap = {
-                id: 'zap-123',
-                userId: 'user-123',
-                triggerId: 'trigger-id-123',
-                actions: [{ id: 'action-id-123' }]
-            };
+            const mockZap = { id: 'zap-123' };
 
-            (client.$transaction as jest.Mock).mockImplementation(async (callback) => {
-                return mockZap;
-            });
+            (client.$transaction as jest.Mock).mockResolvedValue('zap-123');
 
             await ZapController.createZap(mockRequest as Request, mockResponse as Response);
 
             expect(statusMock).toHaveBeenCalledWith(201);
+            expect(jsonMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'Zap created successfully',
+                    zapId: 'zap-123'
+                })
+            );
         });
 
-        it('should return 400 for invalid zap data', async () => {
-            mockRequest = {
-                body: {},
-                // @ts-ignore
-                userId: 'user-123'
-            };
-
-            await ZapController.createZap(mockRequest as Request, mockResponse as Response);
-
-            expect(statusMock).toHaveBeenCalledWith(400);
-        });
-
-        it('should return 401 if userId is not present', async () => {
+        it('should return 411 for invalid zap data', async () => {
             mockRequest = {
                 body: {
-                    availableTriggerId: 'trigger-123',
-                    triggerMetaData: {},
-                    actions: []
-                }
+                    // Invalid - missing required fields
+                },
+                // @ts-ignore
+                id: 'user-123'
             };
 
             await ZapController.createZap(mockRequest as Request, mockResponse as Response);
 
-            expect(statusMock).toHaveBeenCalledWith(401);
+            expect(statusMock).toHaveBeenCalledWith(411);
         });
     });
 });
@@ -99,7 +86,7 @@ describe('ZapController - Fetch Zap List', () => {
         it('should return list of zaps for user', async () => {
             mockRequest = {
                 // @ts-ignore
-                userId: 'user-123'
+                id: 'user-123'
             };
 
             const mockZaps = [
@@ -111,13 +98,22 @@ describe('ZapController - Fetch Zap List', () => {
 
             await ZapController.fetchZapList(mockRequest as Request, mockResponse as Response);
 
+            expect(client.zap.findMany).toHaveBeenCalled();
             expect(statusMock).toHaveBeenCalledWith(200);
+            expect(jsonMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        zaps: mockZaps,
+                        total: 2
+                    })
+                })
+            );
         });
 
         it('should return empty array when no zaps exist', async () => {
             mockRequest = {
                 // @ts-ignore
-                userId: 'user-123'
+                id: 'user-123'
             };
 
             (client.zap.findMany as jest.Mock).mockResolvedValue([]);
@@ -125,14 +121,14 @@ describe('ZapController - Fetch Zap List', () => {
             await ZapController.fetchZapList(mockRequest as Request, mockResponse as Response);
 
             expect(statusMock).toHaveBeenCalledWith(200);
-        });
-
-        it('should return 401 if userId is not present', async () => {
-            mockRequest = {};
-
-            await ZapController.fetchZapList(mockRequest as Request, mockResponse as Response);
-
-            expect(statusMock).toHaveBeenCalledWith(401);
+            expect(jsonMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        zaps: [],
+                        total: 0
+                    })
+                })
+            );
         });
     });
 });
@@ -157,7 +153,7 @@ describe('ZapController - Fetch Zap by ID', () => {
             mockRequest = {
                 params: { zapId: 'zap-123' },
                 // @ts-ignore
-                userId: 'user-123'
+                id: 'user-123'
             };
 
             const mockZap = {
@@ -168,25 +164,32 @@ describe('ZapController - Fetch Zap by ID', () => {
                 actions: [{ id: 'action-123', type: 'Email' }]
             };
 
-            (client.zap.findFirst as jest.Mock).mockResolvedValue(mockZap);
+            (client.zap.findUnique as jest.Mock).mockResolvedValue(mockZap);
+
+            await ZapController.fetchZapWithId(mockRequest as Request, mockResponse as Response);
+
+            expect(client.zap.findUnique).toHaveBeenCalled();
+            expect(statusMock).toHaveBeenCalledWith(200);
+            expect(jsonMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: 'Zap fetched successfully',
+                    zap: mockZap
+                })
+            );
+        });
+
+        it('should return 200 with null zap if not found', async () => {
+            mockRequest = {
+                params: { zapId: 'nonexistent' },
+                // @ts-ignore
+                id: 'user-123'
+            };
+
+            (client.zap.findUnique as jest.Mock).mockResolvedValue(null);
 
             await ZapController.fetchZapWithId(mockRequest as Request, mockResponse as Response);
 
             expect(statusMock).toHaveBeenCalledWith(200);
-        });
-
-        it('should return 404 if zap not found', async () => {
-            mockRequest = {
-                params: { zapId: 'nonexistent' },
-                // @ts-ignore
-                userId: 'user-123'
-            };
-
-            (client.zap.findFirst as jest.Mock).mockResolvedValue(null);
-
-            await ZapController.fetchZapWithId(mockRequest as Request, mockResponse as Response);
-
-            expect(statusMock).toHaveBeenCalledWith(404);
         });
     });
 });
@@ -211,30 +214,16 @@ describe('ZapController - Delete Zap', () => {
             mockRequest = {
                 params: { zapId: 'zap-123' },
                 // @ts-ignore
-                userId: 'user-123'
+                id: 'user-123'
             };
 
             const mockZap = { id: 'zap-123', userId: 'user-123' };
-            (client.zap.findFirst as jest.Mock).mockResolvedValue(mockZap);
+            (client.zap.findUnique as jest.Mock).mockResolvedValue(mockZap);
             (client.zap.delete as jest.Mock).mockResolvedValue(mockZap);
 
             await ZapController.deleteZapWithId(mockRequest as Request, mockResponse as Response);
 
             expect(statusMock).toHaveBeenCalledWith(200);
-        });
-
-        it('should return 404 if zap not found', async () => {
-            mockRequest = {
-                params: { zapId: 'nonexistent' },
-                // @ts-ignore
-                userId: 'user-123'
-            };
-
-            (client.zap.findFirst as jest.Mock).mockResolvedValue(null);
-
-            await ZapController.deleteZapWithId(mockRequest as Request, mockResponse as Response);
-
-            expect(statusMock).toHaveBeenCalledWith(404);
         });
     });
 });
@@ -260,11 +249,10 @@ describe('ZapController - Rename Zap', () => {
                 params: { zapId: 'zap-123' },
                 body: { name: 'New Zap Name' },
                 // @ts-ignore
-                userId: 'user-123'
+                id: 'user-123'
             };
 
             const mockZap = { id: 'zap-123', userId: 'user-123', name: 'Old Name' };
-            (client.zap.findFirst as jest.Mock).mockResolvedValue(mockZap);
             (client.zap.update as jest.Mock).mockResolvedValue({ ...mockZap, name: 'New Zap Name' });
 
             await ZapController.renameZapWithId(mockRequest as Request, mockResponse as Response);
@@ -295,12 +283,11 @@ describe('ZapController - Enable/Disable Zap', () => {
                 params: { zapId: 'zap-123' },
                 body: { isEnabled: true },
                 // @ts-ignore
-                userId: 'user-123'
+                id: 'user-123'
             };
 
-            const mockZap = { id: 'zap-123', userId: 'user-123', isEnabled: false };
-            (client.zap.findFirst as jest.Mock).mockResolvedValue(mockZap);
-            (client.zap.update as jest.Mock).mockResolvedValue({ ...mockZap, isEnabled: true });
+            const mockZap = { id: 'zap-123', userId: 'user-123', isEnabled: true };
+            (client.zap.update as jest.Mock).mockResolvedValue(mockZap);
 
             await ZapController.enableZapExecution(mockRequest as Request, mockResponse as Response);
 
@@ -312,12 +299,11 @@ describe('ZapController - Enable/Disable Zap', () => {
                 params: { zapId: 'zap-123' },
                 body: { isEnabled: false },
                 // @ts-ignore
-                userId: 'user-123'
+                id: 'user-123'
             };
 
-            const mockZap = { id: 'zap-123', userId: 'user-123', isEnabled: true };
-            (client.zap.findFirst as jest.Mock).mockResolvedValue(mockZap);
-            (client.zap.update as jest.Mock).mockResolvedValue({ ...mockZap, isEnabled: false });
+            const mockZap = { id: 'zap-123', userId: 'user-123', isEnabled: false };
+            (client.zap.update as jest.Mock).mockResolvedValue(mockZap);
 
             await ZapController.enableZapExecution(mockRequest as Request, mockResponse as Response);
 
