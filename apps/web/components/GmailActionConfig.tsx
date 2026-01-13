@@ -4,6 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import FormInput from './FormInput';
 import Button from './Button';
+import { API_URL } from '@/lib/config';
 
 interface GmailServer {
   id: string;
@@ -93,7 +94,7 @@ const GmailActionConfig = () => {
         return;
       }
 
-      const response = await axios.get('http://localhost:5000/api/gmail/servers', {
+      const response = await axios.get(`${API_URL}/api/gmail/servers`, {
         headers: { Authorization: token }
       });
 
@@ -112,7 +113,7 @@ const GmailActionConfig = () => {
         return;
       }
 
-      const response = await axios.get(`http://localhost:5000/api/gmail/triggers${serverId ? `/${serverId}` : ''}`, {
+      const response = await axios.get(`${API_URL}/api/gmail/triggers${serverId ? `/${serverId}` : ''}`, {
         headers: { Authorization: token }
       });
 
@@ -318,11 +319,10 @@ const GmailActionConfig = () => {
                   <button
                     key={label}
                     onClick={() => handleLabelToggle(label)}
-                    className={`px-2 py-1 text-xs rounded-full border ${
-                      formData.labelIds.includes(label)
+                    className={`px-2 py-1 text-xs rounded-full border ${formData.labelIds.includes(label)
                         ? 'bg-blue-100 border-blue-300 text-blue-800'
                         : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     {label}
                   </button>

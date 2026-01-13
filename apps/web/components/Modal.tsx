@@ -4,6 +4,7 @@ import React, { useEffect, useState, type Dispatch, type SetStateAction } from '
 import { toast } from 'react-toastify';
 import FormInput from './FormInput';
 import Button from './Button';
+import { API_URL } from '@/lib/config';
 
 interface AvailableItem {
     id: string,
@@ -11,7 +12,7 @@ interface AvailableItem {
     image: string
 }
 
-const Modal = ({isVisible, setIsVisible, onClick}: {
+const Modal = ({ isVisible, setIsVisible, onClick }: {
     isVisible: number,
     setIsVisible: Dispatch<SetStateAction<number>>,
     onClick?: (selectedItem: any) => void
@@ -21,20 +22,20 @@ const Modal = ({isVisible, setIsVisible, onClick}: {
     const [page, setPage] = useState<number>(1);
 
     const handleSaveMetaData = (data: any) => {
-        onClick && onClick({...selectedItem, metadata: data});
+        onClick && onClick({ ...selectedItem, metadata: data });
     }
 
     const fetchAvailableTriggers = async () => {
-        try{
+        try {
             const token = typeof localStorage !== 'undefined' ? localStorage.getItem("token") : null;
             if (!token) {
                 toast.error("No authentication token found");
                 return;
             }
-            const response = await axios.get("http://localhost:5000/api/triggers", {
-            headers: {
-                Authorization: token
-            }
+            const response = await axios.get(`${API_URL}/api/triggers`, {
+                headers: {
+                    Authorization: token
+                }
             });
             setAvailableItem(response?.data?.avialableTriggers || []);
         } catch (error) {
@@ -49,7 +50,7 @@ const Modal = ({isVisible, setIsVisible, onClick}: {
                 toast.error("No authentication token found");
                 return;
             }
-            const response = await axios.get("http://localhost:5000/api/actions", {
+            const response = await axios.get(`${API_URL}/api/actions`, {
                 headers: {
                     Authorization: token
                 }
@@ -61,10 +62,10 @@ const Modal = ({isVisible, setIsVisible, onClick}: {
     }
 
     useEffect(() => {
-        if(page === 1 && isVisible !== 0) {
-            if(isVisible === 1) {
+        if (page === 1 && isVisible !== 0) {
+            if (isVisible === 1) {
                 fetchAvailableTriggers();
-            } else if(isVisible > 1) {
+            } else if (isVisible > 1) {
                 fetchAvailableActions();
             }
         }
@@ -84,13 +85,13 @@ const Modal = ({isVisible, setIsVisible, onClick}: {
                 availableItem.map((item) => (
                     <div onClick={() => {
                         setSelectedItem(item);
-                        if(isVisible > 1)
-                            setPage(a => a+1)
+                        if (isVisible > 1)
+                            setPage(a => a + 1)
                         else {
                             onClick && onClick(item);
                         }
                     }} key={item?.id} className='flex gap-1 items-center cursor-pointer transition-all hover:bg-link-bg rounded-md'>
-                        <img className='h-6 w-6' alt={item?.type} src={item?.image}  />
+                        <img className='h-6 w-6' alt={item?.type} src={item?.image} />
                         <p>{item?.type}</p>
                     </div>
                 ))
@@ -101,9 +102,9 @@ const Modal = ({isVisible, setIsVisible, onClick}: {
     const actionMetaData = (
         <div>
             {selectedItem?.type === 'Email' ? <EmailMetaData handleClick={handleSaveMetaData} /> :
-             selectedItem?.type === 'Solana' ? <SolanaMetaData handleClick={handleSaveMetaData} /> :
-             selectedItem?.type?.includes('Gmail') ? <GmailMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} /> :
-             <div className='text-center text-gray-500 py-4'>No configuration needed</div>}
+                selectedItem?.type === 'Solana' ? <SolanaMetaData handleClick={handleSaveMetaData} /> :
+                    selectedItem?.type?.includes('Gmail') ? <GmailMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} /> :
+                        <div className='text-center text-gray-500 py-4'>No configuration needed</div>}
         </div>
     )
 
@@ -118,7 +119,7 @@ const Modal = ({isVisible, setIsVisible, onClick}: {
         >
             <div className='bg-white w-[40rem] min-h-96 rounded-md shadow-lg p-4 animate-zoom_in'>
                 <div className='flex items-center justify-between pb-2 border-b border-b-gray-300'>
-                    <h3 className='font-semibold text-lg'>{`Select ${isVisible === 1 ? 'Trigger' : isVisible > 1 ? 'Action': ''}`}</h3>
+                    <h3 className='font-semibold text-lg'>{`Select ${isVisible === 1 ? 'Trigger' : isVisible > 1 ? 'Action' : ''}`}</h3>
                     <svg onClick={() => setIsVisible(0)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#000000" className="size-6 cursor-pointer">
                         <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
                     </svg>
@@ -126,11 +127,11 @@ const Modal = ({isVisible, setIsVisible, onClick}: {
                 {(page === 1) ? selectAction : (isVisible === 1 ? triggerMetaData : actionMetaData)}
             </div>
         </div>
-      )
+    )
 
 }
 
-const EmailMetaData = ({handleClick}: {
+const EmailMetaData = ({ handleClick }: {
     handleClick: (data: any) => void
 }) => {
     const [formData, setFormData] = useState({
@@ -139,7 +140,7 @@ const EmailMetaData = ({handleClick}: {
         body: ""
     });
 
-    const handleFormDataChange = (e:any) => {
+    const handleFormDataChange = (e: any) => {
         setFormData({
             ...formData,
             [e.target.name]: e.target.value
@@ -156,7 +157,7 @@ const EmailMetaData = ({handleClick}: {
     )
 }
 
-const SolanaMetaData = ({handleClick}: {
+const SolanaMetaData = ({ handleClick }: {
     handleClick: (data: any) => void
 }) => {
     const [formData, setFormData] = useState({
@@ -164,7 +165,7 @@ const SolanaMetaData = ({handleClick}: {
         amount: ""
     });
 
-    const handleFormDataChange = (e:any) => {
+    const handleFormDataChange = (e: any) => {
         setFormData({
             ...formData,
             [e.target.name]: e.target.value
@@ -180,7 +181,7 @@ const SolanaMetaData = ({handleClick}: {
     )
 }
 
-const WebhookMetaData = ({handleClick}: {
+const WebhookMetaData = ({ handleClick }: {
     handleClick: (data: any) => void
 }) => {
     const [formData, setFormData] = useState({
@@ -189,7 +190,7 @@ const WebhookMetaData = ({handleClick}: {
         headers: "{}"
     });
 
-    const handleFormDataChange = (e:any) => {
+    const handleFormDataChange = (e: any) => {
         setFormData({
             ...formData,
             [e.target.name]: e.target.value
@@ -214,7 +215,7 @@ const WebhookMetaData = ({handleClick}: {
     )
 }
 
-const GmailMetaData = ({handleClick, selectedType}: {
+const GmailMetaData = ({ handleClick, selectedType }: {
     handleClick: (data: any) => void;
     selectedType: string;
 }) => {
@@ -229,7 +230,7 @@ const GmailMetaData = ({handleClick, selectedType}: {
         watchedLabels: ""
     });
 
-    const handleFormDataChange = (e:any) => {
+    const handleFormDataChange = (e: any) => {
         setFormData({
             ...formData,
             [e.target.name]: e.target.value
@@ -237,7 +238,7 @@ const GmailMetaData = ({handleClick, selectedType}: {
     }
 
     const renderGmailForm = () => {
-        switch(selectedType) {
+        switch (selectedType) {
             case 'Gmail Send Email':
                 return (
                     <div className='my-4 flex flex-col gap-4 text-secondary-500'>

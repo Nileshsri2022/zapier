@@ -9,6 +9,7 @@ import { formatDateTimeToCustomString, getSessionDetails } from '../../helper';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Tooltip from '@/components/Tooltip';
+import { API_URL } from '@/lib/config';
 
 interface TZap {
     id: string,
@@ -56,7 +57,7 @@ export default function Page() {
         if (!session) return;
         setLoading(true);
         try {
-            const response = await axios.get(`http://localhost:5000/api/zaps`, {
+            const response = await axios.get(`${API_URL}/api/zaps`, {
                 headers: {
                     Authorization: session.token,
                     'Cache-Control': 'no-cache',
@@ -88,7 +89,7 @@ export default function Page() {
         setLoading(true);
         try {
             if (e.target.value !== zap.name) {
-                await axios.patch(`http://localhost:5000/api/zaps/${zap.id}/rename`, { name: e.target.value }, { headers: { Authorization: session.token } });
+                await axios.patch(`${API_URL}/api/zaps/${zap.id}/rename`, { name: e.target.value }, { headers: { Authorization: session.token } });
                 toast.success("Zap renamed successfully!")
                 fetchData();
             }
@@ -102,7 +103,7 @@ export default function Page() {
     const toggleZapExecution = async (e: React.ChangeEvent<HTMLInputElement>, zap: TZap) => {
         if (!session) return;
         try {
-            await axios.patch(`http://localhost:5000/api/zaps/${zap.id}/enable`, { isActive: !!e.target.checked }, { headers: { Authorization: session.token } });
+            await axios.patch(`${API_URL}/api/zaps/${zap.id}/enable`, { isActive: !!e.target.checked }, { headers: { Authorization: session.token } });
             fetchData();
         } catch {
             toast.error(`Could not ${zap.isActive ? "disable" : "enable"} Zap`)
@@ -112,7 +113,7 @@ export default function Page() {
     const handleZapDelete = async (zap: TZap) => {
         if (!session) return;
         try {
-            await axios.delete(`http://localhost:5000/api/zaps/${zap.id}`, { headers: { Authorization: session.token } });
+            await axios.delete(`${API_URL}/api/zaps/${zap.id}`, { headers: { Authorization: session.token } });
             toast.success(`Zap deleted successfully`);
             fetchData();
         } catch {
