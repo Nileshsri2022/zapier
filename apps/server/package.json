@@ -26,6 +26,8 @@
     "@repo/email": "*",
     "@repo/types": "*",
     "@repo/typescript-config": "*",
+    "@swc/cli": "^0.7.9",
+    "@swc/core": "^1.15.8",
     "@types/bcrypt": "^5.0.2",
     "axios": "^1.6.0",
     "bcrypt": "^5.1.1",

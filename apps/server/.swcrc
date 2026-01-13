@@ -1,17 +1,11 @@
 {
-    "$schema": "https://json.schemastore.org/swcrc",
     "jsc": {
         "parser": {
             "syntax": "typescript",
             "decorators": true
         },
         "target": "es2022",
-        "baseUrl": "./src",
-        "paths": {
-            "@/*": [
-                "./*"
-            ]
-        }
+        "externalHelpers": false
     },
     "module": {
         "type": "commonjs"
