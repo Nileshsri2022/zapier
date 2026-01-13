@@ -46,10 +46,6 @@ interface TTrigger {
 export default function Page() {
     const router = useRouter();
     const session = getSessionDetails();
-    if (!session) {
-        router.push("/");
-        return;
-    }
 
     const [loading, setLoading] = useState<boolean>(true);
     const [selectedRow, setSelectedRow] = useState<number>(-1);
@@ -57,6 +53,7 @@ export default function Page() {
     const [data, setData] = useState<{ zaps: TZap[] | [], total: number }>({ zaps: [], total: 0 })
 
     const fetchData = async () => {
+        if (!session) return;
         setLoading(true);
         try {
             const response = await axios.get(`http://localhost:5000/api/zaps`, {
@@ -67,7 +64,7 @@ export default function Page() {
             })
 
             setData({ zaps: response?.data?.data?.zaps, total: response?.data?.data?.total })
-        } catch (error) {
+        } catch {
             toast.error("Couldn't fetch the data");
         }
         setLoading(false);
@@ -81,12 +78,13 @@ export default function Page() {
         try {
             await window.navigator.clipboard.writeText(url);
             toast.info("Copied to clipboard!");
-        } catch (err) {
+        } catch {
             toast.error("Unable to copy to clipboard");
         }
     }
 
-    const handleRenameBlur = async (e: any, zap: TZap) => {
+    const handleRenameBlur = async (e: React.FocusEvent<HTMLInputElement>, zap: TZap) => {
+        if (!session) return;
         setLoading(true);
         try {
             if (e.target.value !== zap.name) {
@@ -94,36 +92,42 @@ export default function Page() {
                 toast.success("Zap renamed successfully!")
                 fetchData();
             }
-        } catch (error) {
+        } catch {
             toast.error("Could not update the zap, please try again.")
         }
         setRenameEnabled(-1);
         setLoading(false);
     }
 
-    const toggleZapExecution = async (e: any, zap: TZap) => {
+    const toggleZapExecution = async (e: React.ChangeEvent<HTMLInputElement>, zap: TZap) => {
+        if (!session) return;
         try {
             await axios.patch(`http://localhost:5000/api/zaps/${zap.id}/enable`, { isActive: !!e.target.checked }, { headers: { Authorization: session.token } });
             fetchData();
-        } catch (error) {
+        } catch {
             toast.error(`Could not ${zap.isActive ? "disable" : "enable"} Zap`)
         }
     }
 
     const handleZapDelete = async (zap: TZap) => {
+        if (!session) return;
         try {
             await axios.delete(`http://localhost:5000/api/zaps/${zap.id}`, { headers: { Authorization: session.token } });
             toast.success(`Zap deleted successfully`);
             fetchData();
-        } catch (error) {
+        } catch {
             toast.error("Could not delete the zap!")
         }
     }
 
-
     useEffect(() => {
+        if (!session) {
+            router.push("/");
+            return;
+        }
         fetchData();
-    }, [])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [session, router])
 
     return (
         <MainSection>
