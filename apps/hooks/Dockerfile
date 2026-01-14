@@ -76,6 +76,10 @@ COPY --from=builder /app/package.json ./package.json
 # Hooks package.json
 COPY --from=builder /app/apps/hooks/package.json ./apps/hooks/package.json
 
+# Copy start script
+COPY --from=builder /app/apps/hooks/start.sh ./start.sh
+RUN chmod +x ./start.sh
+
 # Set production environment
 ENV NODE_ENV=production
 ENV PORT=10000
@@ -84,4 +88,4 @@ ENV PORT=10000
 EXPOSE 10000
 
 # Start hooks service
-CMD ["node", "dist/src/index.js"]
+CMD ["./start.sh"]
