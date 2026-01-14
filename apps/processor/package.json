@@ -1,10 +1,11 @@
 {
   "name": "processor",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "tsc -b && node ./dist/index.js",
+    "build": "npx swc src -d dist --copy-files",
+    "start": "node dist/src/index.js",
     "dev": "nodemon --exec tsx src/index.ts"
   },
   "keywords": [],
@@ -15,9 +16,14 @@
     "@repo/db": "*",
     "@repo/kafka": "*",
     "@repo/typescript-config": "*",
+    "@swc/cli": "^0.7.9",
+    "@swc/core": "^1.15.8",
+    "dotenv": "^16.4.5",
     "express": "^4.21.1"
   },
   "devDependencies": {
-    "tsx": "^4.21.0"
+    "@types/express": "^5.0.0",
+    "tsx": "^4.21.0",
+    "nodemon": "^3.1.10"
   }
 }

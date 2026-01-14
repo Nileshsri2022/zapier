@@ -1,6 +1,9 @@
 import express, { Request, Response } from "express";
 import kafka from "@repo/kafka";
 import client from "@repo/db";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -89,10 +92,11 @@ app.post("/process", async (req: Request, res: Response): Promise<any> => {
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {
-    console.log("SIGTERM received, shutting down...");
+    console.log("📛 SIGTERM received, shutting down...");
     if (producer) {
         await producer.disconnect();
     }
+    await client.$disconnect();
     process.exit(0);
 });
 
