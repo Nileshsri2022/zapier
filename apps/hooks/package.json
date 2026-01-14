@@ -6,7 +6,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec tsx src/index.ts",
     "build": "npx swc src -d dist --copy-files",
-    "start": "npx swc src -d dist --copy-files && node dist/src/index.js"
+    "start": "node dist/src/index.js"
   },
   "keywords": [],
   "author": "",
