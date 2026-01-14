@@ -50,7 +50,7 @@ COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/apps/processor ./apps/processor
 
 # Reinstall dependencies to create proper symlinks
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Regenerate Prisma client for this environment
 RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
