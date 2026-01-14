@@ -30,7 +30,7 @@ WORKDIR /app/apps/processor
 RUN bunx swc src -d dist --copy-files
 
 # ==============================================
-# Production stage - use Bun runtime to keep symlinks working
+# Production stage
 # ==============================================
 
 FROM oven/bun:1-alpine AS runner
@@ -39,12 +39,21 @@ RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-# Copy the entire workspace structure to preserve symlinks
+# Copy workspace files for bun install
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/bun.lock ./bun.lock
-COPY --from=builder /app/node_modules ./node_modules
+
+# Copy all packages (with built dist folders)
 COPY --from=builder /app/packages ./packages
+
+# Copy processor app
 COPY --from=builder /app/apps/processor ./apps/processor
+
+# Reinstall dependencies to create proper symlinks
+RUN bun install --frozen-lockfile
+
+# Regenerate Prisma client for this environment
+RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 
 ENV NODE_ENV=production
 ENV PORT=10000
