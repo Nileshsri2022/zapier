@@ -44,7 +44,10 @@ const Navbar = ({ dropdownVisible, setDropdownVisible, session }: {
                 localStorage.setItem("token", "");
                 router.push("/login")
               }}>Logout</div>
-              <div className='border-b text-gray-500 cursor-pointer hover:bg-base-200 px-1 text-nm border-gray-300'>My Profile</div>
+              <div className='border-b text-gray-500 cursor-pointer hover:bg-base-200 px-1 text-nm border-gray-300' onClick={() => {
+                setDropdownVisible(false);
+                router.push("/profile");
+              }}>My Profile</div>
             </div>)
           }
         </div>

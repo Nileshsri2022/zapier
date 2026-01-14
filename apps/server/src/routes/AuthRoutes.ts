@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.post("/signup", AuthController.signup);
 router.post("/signin", AuthController.signin);
+router.get("/me", authMiddleware, AuthController.getCurrentUser);
 router.get("/:userId", authMiddleware, AuthController.getUserDetails)
 
 export { router as AuthRouter };

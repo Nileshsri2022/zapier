@@ -134,3 +134,36 @@ export const getUserDetails = async (req: Request, res: Response): Promise<any> 
         }
     })
 }
+
+export const getCurrentUser = async (req: Request, res: Response): Promise<any> => {
+    // @ts-ignore - req.id is set by authMiddleware
+    const userId = req.id;
+
+    if (!userId) {
+        return res.status(401).json({
+            message: "Unauthorized"
+        });
+    }
+
+    const user = await client.user.findUnique({
+        where: {
+            id: parseInt(userId)
+        },
+        select: {
+            id: true,
+            name: true,
+            email: true
+        }
+    });
+
+    if (!user) {
+        return res.status(404).json({
+            message: "User not found"
+        });
+    }
+
+    return res.status(200).json({
+        message: "User fetched successfully",
+        user
+    });
+}
