@@ -10,7 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "zod": "^3.23.8",
+    "zod": "^4.3.5",
     "@repo/typescript-config": "*"
   },
   "exports": {
