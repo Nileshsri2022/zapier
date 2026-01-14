@@ -1,11 +1,12 @@
 {
   "name": "hooks",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec tsx src/index.ts",
-    "start": "tsc -b && node ./dist/index.js"
+    "build": "npx swc src -d dist --copy-files",
+    "start": "node dist/index.js"
   },
   "keywords": [],
   "author": "",
@@ -16,10 +17,14 @@
     "@repo/db": "*",
     "@repo/email": "*",
     "@repo/typescript-config": "*",
-    "@repo/kafka": "*"
+    "@repo/kafka": "*",
+    "@swc/cli": "^0.7.9",
+    "@swc/core": "^1.15.8",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
-    "tsx": "^4.19.0"
+    "tsx": "^4.19.0",
+    "nodemon": "^3.1.10"
   }
 }
