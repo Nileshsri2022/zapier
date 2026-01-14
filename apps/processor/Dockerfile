@@ -63,6 +63,10 @@ COPY --from=builder /app/packages/db ./packages/db
 # Node modules (includes all deps)
 COPY --from=builder /app/node_modules ./node_modules
 
+# Fix Kafka module resolution - copy dist to node_modules (Bun symlinks broken)
+COPY --from=builder /app/packages/kafka/dist ./node_modules/@repo/kafka/dist
+COPY --from=builder /app/packages/kafka/package.json ./node_modules/@repo/kafka/package.json
+
 # Root package.json for workspace resolution
 COPY --from=builder /app/package.json ./package.json
 
