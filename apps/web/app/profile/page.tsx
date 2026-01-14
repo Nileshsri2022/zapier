@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { toast } from "sonner";
+import { toast } from "react-toastify";
 import { API_URL } from "@/lib/config";
 
 interface UserData {
@@ -52,7 +52,7 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gray-50 pt-20 px-6">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">My Profile</h1>
-        
+
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center gap-4 mb-6">
             <div className="w-16 h-16 rounded-full bg-primary-500 flex items-center justify-center">
@@ -68,7 +68,7 @@ export default function ProfilePage() {
 
           <div className="border-t pt-4">
             <h3 className="text-lg font-semibold text-gray-700 mb-4">Account Details</h3>
-            
+
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">Name</span>
