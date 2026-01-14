@@ -12,7 +12,7 @@
     "test:webhook": "npx ts-node src/test-webhook.ts",
     "test:gmail": "npx ts-node src/test-gmail-integration.ts",
     "build": "npx swc src -d dist --copy-files",
-    "start": "node dist/index.js",
+    "start": "node dist/src/index.js",
     "dev": "nodemon --exec tsx src/index.ts",
     "seed": "npx ts-node src/seed.ts"
   },
