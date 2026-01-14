@@ -5,7 +5,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "tsc -b && node ./dist/index.js",
-    "dev": "nodemon src/index.ts"
+    "dev": "nodemon --exec tsx src/index.ts"
   },
   "keywords": [],
   "author": "",
@@ -16,5 +16,8 @@
     "@repo/kafka": "*",
     "@repo/typescript-config": "*",
     "express": "^4.21.1"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
   }
 }

@@ -122,13 +122,14 @@ export default function Page() {
     }
 
     useEffect(() => {
-        if (!session) {
+        const currentSession = getSessionDetails();
+        if (!currentSession) {
             router.push("/");
             return;
         }
         fetchData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [session, router])
+    }, [])
 
     return (
         <MainSection>

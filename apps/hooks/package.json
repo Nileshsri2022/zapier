@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/index.ts",
+    "dev": "nodemon --exec tsx src/index.ts",
     "start": "tsc -b && node ./dist/index.js"
   },
   "keywords": [],
@@ -19,6 +19,7 @@
     "@repo/kafka": "*"
   },
   "devDependencies": {
-    "@types/express": "^5.0.0"
+    "@types/express": "^5.0.0",
+    "tsx": "^4.19.0"
   }
 }

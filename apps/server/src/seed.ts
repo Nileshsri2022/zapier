@@ -32,6 +32,22 @@ async function seedDatabase() {
                 {
                     type: "Gmail From Sender",
                     image: "https://img.icons8.com/ios-filled/50/email.png"
+                },
+                {
+                    type: "GitHub Push",
+                    image: "https://img.icons8.com/ios-filled/50/github.png"
+                },
+                {
+                    type: "GitHub Pull Request",
+                    image: "https://img.icons8.com/ios-filled/50/github.png"
+                },
+                {
+                    type: "GitHub Issue",
+                    image: "https://img.icons8.com/ios-filled/50/github.png"
+                },
+                {
+                    type: "GitHub Release",
+                    image: "https://img.icons8.com/ios-filled/50/github.png"
                 }
             ],
             skipDuplicates: true
