@@ -27,9 +27,9 @@ COPY apps/processor ./apps/processor
 # Generate Prisma client
 RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 
-# 7️⃣ Build Kafka package first (processor depends on it)
+# 7️⃣ Build packages in order (kafka first, then processor)
 WORKDIR /app/packages/kafka
-RUN bunx swc src -d dist --copy-files
+RUN bun run build
 
 # Build processor service
 WORKDIR /app/apps/processor
@@ -53,7 +53,7 @@ WORKDIR /app
 # Processor dist
 COPY --from=builder /app/apps/processor/dist ./dist
 
-# Kafka package (compiled)
+# Kafka package
 COPY --from=builder /app/packages/kafka/dist ./packages/kafka/dist
 COPY --from=builder /app/packages/kafka/package.json ./packages/kafka/package.json
 
