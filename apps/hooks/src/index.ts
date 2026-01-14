@@ -129,6 +129,11 @@ app.post("/hooks/:userId/:zapId", async (req: Request, res: Response) => {
     const { zapId, userId } = req.params;
     const triggerPayload = req.body;
 
+    if (!zapId) {
+        res.status(400).json({ message: "Zap ID is required" });
+        return;
+    }
+
     console.log(`📨 Webhook received for zap: ${zapId}`);
 
     try {
@@ -143,7 +148,7 @@ app.post("/hooks/:userId/:zapId", async (req: Request, res: Response) => {
         console.log(`📝 ZapRun created: ${zapRun.id}`);
 
         // Process immediately (non-blocking)
-        processZapImmediately(zapId, triggerPayload)
+        processZapImmediately(zapId as string, triggerPayload)
             .then(result => {
                 console.log(`📊 Zap result:`, result);
             })
