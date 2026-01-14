@@ -1,0 +1,23 @@
+# Ignore everything except what we need
+*
+
+# Include package files
+!package.json
+!bun.lock
+!turbo.json
+
+# Include server app
+!apps/server/
+
+# Include packages
+!packages/db/
+!packages/email/
+!packages/types/
+!packages/typescript-config/
+
+# Ignore node_modules and dist everywhere
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
