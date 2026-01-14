@@ -27,7 +27,10 @@ COPY apps/server ./apps/server
 # Generate Prisma client
 RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 
-# 7️⃣ Build email package (types exports TS directly - no build needed)
+# 7️⃣ Build packages in order (types first, then email)
+WORKDIR /app/packages/types
+RUN bun run build
+
 WORKDIR /app/packages/email
 RUN bun run build
 
@@ -47,7 +50,7 @@ WORKDIR /app
 # 🔟 Copy production files - include all required packages
 COPY --from=builder /app/apps/server/dist ./dist
 COPY --from=builder /app/packages/email/dist ./packages/email/dist
-COPY --from=builder /app/packages/types/src ./packages/types/src
+COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/types/package.json ./packages/types/package.json
 COPY --from=builder /app/packages/db ./packages/db
 COPY --from=builder /app/node_modules ./node_modules
