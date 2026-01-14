@@ -9,7 +9,7 @@ import { formatDateTimeToCustomString, getSessionDetails } from '../../helper';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Tooltip from '@/components/Tooltip';
-import { API_URL } from '@/lib/config';
+import { API_URL, HOOKS_URL } from '@/lib/config';
 
 interface TZap {
     id: string,
@@ -45,9 +45,9 @@ interface TTrigger {
 }
 
 export default function Page() {
+
     const router = useRouter();
     const session = getSessionDetails();
-
     const [loading, setLoading] = useState<boolean>(true);
     const [selectedRow, setSelectedRow] = useState<number>(-1);
     const [renameEnabled, setRenameEnabled] = useState<number>(-1);
@@ -160,7 +160,7 @@ export default function Page() {
                     <tbody>
                         {data.total > 0 && (data?.zaps?.map((zap: TZap, index) => {
                             // @ts-ignore
-                            const url = `http://localhost:8000/hooks/${session?.user?.id}/${zap.id}`;
+                            const url = `${HOOKS_URL}/hooks/${session?.user?.id}/${zap.id}`;
                             const parsedData = JSON.stringify(zap.id)
 
                             return (<tr key={zap.id} className='border-b border-gray-200'>
