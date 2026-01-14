@@ -47,16 +47,27 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# 🔟 Copy production files - include all required packages
+# 🔟 Copy production files - include all required packages with package.json
+# Server dist
 COPY --from=builder /app/apps/server/dist ./dist
+
+# Email package
 COPY --from=builder /app/packages/email/dist ./packages/email/dist
+COPY --from=builder /app/packages/email/package.json ./packages/email/package.json
+COPY --from=builder /app/packages/email/src/templates ./packages/email/dist/templates
+
+# Types package
 COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/types/package.json ./packages/types/package.json
+
+# DB package
 COPY --from=builder /app/packages/db ./packages/db
+
+# Node modules (includes all deps)
 COPY --from=builder /app/node_modules ./node_modules
 
-# Copy templates for email
-COPY --from=builder /app/packages/email/src/templates ./packages/email/dist/templates
+# Root package.json for workspace resolution
+COPY --from=builder /app/package.json ./package.json
 
 # Set production environment
 ENV NODE_ENV=production
