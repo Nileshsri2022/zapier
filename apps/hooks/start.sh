@@ -2,4 +2,4 @@
 set -e
 
 echo "🚀 Starting hooks service..."
-node dist/src/index.js
+exec node dist/src/index.js

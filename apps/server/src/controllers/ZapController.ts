@@ -230,36 +230,66 @@ export const deleteZapWithId = async (req: Request, res: Response): Promise<any>
     try {
         // @ts-ignore
         const id = req.id;
+        const zapId = req.params.zapId as string;
+
         const zap = await client.$transaction(async tx => {
+            // First delete ZapRunOutbox records (they reference ZapRun)
+            const zapRuns = await tx.zapRun.findMany({
+                where: { zapId },
+                select: { id: true }
+            });
+
+            if (zapRuns.length > 0) {
+                await tx.zapRunOutbox.deleteMany({
+                    where: {
+                        zapRunId: { in: zapRuns.map(r => r.id) }
+                    }
+                });
+            }
+
+            // Delete ZapRun records
+            await tx.zapRun.deleteMany({
+                where: { zapId }
+            });
+
+            // Delete Gmail-related records if they exist
+            await tx.gmailTrigger.deleteMany({
+                where: { zapId }
+            });
+
+            await tx.gmailAction.deleteMany({
+                where: { zapId }
+            });
+
+            // Delete trigger
             await tx.trigger.delete({
-                where: {
-                    zapId: req.params.zapId as string
-                }
-            })
+                where: { zapId }
+            });
 
+            // Delete actions
             await tx.action.deleteMany({
-                where: {
-                    zapId: req.params.zapId as string
-                }
-            })
+                where: { zapId }
+            });
 
+            // Finally delete the zap
             return await tx.zap.delete({
                 where: {
-                    id: req.params.zapId as string,
+                    id: zapId,
                     userId: id
                 }
-            })
-        })
+            });
+        });
 
         return res.status(202).json({
             message: "Zap deleted successfully",
             deletedZap: zap
-        })
+        });
     } catch (error: any) {
+        console.error("Delete zap error:", error);
         res.status(401).json({
             message: "Could not delete the zap, Please try again",
-            error: error.response
-        })
+            error: error.message
+        });
     }
 }
 
