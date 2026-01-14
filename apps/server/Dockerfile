@@ -72,6 +72,11 @@ COPY --from=builder /app/node_modules ./node_modules
 # Root package.json for workspace resolution
 COPY --from=builder /app/package.json ./package.json
 
+# Copy start script and server package.json (for seed script)
+COPY --from=builder /app/apps/server/start.sh ./start.sh
+COPY --from=builder /app/apps/server/package.json ./apps/server/package.json
+RUN chmod +x ./start.sh
+
 # Set production environment
 ENV NODE_ENV=production
 ENV PORT=10000
@@ -79,5 +84,5 @@ ENV PORT=10000
 # Expose port
 EXPOSE 10000
 
-# Start server
-CMD ["node", "dist/src/index.js"]
+# Start server with seeding
+CMD ["./start.sh"]
