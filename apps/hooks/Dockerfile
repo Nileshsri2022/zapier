@@ -84,4 +84,4 @@ ENV PORT=10000
 EXPOSE 10000
 
 # Start hooks service
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/src/index.js"]
