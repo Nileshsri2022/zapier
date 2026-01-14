@@ -45,6 +45,9 @@ RUN bunx swc src -d dist --copy-files
 # 1️⃣ Use small production image
 FROM node:20-alpine AS runner
 
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
 # 🔟 Copy production files - include all required packages with package.json
