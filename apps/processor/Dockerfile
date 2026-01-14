@@ -1,6 +1,5 @@
 # ==============================================
 # OPTIMIZED DOCKERFILE FOR PROCESSOR SERVICE
-# Following all 10 Docker optimization rules
 # ==============================================
 
 # 1️⃣ Use a small, fast base image (Alpine-based Bun)
@@ -27,20 +26,18 @@ COPY apps/processor ./apps/processor
 # Generate Prisma client
 RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 
-# 7️⃣ Build packages in order (kafka first, then processor)
+# 7️⃣ Build Kafka package first
 WORKDIR /app/packages/kafka
 RUN bun run build
 
 # Build processor service
 WORKDIR /app/apps/processor
-# 9️⃣ Skip type-checking - use SWC directly (faster)
 RUN bunx swc src -d dist --copy-files
 
 # ==============================================
 # 6️⃣ Multi-stage build (production stage)
 # ==============================================
 
-# 1️⃣ Use small production image
 FROM node:20-alpine AS runner
 
 # Install OpenSSL for Prisma
@@ -48,41 +45,36 @@ RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-# 🔟 Copy production files - include all required packages with package.json
+# Copy everything from builder (simpler approach)
+COPY --from=builder /app/apps/processor/dist ./apps/processor/dist
+COPY --from=builder /app/apps/processor/package.json ./apps/processor/package.json
+COPY --from=builder /app/apps/processor/start.sh ./apps/processor/start.sh
 
-# Processor dist
-COPY --from=builder /app/apps/processor/dist ./dist
-
-# Kafka package
-COPY --from=builder /app/packages/kafka/dist ./packages/kafka/dist
-COPY --from=builder /app/packages/kafka/package.json ./packages/kafka/package.json
+# Kafka package with dist
+COPY --from=builder /app/packages/kafka ./packages/kafka
 
 # DB package (Prisma client)
 COPY --from=builder /app/packages/db ./packages/db
 
+# Typescript config
+COPY --from=builder /app/packages/typescript-config ./packages/typescript-config
+
 # Node modules (includes all deps)
 COPY --from=builder /app/node_modules ./node_modules
 
-# Fix Kafka module resolution - copy dist to node_modules (Bun symlinks broken)
-COPY --from=builder /app/packages/kafka/dist ./node_modules/@repo/kafka/dist
-COPY --from=builder /app/packages/kafka/package.json ./node_modules/@repo/kafka/package.json
-
-# Root package.json for workspace resolution
+# Root package.json
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/bun.lock ./bun.lock
 
-# Processor package.json
-COPY --from=builder /app/apps/processor/package.json ./apps/processor/package.json
-
-# Copy start script
-COPY --from=builder /app/apps/processor/start.sh ./start.sh
-RUN chmod +x ./start.sh
+# Make start script executable
+RUN chmod +x ./apps/processor/start.sh
 
 # Set production environment
 ENV NODE_ENV=production
 ENV PORT=10000
 
-# Expose port (Render uses 10000 by default)
+WORKDIR /app/apps/processor
+
 EXPOSE 10000
 
-# Start processor service
 CMD ["./start.sh"]
