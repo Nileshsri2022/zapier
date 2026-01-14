@@ -7,6 +7,15 @@ const PORT = process.env.PORT || 8000;
 
 app.use(express.json());
 
+// Handle JSON parsing errors gracefully
+app.use((err: any, req: any, res: any, next: any) => {
+    if (err instanceof SyntaxError && 'body' in err) {
+        console.log(`⚠️ Invalid JSON received at ${req.path}`);
+        return res.status(400).json({ error: 'Invalid JSON body' });
+    }
+    next(err);
+});
+
 // Helper: Replace placeholders in templates
 function replaceKeys(template: string, replacements: Record<string, string>): string {
     return template.replace(/{(.*?)}/g, (_, key) => {
