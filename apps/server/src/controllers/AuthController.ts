@@ -10,20 +10,20 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
     const body = req.body;
 
     const validation = SignupSchema.safeParse(body);
-    if(validation.error) {
+    if (validation.error) {
         return res.status(422).json({
             message: "Invalid credentials",
             error: formatZodError(validation.error)
         })
     }
-    
+
     const user = await client.user.findUnique({
         where: {
             email: validation?.data?.email
         }
     })
 
-    if(user) {
+    if (user) {
         return res.status(404).json({
             message: "Invalid request",
             error: {
@@ -42,7 +42,7 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
         }
     })
 
-    if(!newUser) {
+    if (!newUser) {
         return res.status(500).json({
             message: "Something went wrong!",
             error: {
@@ -50,9 +50,14 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
             }
         })
     }
-    
+
     const emailSubject = "Welcome to ZapMate! Let’s Get Automating!";
-    await sendEmail(validation?.data?.email, emailSubject, "signup-confirmation.html");
+    try {
+        await sendEmail(validation?.data?.email, emailSubject, "signup-confirmation.html");
+    } catch (emailError) {
+        console.error("Failed to send welcome email:", emailError);
+        // Continue anyway - user is already created
+    }
 
     return res.status(201).json({
         message: "Signup successful",
@@ -66,7 +71,7 @@ export const signin = async (req: Request, res: Response): Promise<any> => {
     const body = req.body;
     const validation = SigninSchema.safeParse(body);
 
-    if(validation.error) {
+    if (validation.error) {
         return res.status(422).json({
             message: "Invalid credentials",
             error: formatZodError(validation.error)
@@ -78,15 +83,15 @@ export const signin = async (req: Request, res: Response): Promise<any> => {
             email: validation?.data?.email
         }
     })
-    
-    if(!user) {
+
+    if (!user) {
         return res.status(422).json({
             message: "User does not exist",
             error: "User does not exist"
         })
     }
 
-    if(user && !bcrypt.compareSync(validation?.data?.password, user?.password)) {
+    if (user && !bcrypt.compareSync(validation?.data?.password, user?.password)) {
         return res.status(422).json({
             message: "Invalid credentials",
             error: {}
@@ -116,7 +121,7 @@ export const getUserDetails = async (req: Request, res: Response): Promise<any> 
         }
     })
 
-    if(!user) {
+    if (!user) {
         res.status(403).json({
             message: "User not found!"
         })
