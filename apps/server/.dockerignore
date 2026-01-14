@@ -1,23 +1,42 @@
-# Ignore everything except what we need
+# 8️⃣ Optimized .dockerignore for faster context transfer
+
+# Ignore everything by default
 *
 
-# Include package files
+# Only include what we need
 !package.json
 !bun.lock
 !turbo.json
 
-# Include server app
-!apps/server/
+# Server app
+!apps/server/package.json
+!apps/server/src/
+!apps/server/.swcrc
+!apps/server/tsconfig.json
 
-# Include packages
-!packages/db/
-!packages/email/
-!packages/types/
+# Required packages
+!packages/db/package.json
+!packages/db/prisma/
+!packages/db/src/
+
+!packages/email/package.json
+!packages/email/src/
+!packages/email/tsconfig.json
+
+!packages/types/package.json
+!packages/types/src/
+!packages/types/tsconfig.json
+
 !packages/typescript-config/
 
-# Ignore node_modules and dist everywhere
-**/node_modules
-**/dist
+# Always ignore these (security & size)
+**/.git
 **/.env
 **/.env.*
-!**/.env.example
+**/node_modules
+**/dist
+**/*.log
+**/.turbo
+**/coverage
+**/.next
+**/out

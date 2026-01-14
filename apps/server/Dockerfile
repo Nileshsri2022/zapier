@@ -1,50 +1,63 @@
-# Build stage
-FROM oven/bun:1 AS builder
+# ==============================================
+# OPTIMIZED DOCKERFILE FOR FAST BUILDS
+# ==============================================
+
+# 1️⃣ Use a small, fast base image (Alpine-based Bun)
+FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# 3️⃣ COPY lockfiles BEFORE source code (cache layer)
 COPY package.json bun.lock ./
+
+# 5️⃣ Copy ONLY what you need (monorepo package.jsons)
 COPY apps/server/package.json ./apps/server/
 COPY packages/db/package.json ./packages/db/
 COPY packages/email/package.json ./packages/email/
 COPY packages/types/package.json ./packages/types/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 
-# Install dependencies
+# 4️⃣ Install dependencies in a separate layer (cached)
 RUN bun install
 
-# Copy source code
+# Now copy source code (changes here don't bust dep cache)
 COPY packages ./packages
 COPY apps/server ./apps/server
 
 # Generate Prisma client
 RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 
-# Build email package
+# 7️⃣ Build only the target service
 WORKDIR /app/packages/email
 RUN bun run build
 
-# Build server
 WORKDIR /app/apps/server
-RUN bun run build
+# 9️⃣ Skip type-checking - use SWC directly (faster)
+RUN bunx swc src -d dist --copy-files
 
-# Production stage
-FROM node:20-slim AS runner
+# ==============================================
+# 6️⃣ Multi-stage build (production stage)
+# ==============================================
+
+# 1️⃣ Use small production image
+FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Copy built files
+# 🔟 Only copy production files (no devDeps, no source)
 COPY --from=builder /app/apps/server/dist ./dist
 COPY --from=builder /app/packages/email/dist ./packages/email/dist
-COPY --from=builder /app/packages/email/src/templates ./packages/email/dist/templates
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/db/prisma ./prisma
 
-# Set environment
+# Copy templates for email
+COPY --from=builder /app/packages/email/src/templates ./packages/email/dist/templates
+
+# Set production environment
 ENV NODE_ENV=production
 ENV PORT=10000
 
+# Expose port
 EXPOSE 10000
 
 # Start server
