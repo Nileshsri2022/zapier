@@ -1,12 +1,12 @@
 {
   "name": "hooks",
   "version": "1.0.0",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec tsx src/index.ts",
     "build": "npx swc src -d dist --copy-files",
-    "start": "bun src/index.ts"
+    "start": "npx swc src -d dist --copy-files && node dist/src/index.js"
   },
   "keywords": [],
   "author": "",
