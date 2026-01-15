@@ -22,9 +22,10 @@ COPY apps/processor ./apps/processor
 # Generate Prisma client
 RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 
-# Build processor using Bun bundler (inlines @repo/* imports)
-WORKDIR /app/apps/processor
-RUN bun build src/index.ts --outdir=dist --target=bun --external=@prisma/client --external=express --external=kafkajs --external=dotenv
+# Build processor using Bun bundler FROM ROOT (so @repo/* resolves via node_modules)
+# This inlines @repo/kafka and @repo/db into the bundle
+RUN bun build apps/processor/src/index.ts --outdir=apps/processor/dist --target=bun \
+    --external=@prisma/client --external=express --external=kafkajs --external=dotenv
 
 # ==============================================
 # Production stage
