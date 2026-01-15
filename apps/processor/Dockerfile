@@ -1,5 +1,6 @@
 # ==============================================
 # DOCKERFILE FOR PROCESSOR SERVICE
+# Using Bun bundler to inline workspace dependencies
 # ==============================================
 
 FROM oven/bun:1-alpine AS builder
@@ -21,13 +22,9 @@ COPY apps/processor ./apps/processor
 # Generate Prisma client
 RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 
-# Build Kafka package
-WORKDIR /app/packages/kafka
-RUN bun run build
-
-# Build processor service
+# Build processor using Bun bundler (inlines @repo/* imports)
 WORKDIR /app/apps/processor
-RUN bunx swc src -d dist --copy-files
+RUN bun build src/index.ts --outdir=dist --target=bun --external=@prisma/client --external=express --external=kafkajs --external=dotenv
 
 # ==============================================
 # Production stage
@@ -39,28 +36,21 @@ RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-# Copy workspace files for bun install
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/bun.lock ./bun.lock
+# Copy bundled output
+COPY --from=builder /app/apps/processor/dist ./dist
+COPY --from=builder /app/apps/processor/package.json ./package.json
+COPY --from=builder /app/apps/processor/start.sh ./start.sh
 
-# Copy all packages (with built dist folders)
-COPY --from=builder /app/packages ./packages
+# Copy node_modules for external deps (express, kafkajs, etc)
+COPY --from=builder /app/node_modules ./node_modules
 
-# Copy processor app
-COPY --from=builder /app/apps/processor ./apps/processor
+# Copy Prisma client
+COPY --from=builder /app/packages/db/prisma ./prisma
 
-# Reinstall dependencies to create proper symlinks
-RUN bun install
-
-# Regenerate Prisma client for this environment
-RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
+RUN chmod +x ./start.sh
 
 ENV NODE_ENV=production
 ENV PORT=10000
-
-WORKDIR /app/apps/processor
-
-RUN chmod +x ./start.sh
 
 EXPOSE 10000
 
