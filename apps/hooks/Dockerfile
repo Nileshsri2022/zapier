@@ -33,6 +33,10 @@ RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 WORKDIR /app/packages/email
 RUN bun run build
 
+# Build kafka package (hooks uses @repo/kafka)
+WORKDIR /app/packages/kafka
+RUN bun run build
+
 # Build hooks service
 WORKDIR /app/apps/hooks
 # 9️⃣ Skip type-checking - use SWC directly (faster)
@@ -60,8 +64,8 @@ COPY --from=builder /app/packages/email/dist ./packages/email/dist
 COPY --from=builder /app/packages/email/package.json ./packages/email/package.json
 COPY --from=builder /app/packages/email/src/templates ./packages/email/dist/templates
 
-# Kafka package (for future use)
-COPY --from=builder /app/packages/kafka/src ./packages/kafka/src
+# Kafka package (built dist, same pattern as email)
+COPY --from=builder /app/packages/kafka/dist ./packages/kafka/dist
 COPY --from=builder /app/packages/kafka/package.json ./packages/kafka/package.json
 
 # DB package (Prisma client)
