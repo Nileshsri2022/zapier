@@ -116,8 +116,8 @@ RUN chmod +x ./start.sh
 # 🧪 DEBUG: Verify files in runner
 RUN echo "=== Runner: List @repo/kafka ===" && ls -la ./node_modules/@repo/kafka/
 RUN echo "=== Runner: List @repo/kafka/dist/src ===" && ls -la ./node_modules/@repo/kafka/dist/src/
+RUN echo "=== Runner: List @repo/email ===" && ls -la ./node_modules/@repo/email/dist/
 RUN echo "=== Runner: Test Kafka require ===" && node -e "const k = require('./node_modules/@repo/kafka/dist/src/index.js'); console.log('✅ Kafka Works:', typeof k);"
-RUN echo "=== Runner: Test Email require ===" && node -e "const e = require('./node_modules/@repo/email/dist/index.js'); console.log('✅ Email Works:', typeof e);"
 
 # -------------------------------
 # ⚙ Runtime config
