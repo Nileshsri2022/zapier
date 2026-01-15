@@ -14,6 +14,7 @@ COPY package.json bun.lock ./
 COPY apps/server/package.json ./apps/server/
 COPY packages/db/package.json ./packages/db/
 COPY packages/email/package.json ./packages/email/
+COPY packages/redis/package.json ./packages/redis/
 COPY packages/types/package.json ./packages/types/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 
@@ -32,6 +33,9 @@ WORKDIR /app/packages/types
 RUN bun run build
 
 WORKDIR /app/packages/email
+RUN bun run build
+
+WORKDIR /app/packages/redis
 RUN bun run build
 
 WORKDIR /app/apps/server
@@ -62,6 +66,10 @@ COPY --from=builder /app/packages/email/src/templates ./packages/email/dist/temp
 # Types package
 COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/types/package.json ./packages/types/package.json
+
+# Redis package
+COPY --from=builder /app/packages/redis/dist ./packages/redis/dist
+COPY --from=builder /app/packages/redis/package.json ./packages/redis/package.json
 
 # DB package
 COPY --from=builder /app/packages/db ./packages/db
