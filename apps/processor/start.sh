@@ -2,4 +2,4 @@
 set -e
 
 echo "🚀 Starting processor service..."
-exec bun run dist/index.js
+exec node dist/src/index.js
