@@ -101,7 +101,7 @@ RUN echo "=== Step 1: List @repo/kafka ===" && ls -la ./node_modules/@repo/kafka
 RUN echo "=== Step 2: List @repo/kafka/dist ===" && ls -la ./node_modules/@repo/kafka/dist/
 RUN echo "=== Step 3: Cat package.json ===" && cat ./node_modules/@repo/kafka/package.json
 RUN echo "=== Step 4: Check kafkajs exists ===" && ls -la ./node_modules/kafkajs/
-RUN echo "=== Step 5: Test require ===" && node -e "const k = require('./node_modules/@repo/kafka/dist/index.js'); console.log('✅ Works:', typeof k);"
+RUN echo "=== Step 5: Test require ===" && node -e "const k = require('./node_modules/@repo/kafka/dist/src/index.js'); console.log('✅ Works:', typeof k);"
 
 # -------------------------------
 # ⚙ Runtime config
