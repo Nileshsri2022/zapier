@@ -1,0 +1,32 @@
+# Ignore node_modules
+node_modules
+
+# Ignore dist (will be built in Docker)
+dist
+
+# Ignore env files
+.env
+.env.local
+
+# Ignore git
+.git
+.gitignore
+
+# Ignore IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# Ignore logs
+*.log
+npm-debug.log*
+
+# Ignore test files
+*.test.ts
+*.spec.ts
+__tests__
+
+# Ignore development files
+*.md
+LICENSE

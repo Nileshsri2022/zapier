@@ -1,11 +1,12 @@
 {
   "name": "worker",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec tsx src/index.ts",
-    "start": "tsc -b && node ./dist/index.js"
+    "build": "npx swc src -d dist --copy-files",
+    "start": "node dist/src/index.js"
   },
   "keywords": [],
   "author": "",
@@ -17,12 +18,17 @@
     "@repo/kafka": "*",
     "@repo/typescript-config": "*",
     "@solana/web3.js": "^1.98.0",
-    "@types/bs58": "^4.0.4",
+    "@swc/cli": "^0.7.9",
+    "@swc/core": "^1.15.8",
     "bs58": "^6.0.0",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "express": "^4.21.1"
   },
   "devDependencies": {
+    "@types/bs58": "^4.0.4",
     "@types/dotenv": "^8.2.3",
-    "tsx": "^4.21.0"
+    "@types/express": "^5.0.0",
+    "tsx": "^4.21.0",
+    "nodemon": "^3.1.10"
   }
 }
