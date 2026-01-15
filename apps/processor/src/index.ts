@@ -1,5 +1,5 @@
 import express, { Request, Response } from "express";
-import kafka from "./kafka";
+import kafka from "@repo/kafka";
 import client from "@repo/db";
 import dotenv from "dotenv";
 
