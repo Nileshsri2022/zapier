@@ -63,15 +63,18 @@ WORKDIR /app
 # Processor dist
 COPY --from=builder /app/apps/processor/dist ./dist
 
-# Kafka package (built dist ✅)
-COPY --from=builder /app/packages/kafka/dist ./packages/kafka/dist
-COPY --from=builder /app/packages/kafka/package.json ./packages/kafka/package.json
-
 # DB package (Prisma client)
 COPY --from=builder /app/packages/db ./packages/db
 
-# Node modules (workspace symlinks intact)
+# Node modules (workspace symlinks will be broken after copy)
 COPY --from=builder /app/node_modules ./node_modules
+
+# ⚠️ FIX: Replace broken @repo/kafka symlink with actual built files
+# Bun creates symlink: node_modules/@repo/kafka -> ../../packages/kafka
+# After Docker COPY, this symlink is broken. We need to replace it with actual files.
+RUN rm -rf ./node_modules/@repo/kafka
+COPY --from=builder /app/packages/kafka/dist ./node_modules/@repo/kafka/dist
+COPY --from=builder /app/packages/kafka/package.json ./node_modules/@repo/kafka/package.json
 
 # Root workspace manifest
 COPY --from=builder /app/package.json ./package.json
