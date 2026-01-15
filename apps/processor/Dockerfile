@@ -45,6 +45,10 @@ WORKDIR /app/apps/processor
 # Fast build using SWC (no typecheck)
 RUN bunx swc src -d dist --copy-files
 
+# 🧪 Safety net: verify Kafka package loads correctly
+WORKDIR /app
+RUN node -e "require('/app/packages/kafka/dist/index.js')" && echo "✅ Kafka package loads correctly"
+
 
 # ==============================================
 # 🚦 Production runner stage
