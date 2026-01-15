@@ -1,95 +1,104 @@
 # ==============================================
 # OPTIMIZED DOCKERFILE FOR HOOKS SERVICE
-# Following all 10 Docker optimization rules
+# Monorepo-safe • Render-safe • Prisma-safe
 # ==============================================
 
-# 1️⃣ Use a small, fast base image (Alpine-based Bun)
+# -------------------------------
+# 🧱 Builder stage
+# -------------------------------
 FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
-# 3️⃣ COPY lockfiles BEFORE source code (cache layer)
+# Copy root manifests first (cache)
 COPY package.json bun.lock ./
 
-# 5️⃣ Copy ONLY what you need (monorepo package.jsons)
+# Copy workspace package.json files only
 COPY apps/hooks/package.json ./apps/hooks/
 COPY packages/db/package.json ./packages/db/
 COPY packages/email/package.json ./packages/email/
 COPY packages/kafka/package.json ./packages/kafka/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 
-# 4️⃣ Install dependencies in a separate layer (cached)
+# Install deps (cached)
 RUN bun install
 
-# Now copy source code (changes here don't bust dep cache)
+# Copy source code
 COPY packages ./packages
 COPY apps/hooks ./apps/hooks
 
-# Generate Prisma client (hooks uses @repo/db)
+# Generate Prisma client
 RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 
-# 7️⃣ Build packages in order (dependencies first)
-# Build email package (hooks uses @repo/email)
+# -------------------------------
+# 🏗 Build workspace packages
+# -------------------------------
+
+# Email package
 WORKDIR /app/packages/email
 RUN bun run build
 
-# Build kafka package (hooks uses @repo/kafka)
+# Kafka package (FIXED ✅)
 WORKDIR /app/packages/kafka
 RUN bun run build
 
-# Build hooks service
+# -------------------------------
+# 🚀 Build hooks service
+# -------------------------------
 WORKDIR /app/apps/hooks
-# 9️⃣ Skip type-checking - use SWC directly (faster)
+
+# Fast build using SWC (no typecheck)
 RUN bunx swc src -d dist --copy-files
 
-# ==============================================
-# 6️⃣ Multi-stage build (production stage)
-# ==============================================
 
-# 1️⃣ Use small production image
+# ==============================================
+# 🚦 Production runner stage
+# ==============================================
 FROM node:20-alpine AS runner
 
-# Install OpenSSL for Prisma
+# Prisma requires OpenSSL
 RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-# 🔟 Copy production files - include all required packages with package.json
+# -------------------------------
+# � Copy runtime artifacts
+# -------------------------------
 
 # Hooks dist
 COPY --from=builder /app/apps/hooks/dist ./dist
 
-# Email package (with templates)
+# Email package
 COPY --from=builder /app/packages/email/dist ./packages/email/dist
 COPY --from=builder /app/packages/email/package.json ./packages/email/package.json
 COPY --from=builder /app/packages/email/src/templates ./packages/email/dist/templates
 
-# Kafka package (built dist, same pattern as email)
+# Kafka package (built dist ✅)
 COPY --from=builder /app/packages/kafka/dist ./packages/kafka/dist
 COPY --from=builder /app/packages/kafka/package.json ./packages/kafka/package.json
 
 # DB package (Prisma client)
 COPY --from=builder /app/packages/db ./packages/db
 
-# Node modules (includes all deps)
+# Node modules (workspace symlinks intact)
 COPY --from=builder /app/node_modules ./node_modules
 
-# Root package.json for workspace resolution
+# Root workspace manifest
 COPY --from=builder /app/package.json ./package.json
 
-# Hooks package.json
+# Hooks manifest
 COPY --from=builder /app/apps/hooks/package.json ./apps/hooks/package.json
 
-# Copy start script
+# Start script
 COPY --from=builder /app/apps/hooks/start.sh ./start.sh
 RUN chmod +x ./start.sh
 
-# Set production environment
+# -------------------------------
+# ⚙ Runtime config
+# -------------------------------
 ENV NODE_ENV=production
 ENV PORT=10000
 
-# Expose port (Render uses 10000 by default)
 EXPOSE 10000
 
-# Start hooks service
 CMD ["./start.sh"]
