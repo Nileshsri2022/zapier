@@ -2,7 +2,9 @@
   "name": "zapier",
   "private": true,
   "scripts": {
-    "build": "turbo build",
+    "build": "bun run build:packages && bun run build:web",
+    "build:packages": "bun --filter './packages/*' run build",
+    "build:web": "bun --filter './apps/web' run build",
     "dev": "turbo dev",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
