@@ -1,6 +1,5 @@
 # ==============================================
 # DOCKERFILE FOR PROCESSOR SERVICE
-# Using Bun bundler to inline workspace dependencies
 # ==============================================
 
 FROM oven/bun:1-alpine AS builder
@@ -22,8 +21,12 @@ COPY apps/processor ./apps/processor
 # Generate Prisma client
 RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 
-# Build processor using Bun bundler FROM ROOT (so @repo/* resolves via node_modules)
-# This inlines @repo/kafka and @repo/db into the bundle
+# Build Kafka package FIRST so it has dist/index.js
+WORKDIR /app/packages/kafka
+RUN bun run build
+
+# Go back to root and bundle processor (now @repo/kafka has dist built)
+WORKDIR /app
 RUN bun build apps/processor/src/index.ts --outdir=apps/processor/dist --target=bun \
     --external=@prisma/client --external=express --external=kafkajs --external=dotenv
 
