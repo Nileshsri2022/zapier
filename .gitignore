@@ -14,6 +14,9 @@ node_modules
 
 # Testing
 coverage
+learnings/
+artifacts/
+*.tsbuildinfo
 
 # Turbo
 .turbo
@@ -27,12 +30,24 @@ out/
 build
 dist
 
-
 # Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+*.log
 
 # Misc
 .DS_Store
 *.pem
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+Thumbs.db
+ehthumbs.db
