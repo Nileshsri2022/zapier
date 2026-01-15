@@ -1,84 +1,94 @@
 # ==============================================
 # OPTIMIZED DOCKERFILE FOR PROCESSOR SERVICE
-# Following exact pattern from server/hooks
+# Monorepo-safe • Render-safe • Prisma-safe
 # ==============================================
 
-# 1️⃣ Use a small, fast base image (Alpine-based Bun)
+# -------------------------------
+# 🧱 Builder stage
+# -------------------------------
 FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
-# 3️⃣ COPY lockfiles BEFORE source code (cache layer)
+# Copy root manifests first (cache)
 COPY package.json bun.lock ./
 
-# 5️⃣ Copy ONLY what you need (monorepo package.jsons)
+# Copy workspace package.json files only
 COPY apps/processor/package.json ./apps/processor/
 COPY packages/db/package.json ./packages/db/
 COPY packages/kafka/package.json ./packages/kafka/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 
-# 4️⃣ Install dependencies in a separate layer (cached)
+# Install deps (cached)
 RUN bun install
 
-# Now copy source code (changes here don't bust dep cache)
+# Copy source code
 COPY packages ./packages
 COPY apps/processor ./apps/processor
 
 # Generate Prisma client
 RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 
-# 7️⃣ Build packages in order (kafka first, like server builds email/types)
+# -------------------------------
+# 🏗 Build workspace packages
+# -------------------------------
+
+# Kafka package (REQUIRED ✅)
 WORKDIR /app/packages/kafka
 RUN bun run build
 
-# Build processor service
+# -------------------------------
+# 🚀 Build processor service
+# -------------------------------
 WORKDIR /app/apps/processor
-# 9️⃣ Skip type-checking - use SWC directly (faster)
+
+# Fast build using SWC (no typecheck)
 RUN bunx swc src -d dist --copy-files
 
-# ==============================================
-# 6️⃣ Multi-stage build (production stage)
-# ==============================================
 
-# 1️⃣ Use small production image
+# ==============================================
+# 🚦 Production runner stage
+# ==============================================
 FROM node:20-alpine AS runner
 
-# Install OpenSSL for Prisma
+# Prisma requires OpenSSL
 RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-# 🔟 Copy production files - include all required packages with package.json
+# -------------------------------
+# 📦 Copy runtime artifacts
+# -------------------------------
 
 # Processor dist
 COPY --from=builder /app/apps/processor/dist ./dist
 
-# Kafka package (SAME PATTERN AS SERVER'S EMAIL PACKAGE)
+# Kafka package (built dist ✅)
 COPY --from=builder /app/packages/kafka/dist ./packages/kafka/dist
 COPY --from=builder /app/packages/kafka/package.json ./packages/kafka/package.json
 
 # DB package (Prisma client)
 COPY --from=builder /app/packages/db ./packages/db
 
-# Node modules (includes all deps)
+# Node modules (workspace symlinks intact)
 COPY --from=builder /app/node_modules ./node_modules
 
-# Root package.json for workspace resolution
+# Root workspace manifest
 COPY --from=builder /app/package.json ./package.json
 
-# Processor package.json
+# Processor manifest
 COPY --from=builder /app/apps/processor/package.json ./apps/processor/package.json
 
-# Copy start script
+# Start script
 COPY --from=builder /app/apps/processor/start.sh ./start.sh
 RUN chmod +x ./start.sh
 
-# Set production environment
+# -------------------------------
+# ⚙ Runtime config
+# -------------------------------
 ENV NODE_ENV=production
 ENV PORT=10000
 
-# Expose port (Render uses 10000 by default)
 EXPOSE 10000
 
-# Start processor service
 CMD ["./start.sh"]
