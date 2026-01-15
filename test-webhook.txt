@@ -1,0 +1,6 @@
+ZapMate GitHub Webhook Test
+============================
+This file was created to test the GitHub push webhook integration.
+Timestamp: 2026-01-16T01:26:15+05:30
+
+If you receive an email/notification after this push, your GitHub webhook is working! 🎉
