@@ -67,15 +67,24 @@ WORKDIR /app
 # Processor dist
 COPY --from=builder /app/apps/processor/dist ./dist
 
-# Kafka package (dist + package.json → symlink will resolve here)
-COPY --from=builder /app/packages/kafka/dist ./packages/kafka/dist
-COPY --from=builder /app/packages/kafka/package.json ./packages/kafka/package.json
-
 # DB package (Prisma client)
 COPY --from=builder /app/packages/db ./packages/db
 
-# Node modules (symlinks point to packages/* which we copy above)
+# Node modules (symlinks will be broken)
 COPY --from=builder /app/node_modules ./node_modules
+
+# ⚠️ FIX: The symlink node_modules/@repo/kafka -> ../../packages/kafka is BROKEN after Docker COPY
+# We need to replace it with actual files
+RUN rm -rf ./node_modules/@repo/kafka 2>/dev/null || true
+RUN mkdir -p ./node_modules/@repo/kafka
+COPY --from=builder /app/packages/kafka/dist ./node_modules/@repo/kafka/dist
+COPY --from=builder /app/packages/kafka/package.json ./node_modules/@repo/kafka/package.json
+
+# Also fix @repo/db symlink
+RUN rm -rf ./node_modules/@repo/db 2>/dev/null || true
+RUN mkdir -p ./node_modules/@repo/db
+COPY --from=builder /app/packages/db/src ./node_modules/@repo/db/src
+COPY --from=builder /app/packages/db/package.json ./node_modules/@repo/db/package.json
 
 # Root workspace manifest
 COPY --from=builder /app/package.json ./package.json
