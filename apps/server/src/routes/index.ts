@@ -5,6 +5,7 @@ import { TriggerRouter } from "./TriggerRoutes";
 import { ActionsRouter } from "./ActionsRouter";
 import GmailRouter from "./GmailRoutes";
 import GitHubRouter from "./GitHubRoutes";
+import GoogleSheetsRouter from "./GoogleSheetsRoutes";
 
 const router = express.Router();
 
@@ -14,6 +15,8 @@ router.use("/triggers", TriggerRouter);
 router.use("/actions", ActionsRouter);
 router.use("/gmail", GmailRouter);
 router.use("/github", GitHubRouter);
+router.use("/sheets", GoogleSheetsRouter);
 
 export default router;
+
 

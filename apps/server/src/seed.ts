@@ -48,6 +48,10 @@ async function seedDatabase() {
                 {
                     type: "GitHub Release",
                     image: "https://img.icons8.com/ios-filled/50/github.png"
+                },
+                {
+                    type: "Google Sheets Updated Row",
+                    image: "https://img.icons8.com/color/48/google-sheets.png"
                 }
             ],
             skipDuplicates: true

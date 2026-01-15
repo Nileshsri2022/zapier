@@ -21,6 +21,7 @@ model User {
   password String
   zaps     Zap[]
   gmailServers GmailServer[]
+  googleSheetsServers GoogleSheetsServer[]
 }
 
 model Zap {
@@ -38,6 +39,9 @@ model Zap {
   // Gmail MCP relations
   gmailTriggers GmailTrigger[]
   gmailActions  GmailAction[]
+
+  // Google Sheets relations
+  googleSheetsTriggers GoogleSheetsTrigger[]
 }
 
 model AvailableTriggers {
@@ -150,4 +154,42 @@ model GmailWatch {
   expiry    DateTime
   isActive  Boolean @default(true)
   createdAt DateTime @default(now())
+}
+
+// Google Sheets OAuth Server Configuration
+model GoogleSheetsServer {
+  id           String @id @default(uuid())
+  name         String
+  email        String // Google account email
+  refreshToken String // Encrypted
+  accessToken  String // Encrypted
+  tokenExpiry  DateTime?
+  isActive     Boolean @default(true)
+  userId       Int
+  user         User @relation(fields: [userId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  triggers GoogleSheetsTrigger[]
+}
+
+// Google Sheets Trigger Configuration
+model GoogleSheetsTrigger {
+  id            String @id @default(uuid())
+  serverId      String
+  server        GoogleSheetsServer @relation(fields: [serverId], references: [id])
+  zapId         String @unique
+  zap           Zap @relation(fields: [zapId], references: [id])
+
+  // Sheet configuration
+  spreadsheetId String // Google Sheets ID
+  sheetName     String @default("Sheet1") // Sheet tab name
+
+  // Polling state
+  lastPolledAt  DateTime?
+  isActive      Boolean @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }

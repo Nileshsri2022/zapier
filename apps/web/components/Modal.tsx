@@ -110,7 +110,9 @@ const Modal = ({ isVisible, setIsVisible, onClick }: {
 
     const triggerMetaData = (
         <div>
-            {selectedItem?.type === 'Webhook' ? <WebhookMetaData handleClick={handleSaveMetaData} /> : null}
+            {selectedItem?.type === 'Webhook' ? <WebhookMetaData handleClick={handleSaveMetaData} /> :
+                selectedItem?.type?.includes('Google Sheets') ? <GoogleSheetsMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} /> :
+                    null}
         </div>
     )
 
@@ -354,6 +356,50 @@ const GmailMetaData = ({ handleClick, selectedType }: {
     };
 
     return renderGmailForm();
+}
+
+const GoogleSheetsMetaData = ({ handleClick, selectedType }: {
+    handleClick: (data: any) => void;
+    selectedType: string;
+}) => {
+    const [formData, setFormData] = useState({
+        spreadsheetId: "",
+        sheetName: "Sheet1"
+    });
+
+    const handleFormDataChange = (e: any) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        })
+    }
+
+    return (
+        <div className='my-4 flex flex-col gap-4 text-secondary-500'>
+            <FormInput
+                label='Spreadsheet ID'
+                name='spreadsheetId'
+                placeholder='Enter the ID from the spreadsheet URL'
+                onChange={handleFormDataChange}
+            />
+            <p className='text-xs text-gray-500'>
+                Find the ID in the URL: docs.google.com/spreadsheets/d/<strong>SPREADSHEET_ID</strong>/edit
+            </p>
+            <FormInput
+                label='Sheet Name'
+                name='sheetName'
+                placeholder='Sheet1'
+                onChange={handleFormDataChange}
+            />
+            <div className='bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-700'>
+                <p className='font-medium'>📊 {selectedType}</p>
+                <p className='mt-1 text-xs'>
+                    This trigger fires when an existing row is modified. First poll seeds the state, subsequent polls detect changes.
+                </p>
+            </div>
+            <Button variant='secondary' onClick={() => handleClick(formData)}>Save</Button>
+        </div>
+    );
 }
 
 export default Modal

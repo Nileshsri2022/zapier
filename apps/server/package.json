@@ -24,6 +24,7 @@
     "@google-cloud/local-auth": "^3.0.1",
     "@repo/db": "*",
     "@repo/email": "*",
+    "@repo/redis": "*",
     "@repo/types": "*",
     "@repo/typescript-config": "*",
     "@swc/cli": "^0.7.9",
