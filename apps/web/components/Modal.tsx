@@ -6,6 +6,24 @@ import FormInput from './FormInput';
 import Button from './Button';
 import { API_URL } from '@/lib/config';
 
+// App definitions for grouping triggers/actions
+interface App {
+    id: string;
+    name: string;
+    icon: string;
+    prefix?: string;
+    exact?: string;
+}
+
+const APPS: App[] = [
+    { id: 'gmail', name: 'Gmail', icon: 'https://img.icons8.com/color/48/gmail.png', prefix: 'Gmail' },
+    { id: 'sheets', name: 'Google Sheets', icon: 'https://img.icons8.com/color/48/google-sheets.png', prefix: 'Google Sheets' },
+    { id: 'email', name: 'Email', icon: 'https://img.icons8.com/ios-filled/50/email.png', exact: 'Email' },
+    { id: 'solana', name: 'Solana', icon: 'https://img.icons8.com/ios-filled/50/solana.png', exact: 'Solana' },
+    { id: 'github', name: 'GitHub', icon: 'https://img.icons8.com/ios-filled/50/github.png', prefix: 'GitHub' },
+    { id: 'webhook', name: 'Webhook', icon: 'https://img.icons8.com/ios-filled/50/webhook.png', exact: 'Webhook' },
+];
+
 interface AvailableItem {
     id: string,
     type: string,
@@ -17,12 +35,31 @@ const Modal = ({ isVisible, setIsVisible, onClick }: {
     setIsVisible: Dispatch<SetStateAction<number>>,
     onClick?: (selectedItem: any) => void
 }) => {
-    const [availableItem, setAvailableItem] = useState<AvailableItem[] | []>([]);
+    const [availableItems, setAvailableItems] = useState<AvailableItem[]>([]);
     const [selectedItem, setSelectedItem] = useState<any>();
-    const [page, setPage] = useState<number>(1);
+
+    // New state for 3-step flow
+    const [step, setStep] = useState<1 | 2 | 3>(1); // 1=App select, 2=Config, 3=Metadata
+    const [selectedApp, setSelectedApp] = useState<App | null>(null);
+    const [selectedEvent, setSelectedEvent] = useState<string>('');
+
+    // For Google Sheets/Gmail account connection
+    const [connectedServers, setConnectedServers] = useState<any[]>([]);
+    const [selectedServerId, setSelectedServerId] = useState<string>('');
+    const [loadingServers, setLoadingServers] = useState(false);
 
     const handleSaveMetaData = (data: any) => {
         onClick && onClick({ ...selectedItem, metadata: data });
+        resetModal();
+    }
+
+    const resetModal = () => {
+        setStep(1);
+        setSelectedApp(null);
+        setSelectedEvent('');
+        setSelectedItem(null);
+        setConnectedServers([]);
+        setSelectedServerId('');
     }
 
     const fetchAvailableTriggers = async () => {
@@ -37,7 +74,7 @@ const Modal = ({ isVisible, setIsVisible, onClick }: {
                     Authorization: token
                 }
             });
-            setAvailableItem(response?.data?.avialableTriggers || []);
+            setAvailableItems(response?.data?.avialableTriggers || []);
         } catch (error) {
             toast.error(error as string)
         }
@@ -55,14 +92,42 @@ const Modal = ({ isVisible, setIsVisible, onClick }: {
                     Authorization: token
                 }
             });
-            setAvailableItem(response?.data?.availableActions || []);
+            setAvailableItems(response?.data?.availableActions || []);
         } catch (error) {
             toast.error(error as string)
         }
     }
 
+    // Fetch connected accounts for OAuth apps
+    const fetchConnectedAccounts = async (app: App) => {
+        if (app.id !== 'sheets' && app.id !== 'gmail') {
+            return;
+        }
+
+        setLoadingServers(true);
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) return;
+
+            const endpoint = app.id === 'sheets' ? '/api/sheets/servers' : '/api/gmail/servers';
+            const response = await axios.get(`${API_URL}${endpoint}`, {
+                headers: { Authorization: token }
+            });
+
+            const servers = response?.data?.servers || [];
+            setConnectedServers(servers);
+            if (servers.length > 0) {
+                setSelectedServerId(servers[0].id);
+            }
+        } catch (error) {
+            console.error("Failed to fetch connected accounts:", error);
+        } finally {
+            setLoadingServers(false);
+        }
+    };
+
     useEffect(() => {
-        if (page === 1 && isVisible !== 0) {
+        if (step === 1 && isVisible !== 0) {
             if (isVisible === 1) {
                 fetchAvailableTriggers();
             } else if (isVisible > 1) {
@@ -71,72 +136,319 @@ const Modal = ({ isVisible, setIsVisible, onClick }: {
         }
 
         return (() => {
-            setAvailableItem([]);
+            if (isVisible === 0) {
+                resetModal();
+                setAvailableItems([]);
+            }
         })
-    }, [isVisible, page])
+    }, [isVisible, step])
 
-    const selectAction = (
-        <div className='flex flex-col gap-2 mt-4'>
-            {availableItem.length === 0 ? (
-                <div className='text-center text-gray-500 py-4'>
-                    No {isVisible === 1 ? 'triggers' : 'actions'} available
-                </div>
-            ) : (
-                availableItem.map((item) => (
-                    <div onClick={() => {
-                        setSelectedItem(item);
-                        if (isVisible > 1) {
-                            setPage(a => a + 1)
-                        } else {
-                            // For triggers, check if it needs metadata form
-                            if (item?.type?.includes('Google Sheets')) {
-                                setPage(2); // Go to metadata form
-                            } else {
-                                onClick && onClick(item);
-                            }
-                        }
-                    }} key={item?.id} className='flex gap-1 items-center cursor-pointer transition-all hover:bg-link-bg rounded-md'>
-                        <img className='h-6 w-6' alt={item?.type} src={item?.image} />
-                        <p>{item?.type}</p>
-                    </div>
-                ))
-            )}
-        </div>
-    )
+    // Get events for a specific app
+    const getEventsForApp = (app: App): AvailableItem[] => {
+        return availableItems.filter(item => {
+            if (app.exact) {
+                return item.type === app.exact;
+            }
+            if (app.prefix) {
+                return item.type.startsWith(app.prefix);
+            }
+            return false;
+        });
+    }
 
-    const actionMetaData = (
-        <div>
-            {selectedItem?.type === 'Email' ? <EmailMetaData handleClick={handleSaveMetaData} /> :
-                selectedItem?.type === 'Solana' ? <SolanaMetaData handleClick={handleSaveMetaData} /> :
-                    selectedItem?.type?.includes('Gmail') ? <GmailMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} /> :
-                        <div className='text-center text-gray-500 py-4'>No configuration needed</div>}
-        </div>
-    )
+    // Get available apps (only show apps that have events)
+    const getAvailableApps = (): App[] => {
+        return APPS.filter(app => getEventsForApp(app).length > 0);
+    }
 
-    const triggerMetaData = (
-        <div>
-            {selectedItem?.type === 'Webhook' ? <WebhookMetaData handleClick={handleSaveMetaData} /> :
-                selectedItem?.type?.includes('Google Sheets') ? <GoogleSheetsMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} /> :
-                    null}
-        </div>
-    )
+    // Handle app selection
+    const handleAppSelect = (app: App) => {
+        setSelectedApp(app);
+        setSelectedEvent('');
+        fetchConnectedAccounts(app);
+        setStep(2);
+    }
 
-    return (
-        <div className={'absolute justify-center items-center bg-modal-bg h-screen w-screen top-0 left-0 flex transition-all'}
-        >
-            <div className='bg-white w-[40rem] min-h-96 rounded-md shadow-lg p-4 animate-zoom_in'>
-                <div className='flex items-center justify-between pb-2 border-b border-b-gray-300'>
-                    <h3 className='font-semibold text-lg'>{`Select ${isVisible === 1 ? 'Trigger' : isVisible > 1 ? 'Action' : ''}`}</h3>
-                    <svg onClick={() => setIsVisible(0)} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#000000" className="size-6 cursor-pointer">
-                        <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+    // Handle event selection from dropdown
+    const handleEventChange = (eventId: string) => {
+        setSelectedEvent(eventId);
+        const event = availableItems.find(item => item.id === eventId);
+        if (event) {
+            setSelectedItem(event);
+        }
+    }
+
+    // Handle continue button
+    const handleContinue = () => {
+        if (!selectedItem) return;
+
+        // Check if needs metadata form
+        const needsMetadata =
+            selectedItem.type.includes('Google Sheets') ||
+            selectedItem.type.includes('Gmail') ||
+            selectedItem.type === 'Email' ||
+            selectedItem.type === 'Solana';
+
+        if (needsMetadata) {
+            // Add serverId to metadata for OAuth apps
+            if (selectedApp?.id === 'sheets' || selectedApp?.id === 'gmail') {
+                setSelectedItem({ ...selectedItem, serverId: selectedServerId });
+            }
+            setStep(3);
+        } else {
+            onClick && onClick(selectedItem);
+            resetModal();
+            setIsVisible(0);
+        }
+    }
+
+    // Handle OAuth sign in
+    const handleSignIn = async () => {
+        if (!selectedApp) return;
+
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                toast.error("Please log in first");
+                return;
+            }
+
+            localStorage.setItem("oauth_pending", "true");
+
+            const endpoint = selectedApp.id === 'sheets'
+                ? '/api/sheets/auth/initiate'
+                : '/api/gmail/auth';
+
+            const response = await axios.get(`${API_URL}${endpoint}`, {
+                headers: { Authorization: token }
+            });
+
+            if (response?.data?.authUrl) {
+                window.location.href = response.data.authUrl;
+            } else {
+                toast.error("Failed to get OAuth URL");
+            }
+        } catch (error: any) {
+            console.error("OAuth error:", error);
+            toast.error(error?.response?.data?.error || "Failed to connect");
+        }
+    }
+
+    // Check if can continue (event selected + account for OAuth apps)
+    const canContinue = () => {
+        if (!selectedEvent) return false;
+        if ((selectedApp?.id === 'sheets' || selectedApp?.id === 'gmail') && !selectedServerId) {
+            return false;
+        }
+        return true;
+    }
+
+    // ============ STEP 1: App Selector ============
+    const renderStep1 = () => (
+        <div className='flex min-h-[400px]'>
+            {/* Left Sidebar */}
+            <div className='w-40 border-r border-gray-200 p-3 bg-gray-50'>
+                <div className='flex items-center gap-2 p-2 rounded bg-amber-100 text-amber-800 font-medium text-sm'>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                        <path fillRule="evenodd" d="M4.25 2A2.25 2.25 0 0 0 2 4.25v2.5A2.25 2.25 0 0 0 4.25 9h2.5A2.25 2.25 0 0 0 9 6.75v-2.5A2.25 2.25 0 0 0 6.75 2h-2.5Zm0 9A2.25 2.25 0 0 0 2 13.25v2.5A2.25 2.25 0 0 0 4.25 18h2.5A2.25 2.25 0 0 0 9 15.75v-2.5A2.25 2.25 0 0 0 6.75 11h-2.5Zm9-9A2.25 2.25 0 0 0 11 4.25v2.5A2.25 2.25 0 0 0 13.25 9h2.5A2.25 2.25 0 0 0 18 6.75v-2.5A2.25 2.25 0 0 0 15.75 2h-2.5Zm0 9A2.25 2.25 0 0 0 11 13.25v2.5A2.25 2.25 0 0 0 13.25 18h2.5A2.25 2.25 0 0 0 18 15.75v-2.5A2.25 2.25 0 0 0 15.75 11h-2.5Z" clipRule="evenodd" />
                     </svg>
+                    Apps
                 </div>
-                {(page === 1) ? selectAction : (isVisible === 1 ? triggerMetaData : actionMetaData)}
+            </div>
+
+            {/* Right Panel - App List */}
+            <div className='flex-1 p-4 overflow-y-auto'>
+                {getAvailableApps().length === 0 ? (
+                    <div className='text-center text-gray-500 py-4'>
+                        Loading apps...
+                    </div>
+                ) : (
+                    <div className='flex flex-col gap-1'>
+                        {getAvailableApps().map((app) => (
+                            <div
+                                key={app.id}
+                                onClick={() => handleAppSelect(app)}
+                                className='flex items-center gap-3 p-3 cursor-pointer rounded-lg hover:bg-gray-100 transition-colors'
+                            >
+                                <img className='h-6 w-6' alt={app.name} src={app.icon} />
+                                <span className='font-medium'>{app.name}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     )
 
+    // ============ STEP 2: Configuration Panel ============
+    const renderStep2 = () => {
+        const events = selectedApp ? getEventsForApp(selectedApp) : [];
+        const needsAccount = selectedApp?.id === 'sheets' || selectedApp?.id === 'gmail';
+
+        return (
+            <div className='p-4 min-h-[400px]'>
+                {/* App Selection */}
+                <div className='mb-4'>
+                    <label className='block text-sm font-medium text-gray-700 mb-2'>App *</label>
+                    <div className='flex items-center gap-3'>
+                        <div className='flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg flex-1'>
+                            <img className='h-5 w-5' alt={selectedApp?.name} src={selectedApp?.icon} />
+                            <span>{selectedApp?.name}</span>
+                        </div>
+                        <button
+                            onClick={() => setStep(1)}
+                            className='px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium'
+                        >
+                            Change
+                        </button>
+                    </div>
+                </div>
+
+                {/* Event Dropdown */}
+                <div className='mb-4'>
+                    <label className='block text-sm font-medium text-gray-700 mb-2'>
+                        {isVisible === 1 ? 'Trigger event' : 'Action event'} *
+                    </label>
+                    <select
+                        value={selectedEvent}
+                        onChange={(e) => handleEventChange(e.target.value)}
+                        className='w-full p-3 border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500'
+                    >
+                        <option value=''>Choose an event</option>
+                        {events.map((event) => (
+                            <option key={event.id} value={event.id}>
+                                {event.type}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Account Section (for OAuth apps) */}
+                {needsAccount && (
+                    <div className='mb-4'>
+                        <label className='block text-sm font-medium text-gray-700 mb-2'>Account *</label>
+                        {loadingServers ? (
+                            <div className='text-gray-500 py-2'>Loading accounts...</div>
+                        ) : connectedServers.length > 0 ? (
+                            <select
+                                value={selectedServerId}
+                                onChange={(e) => setSelectedServerId(e.target.value)}
+                                className='w-full p-3 border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500'
+                            >
+                                {connectedServers.map((server) => (
+                                    <option key={server.id} value={server.id}>
+                                        {server.email || server.name}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : (
+                            <div className='flex items-center gap-3'>
+                                <div className='flex-1 px-3 py-2 border border-gray-300 rounded-lg text-gray-500'>
+                                    Connect {selectedApp?.name}
+                                </div>
+                                <button
+                                    onClick={handleSignIn}
+                                    className='px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium'
+                                >
+                                    Sign in
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Continue / Status Bar */}
+                <div className='mt-6'>
+                    {!canContinue() ? (
+                        <div className='bg-blue-50 border border-blue-200 text-blue-700 text-center py-3 rounded-lg text-sm'>
+                            To continue, choose an event{needsAccount && connectedServers.length === 0 ? ' and connect your account' : ''}
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleContinue}
+                            className='w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium'
+                        >
+                            Continue
+                        </button>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
+    // ============ STEP 3: Metadata Forms (existing) ============
+    const renderStep3 = () => {
+        if (isVisible === 1) {
+            // Trigger metadata forms
+            return (
+                <div className='p-4'>
+                    <button
+                        onClick={() => setStep(2)}
+                        className='flex items-center gap-1 text-purple-600 hover:text-purple-800 mb-4 text-sm'
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                            <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
+                        </svg>
+                        Back
+                    </button>
+                    {selectedItem?.type === 'Webhook' ? <WebhookMetaData handleClick={handleSaveMetaData} /> :
+                        selectedItem?.type?.includes('Google Sheets') ? <GoogleSheetsMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} preSelectedServerId={selectedServerId} /> :
+                            <div className='text-center text-gray-500 py-4'>No configuration needed</div>}
+                </div>
+            )
+        } else {
+            // Action metadata forms
+            return (
+                <div className='p-4'>
+                    <button
+                        onClick={() => setStep(2)}
+                        className='flex items-center gap-1 text-purple-600 hover:text-purple-800 mb-4 text-sm'
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                            <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
+                        </svg>
+                        Back
+                    </button>
+                    {selectedItem?.type === 'Email' ? <EmailMetaData handleClick={handleSaveMetaData} /> :
+                        selectedItem?.type === 'Solana' ? <SolanaMetaData handleClick={handleSaveMetaData} /> :
+                            selectedItem?.type?.includes('Gmail') ? <GmailMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} /> :
+                                <div className='text-center text-gray-500 py-4'>No configuration needed</div>}
+                </div>
+            )
+        }
+    }
+
+    return (
+        <div className='absolute justify-center items-center bg-modal-bg h-screen w-screen top-0 left-0 flex transition-all'>
+            <div className='bg-white w-[40rem] min-h-96 rounded-lg shadow-xl animate-zoom_in overflow-hidden'>
+                {/* Header */}
+                <div className='flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50'>
+                    <h3 className='font-semibold text-lg'>
+                        {step === 1 ? `Select ${isVisible === 1 ? 'Trigger' : 'Action'}` :
+                            step === 2 ? `${isVisible === 1 ? '1. Select the event' : 'Configure action'}` :
+                                'Configure'}
+                    </h3>
+                    <svg
+                        onClick={() => { setIsVisible(0); resetModal(); }}
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="#000000"
+                        className="size-6 cursor-pointer hover:bg-gray-200 rounded p-1"
+                    >
+                        <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                    </svg>
+                </div>
+
+                {/* Content */}
+                {step === 1 && renderStep1()}
+                {step === 2 && renderStep2()}
+                {step === 3 && renderStep3()}
+            </div>
+        </div>
+    )
 }
+
+// ============ Metadata Form Components (kept from original) ============
 
 const EmailMetaData = ({ handleClick }: {
     handleClick: (data: any) => void
@@ -363,20 +675,20 @@ const GmailMetaData = ({ handleClick, selectedType }: {
     return renderGmailForm();
 }
 
-const GoogleSheetsMetaData = ({ handleClick, selectedType }: {
+const GoogleSheetsMetaData = ({ handleClick, selectedType, preSelectedServerId }: {
     handleClick: (data: any) => void;
     selectedType: string;
+    preSelectedServerId?: string;
 }) => {
     const [formData, setFormData] = useState({
         spreadsheetId: "",
         sheetName: "Sheet1",
-        serverId: ""
+        serverId: preSelectedServerId || ""
     });
     const [servers, setServers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [connecting, setConnecting] = useState(false);
 
-    // Check for connected Google accounts on mount
     useEffect(() => {
         const fetchServers = async () => {
             try {
@@ -390,8 +702,9 @@ const GoogleSheetsMetaData = ({ handleClick, selectedType }: {
                 const connectedServers = response?.data?.servers || [];
                 setServers(connectedServers);
 
-                // Auto-select first server if available
-                if (connectedServers.length > 0) {
+                if (preSelectedServerId) {
+                    setFormData(prev => ({ ...prev, serverId: preSelectedServerId }));
+                } else if (connectedServers.length > 0) {
                     setFormData(prev => ({ ...prev, serverId: connectedServers[0].id }));
                 }
             } catch (error) {
@@ -402,7 +715,7 @@ const GoogleSheetsMetaData = ({ handleClick, selectedType }: {
         };
 
         fetchServers();
-    }, []);
+    }, [preSelectedServerId]);
 
     const handleConnectGoogle = async () => {
         try {
@@ -413,15 +726,12 @@ const GoogleSheetsMetaData = ({ handleClick, selectedType }: {
                 return;
             }
 
-            // Store in localStorage that we need to return to Zap creation
             localStorage.setItem("sheets_oauth_pending", "true");
 
-            // Get OAuth URL from server
             const response = await axios.get(`${API_URL}/api/sheets/auth/initiate`, {
                 headers: { Authorization: token }
             });
 
-            // Redirect to Google OAuth
             if (response?.data?.authUrl) {
                 window.location.href = response.data.authUrl;
             } else {
@@ -450,7 +760,6 @@ const GoogleSheetsMetaData = ({ handleClick, selectedType }: {
         );
     }
 
-    // No connected accounts - show Connect button
     if (servers.length === 0) {
         return (
             <div className='my-4 flex flex-col gap-4 text-secondary-500'>
@@ -470,7 +779,6 @@ const GoogleSheetsMetaData = ({ handleClick, selectedType }: {
         );
     }
 
-    // Has connected accounts - show form
     return (
         <div className='my-4 flex flex-col gap-4 text-secondary-500'>
             {servers.length > 1 && (
