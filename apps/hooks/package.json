@@ -14,10 +14,10 @@
   "description": "",
   "dependencies": {
     "express": "^4.21.1",
-    "@repo/db": "workspace:*",
-    "@repo/email": "workspace:*",
-    "@repo/typescript-config": "workspace:*",
-    "@repo/kafka": "workspace:*",
+    "@repo/db": "*",
+    "@repo/email": "*",
+    "@repo/typescript-config": "*",
+    "@repo/kafka": "*",
     "@swc/cli": "^0.7.9",
     "@swc/core": "^1.15.8",
     "dotenv": "^16.4.5"
