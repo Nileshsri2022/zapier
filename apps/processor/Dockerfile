@@ -17,6 +17,7 @@ COPY package.json bun.lock ./
 COPY apps/processor/package.json ./apps/processor/
 COPY packages/db/package.json ./packages/db/
 COPY packages/kafka/package.json ./packages/kafka/
+COPY packages/redis/package.json ./packages/redis/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 
 # Install deps (cached)
@@ -35,6 +36,10 @@ RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 
 # Kafka package (REQUIRED ✅)
 WORKDIR /app/packages/kafka
+RUN bun run build
+
+# Redis package (REQUIRED for Google Sheets polling ✅)
+WORKDIR /app/packages/redis
 RUN bun run build
 
 # -------------------------------
@@ -85,6 +90,12 @@ RUN rm -rf ./node_modules/@repo/db 2>/dev/null || true
 RUN mkdir -p ./node_modules/@repo/db
 COPY --from=builder /app/packages/db/src ./node_modules/@repo/db/src
 COPY --from=builder /app/packages/db/package.json ./node_modules/@repo/db/package.json
+
+# Also fix @repo/redis symlink
+RUN rm -rf ./node_modules/@repo/redis 2>/dev/null || true
+RUN mkdir -p ./node_modules/@repo/redis
+COPY --from=builder /app/packages/redis/dist ./node_modules/@repo/redis/dist
+COPY --from=builder /app/packages/redis/package.json ./node_modules/@repo/redis/package.json
 
 # Root workspace manifest
 COPY --from=builder /app/package.json ./package.json

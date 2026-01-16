@@ -15,11 +15,13 @@
   "dependencies": {
     "@repo/db": "*",
     "@repo/kafka": "*",
+    "@repo/redis": "*",
     "@repo/typescript-config": "*",
     "@swc/cli": "^0.7.9",
     "@swc/core": "^1.15.8",
     "dotenv": "^16.4.5",
-    "express": "^4.21.1"
+    "express": "^4.21.1",
+    "googleapis": "^144.0.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

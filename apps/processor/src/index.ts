@@ -2,6 +2,7 @@ import express, { Request, Response } from "express";
 import kafka from "@repo/kafka";
 import client from "@repo/db";
 import dotenv from "dotenv";
+import { pollGoogleSheetsTriggers } from "./googleSheetsPoller";
 
 dotenv.config();
 
@@ -85,6 +86,34 @@ app.post("/process", async (req: Request, res: Response): Promise<any> => {
         console.error("Processing error:", error);
         return res.status(500).json({
             error: "Processing failed",
+            details: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
+});
+
+// Poll Google Sheets triggers - triggered by cron
+app.post("/poll-sheets", async (req: Request, res: Response): Promise<any> => {
+    try {
+        const authHeader = req.headers.authorization;
+        const cronSecret = process.env.CRON_SECRET;
+
+        // Verify cron secret if configured
+        if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+
+        const result = await pollGoogleSheetsTriggers();
+
+        return res.json({
+            message: "Google Sheets polling complete",
+            processed: result.processed,
+            errors: result.errors
+        });
+
+    } catch (error) {
+        console.error("Google Sheets polling error:", error);
+        return res.status(500).json({
+            error: "Polling failed",
             details: error instanceof Error ? error.message : "Unknown error"
         });
     }
