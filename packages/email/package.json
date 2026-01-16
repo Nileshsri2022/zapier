@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@repo/redis": "*",
     "@repo/typescript-config": "*",
     "dotenv": "^16.4.5",
     "handlebars": "^4.7.8",
