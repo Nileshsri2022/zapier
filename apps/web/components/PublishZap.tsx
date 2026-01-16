@@ -70,7 +70,7 @@ const PublishZap = ({ zapId }: {
         }
         const createZapData = {
             "availableTriggerId": selectedTrigger.availableTriggerId,
-            "triggerMetaData": {},
+            "triggerMetaData": selectedTrigger.triggerMetaData || {},
             "actions": selectedActions.map((action) => ({
                 availableActionId: action.availableActionId,
                 actionMetaData: action.actionMetaData
@@ -107,7 +107,7 @@ const PublishZap = ({ zapId }: {
             setSelectedTrigger && setSelectedTrigger({
                 availableTriggerId: selectedItem?.id,
                 triggerType: selectedItem?.type,
-                triggerMetaData: {}
+                triggerMetaData: selectedItem?.metadata || {}
             })
         } else if (modalVisibilityFor > 1) {
             setSelectedActions && setSelectedActions(a => a.map((action, i) => (i + 2 === modalVisibilityFor ? {

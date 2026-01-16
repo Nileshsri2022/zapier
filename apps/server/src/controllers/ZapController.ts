@@ -19,6 +19,11 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
         }
 
         const zapId = await client.$transaction(async tx => {
+            // Look up the trigger type to determine if it's Google Sheets
+            const availableTrigger = await tx.availableTriggers.findUnique({
+                where: { id: validation?.data?.availableTriggerId }
+            });
+
             const zap = await tx.zap.create({
                 data: {
                     userId: parseInt(id),
@@ -37,6 +42,7 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
                 data: {
                     triggerId: validation?.data?.availableTriggerId,
                     zapId: zap.id,
+                    metadata: validation?.data?.triggerMetaData || {},
                 }
             });
 
@@ -48,6 +54,26 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
                     triggerId: trigger.id
                 }
             });
+
+            // If this is a Google Sheets trigger, also create GoogleSheetsTrigger entry
+            if (availableTrigger?.type === "Google Sheets Updated Row") {
+                const triggerMeta = validation?.data?.triggerMetaData as any;
+
+                if (triggerMeta?.serverId && triggerMeta?.spreadsheetId && triggerMeta?.sheetName) {
+                    await tx.googleSheetsTrigger.create({
+                        data: {
+                            serverId: triggerMeta.serverId,
+                            zapId: zap.id,
+                            spreadsheetId: triggerMeta.spreadsheetId,
+                            sheetName: triggerMeta.sheetName,
+                            isActive: true,
+                        }
+                    });
+                    console.log(`✅ Created GoogleSheetsTrigger for zap ${zap.id}`);
+                } else {
+                    console.log(`⚠️ Google Sheets trigger missing metadata: serverId, spreadsheetId, or sheetName`);
+                }
+            }
 
             return zap.id;
         })
@@ -258,6 +284,11 @@ export const deleteZapWithId = async (req: Request, res: Response): Promise<any>
             });
 
             await tx.gmailAction.deleteMany({
+                where: { zapId }
+            });
+
+            // Delete Google Sheets trigger if exists
+            await tx.googleSheetsTrigger.deleteMany({
                 where: { zapId }
             });
 
