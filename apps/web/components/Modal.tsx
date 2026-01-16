@@ -85,10 +85,15 @@ const Modal = ({ isVisible, setIsVisible, onClick }: {
                 availableItem.map((item) => (
                     <div onClick={() => {
                         setSelectedItem(item);
-                        if (isVisible > 1)
+                        if (isVisible > 1) {
                             setPage(a => a + 1)
-                        else {
-                            onClick && onClick(item);
+                        } else {
+                            // For triggers, check if it needs metadata form
+                            if (item?.type?.includes('Google Sheets')) {
+                                setPage(2); // Go to metadata form
+                            } else {
+                                onClick && onClick(item);
+                            }
                         }
                     }} key={item?.id} className='flex gap-1 items-center cursor-pointer transition-all hover:bg-link-bg rounded-md'>
                         <img className='h-6 w-6' alt={item?.type} src={item?.image} />
