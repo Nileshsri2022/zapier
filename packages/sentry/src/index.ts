@@ -102,7 +102,8 @@ export function addBreadcrumb(breadcrumb: {
 /**
  * Setup Express error handler (call this AFTER all routes)
  */
-export function setupExpressErrorHandler(app: { use: Function }): void {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function setupExpressErrorHandler(app: any): void {
     if (!isInitialized) return;
     Sentry.setupExpressErrorHandler(app);
 }
