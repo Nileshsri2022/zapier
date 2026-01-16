@@ -10,6 +10,9 @@ FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
+# Cache buster - increment to force rebuild
+ARG CACHE_BUST=2
+
 # Copy root manifests first (cache)
 COPY package.json bun.lock ./
 
