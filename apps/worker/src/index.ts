@@ -3,6 +3,7 @@ import kafka from "@repo/kafka";
 import client from "@repo/db";
 import dotenv from "dotenv";
 import { sendEmailWithTextBody } from "@repo/email";
+import { withRetry, RetryResult } from "./utils/retry";
 
 dotenv.config();
 
@@ -39,9 +40,52 @@ async function initKafka() {
     }
 }
 
+// Execute action with retry
+async function executeActionWithRetry(
+    actionType: string,
+    metadata: any,
+    zapRunMetadata: any
+): Promise<RetryResult<{ success: boolean; message: string }>> {
+    return withRetry(async () => {
+        if (actionType === "Email") {
+            const { to, subject, body } = metadata;
+            let emailReceiver: string;
+
+            if (validateEmail(to)) {
+                emailReceiver = to;
+            } else {
+                const searchKey = JSON.stringify(zapRunMetadata);
+                emailReceiver = searchKey.slice(searchKey.indexOf("email") + 8, searchKey.indexOf(".com") + 4);
+            }
+
+            const emailBody = replaceKeys(body, zapRunMetadata);
+            const result = await sendEmailWithTextBody(emailReceiver, subject, emailBody);
+
+            // @ts-ignore - Handle both success and error response types
+            if (result && result.error) {
+                // @ts-ignore
+                throw new Error(`Email send failed: ${result.error}`);
+            }
+
+            return { success: true, message: `Email sent to ${emailReceiver}` };
+        }
+
+        if (actionType === "Solana") {
+            const { address, amount } = metadata;
+            const resolvedAddress = replaceKeys(address, zapRunMetadata);
+            const resolvedAmount = replaceKeys(amount, zapRunMetadata);
+            console.log(`Send sol to ${resolvedAddress} of amount: ${resolvedAmount}`);
+            return { success: true, message: `Solana transfer to ${resolvedAddress}` };
+        }
+
+        return { success: true, message: `Unknown action: ${actionType}` };
+    }, { maxRetries: 3, initialDelayMs: 1000 });
+}
+
 // Process a single Kafka message
 async function processMessage(message: any) {
     const { zapRunId, stage } = JSON.parse(message.value.toString());
+    const startTime = Date.now();
 
     const zapRunDetails = await client.zapRun.findFirst({
         where: { id: zapRunId },
@@ -61,39 +105,21 @@ async function processMessage(message: any) {
 
     if (!currentAction) {
         console.log("Current Action not found");
-        return { success: false, reason: "action_not_found" };
+        return { success: false, reason: "action_not_found", duration: Date.now() - startTime };
     }
 
-    // Send Email Logic
-    if (currentAction?.action?.type === "Email") {
-        console.log("Sending Email");
-        // @ts-ignore
-        const { to, subject, body } = currentAction.metadata;
-        let emailReceiver: string;
+    // Execute action with retry
+    const result = await executeActionWithRetry(
+        currentAction.action.type,
+        currentAction.metadata,
+        zapRunDetails?.metadata
+    );
 
-        if (validateEmail(to)) {
-            emailReceiver = to;
-        } else {
-            const searchKey = JSON.stringify(zapRunDetails?.metadata);
-            emailReceiver = searchKey.slice(searchKey.indexOf("email") + 8, searchKey.indexOf(".com") + 4);
-        }
+    console.log(`Action ${currentAction.action.type}: ${result.success ? 'SUCCESS' : 'FAILED'} after ${result.attempts} attempt(s)`);
 
-        // @ts-ignore
-        const emailBody = replaceKeys(body, zapRunDetails?.metadata);
-        await sendEmailWithTextBody(emailReceiver, subject, emailBody);
-    }
-
-    // Send Solana Logic
-    if (currentAction?.action?.type === "Solana") {
-        // @ts-ignore
-        const { address, amount } = currentAction.metadata;
-        // @ts-ignore
-        console.log(`Send sol to ${replaceKeys(address, zapRunDetails?.metadata)} of amount: ${replaceKeys(amount, zapRunDetails?.metadata)}`);
-    }
-
-    // Queue next stage if not last
-    if (stage !== lastStage) {
-        console.log("Pushing back to kafka");
+    // Queue next stage if not last and action succeeded
+    if (result.success && stage !== lastStage) {
+        console.log("Pushing next stage to kafka");
         await producer.send({
             topic: TOPIC_NAME,
             messages: [{
@@ -102,7 +128,13 @@ async function processMessage(message: any) {
         });
     }
 
-    return { success: true, action: currentAction?.action?.type };
+    return {
+        success: result.success,
+        action: currentAction?.action?.type,
+        attempts: result.attempts,
+        duration: Date.now() - startTime,
+        error: result.error?.message
+    };
 }
 
 // Health check endpoint
@@ -173,7 +205,7 @@ app.post("/process", async (req: Request, res: Response): Promise<any> => {
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {
-    console.log("SIGTERM received, shutting down...");
+    console.log("📛 SIGTERM received, shutting down...");
     if (consumer) await consumer.disconnect();
     if (producer) await producer.disconnect();
     process.exit(0);

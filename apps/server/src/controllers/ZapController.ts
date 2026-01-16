@@ -426,3 +426,61 @@ export const updateZapWithId = async (req: Request, res: Response): Promise<any>
         })
     }
 }
+
+// Fetch Zap execution history
+export const fetchZapRuns = async (req: Request, res: Response): Promise<any> => {
+    try {
+        // @ts-ignore
+        const userId = req.id;
+        const zapId = req.params.zapId as string;
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 20;
+        const skip = (page - 1) * limit;
+
+        // Verify the Zap belongs to the user
+        const zap = await client.zap.findFirst({
+            where: { id: zapId, userId }
+        });
+
+        if (!zap) {
+            return res.status(404).json({ message: "Zap not found" });
+        }
+
+        // Fetch runs with pagination
+        const [runs, total] = await Promise.all([
+            client.zapRun.findMany({
+                where: { zapId },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+                select: {
+                    id: true,
+                    zapId: true,
+                    metadata: true,
+                    createdAt: true,
+                }
+            }),
+            client.zapRun.count({ where: { zapId } })
+        ]);
+
+        return res.status(200).json({
+            message: "Zap runs fetched successfully",
+            data: {
+                runs,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages: Math.ceil(total / limit)
+                }
+            }
+        });
+    } catch (error: any) {
+        console.error("Fetch zap runs error:", error);
+        res.status(500).json({
+            message: "Could not fetch zap runs",
+            error: error.message
+        });
+    }
+}
+
