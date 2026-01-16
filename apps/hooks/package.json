@@ -17,6 +17,7 @@
     "@repo/db": "*",
     "@repo/email": "*",
     "@repo/redis": "*",
+    "@repo/sentry": "*",
     "@repo/typescript-config": "*",
     "@repo/kafka": "*",
     "@swc/cli": "^0.7.9",

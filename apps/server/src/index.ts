@@ -3,9 +3,13 @@ import router from "./routes";
 import cors from "cors";
 import dotenv from "dotenv";
 import client from "@repo/db";
+import { initSentry, captureException, sentryErrorHandler } from "@repo/sentry";
 
 // Load environment variables first
 dotenv.config();
+
+// Initialize Sentry early (before other imports that might throw)
+initSentry({ serviceName: 'server' });
 
 // Import env validation (will exit if validation fails)
 import { env } from "./env";
@@ -87,10 +91,13 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 // Handle unhandled promise rejections
 process.on("unhandledRejection", (reason, promise) => {
     console.error("❌ Unhandled Rejection at:", promise, "reason:", reason);
+    captureException(reason instanceof Error ? reason : new Error(String(reason)));
 });
 
 // Handle uncaught exceptions
 process.on("uncaughtException", (error) => {
     console.error("❌ Uncaught Exception:", error);
+    captureException(error);
     process.exit(1);
 });
+
