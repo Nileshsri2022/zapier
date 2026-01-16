@@ -12,8 +12,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@repo/redis": "*",
-    "@repo/typescript-config": "*",
+    "@repo/redis": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
     "dotenv": "^16.4.5",
     "handlebars": "^4.7.8",
     "lodash": "^4.17.21",
