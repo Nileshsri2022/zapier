@@ -16,6 +16,7 @@
     "express": "^4.21.1",
     "@repo/db": "*",
     "@repo/email": "*",
+    "@repo/redis": "*",
     "@repo/typescript-config": "*",
     "@repo/kafka": "*",
     "@swc/cli": "^0.7.9",
