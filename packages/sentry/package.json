@@ -1,0 +1,24 @@
+{
+    "name": "@repo/sentry",
+    "version": "1.0.0",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "dev": "tsc --watch"
+    },
+    "dependencies": {
+        "@sentry/node": "^8.0.0",
+        "@sentry/profiling-node": "^8.0.0"
+    },
+    "devDependencies": {
+        "@repo/typescript-config": "*",
+        "typescript": "^5"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        }
+    }
+}
