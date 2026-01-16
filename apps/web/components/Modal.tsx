@@ -459,8 +459,7 @@ const GoogleSheetsMetaData = ({ handleClick, selectedType }: {
                 </div>
                 <Button
                     variant='secondary'
-                    onClick={handleConnectGoogle}
-                    disabled={connecting}
+                    onClick={connecting ? () => { } : handleConnectGoogle}
                 >
                     {connecting ? 'Connecting...' : '🔗 Connect Google Account'}
                 </Button>
