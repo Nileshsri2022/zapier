@@ -413,6 +413,9 @@ const GoogleSheetsMetaData = ({ handleClick, selectedType }: {
                 return;
             }
 
+            // Store in localStorage that we need to return to Zap creation
+            localStorage.setItem("sheets_oauth_pending", "true");
+
             // Get OAuth URL from server
             const response = await axios.get(`${API_URL}/api/sheets/auth/initiate`, {
                 headers: { Authorization: token }

@@ -4,7 +4,7 @@ import Button from './Button';
 import ZapCell from './ZapCell';
 import { TSelectedAction, TSelectedTrigger } from '@repo/types';
 import axios from 'axios';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-toastify';
 import Spinner from './Spinner';
 import Modal from './Modal';
@@ -20,10 +20,26 @@ const PublishZap = ({ zapId }: {
     zapId?: String
 }) => {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [loading, setLoading] = useState<boolean>();
     const [selectedTrigger, setSelectedTrigger] = useState<TSelectedTrigger>();
     const [selectedActions, setSelectedActions] = useState<TSelectedAction[]>([emptyAction]);
     const [modalVisibilityFor, setModalVisibilityFor] = useState<number>(0);
+    const [sheetsConnected, setSheetsConnected] = useState<boolean>(false);
+
+    // Check if sheets were just connected
+    useEffect(() => {
+        const sheetsStatus = searchParams.get("sheets");
+        if (sheetsStatus === 'connected') {
+            setSheetsConnected(true);
+            toast.success('✅ Google Sheets connected! Now select Google Sheets trigger.');
+            // Clean up URL after 100ms to prevent flicker
+            setTimeout(() => router.replace('/editor'), 100);
+        } else if (sheetsStatus === 'error') {
+            toast.error('❌ Failed to connect Google Sheets. Please try again.');
+            setTimeout(() => router.replace('/editor'), 100);
+        }
+    }, [searchParams, router]);
 
     useEffect(() => {
         if (zapId !== "") {
@@ -132,7 +148,14 @@ const PublishZap = ({ zapId }: {
                 </Button>
             </div>
             <div className='mt-32 flex flex-col items-center gap-4'>
-                <ZapCell index={1} name={selectedTrigger ? selectedTrigger.triggerType : "Trigger"} onClick={() => handleCellClick(1)} />
+                <div className='relative'>
+                    <ZapCell index={1} name={selectedTrigger ? selectedTrigger.triggerType : "Trigger"} onClick={() => handleCellClick(1)} />
+                    {sheetsConnected && (
+                        <div className='absolute -top-2 -right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse'>
+                            ✓ Connected
+                        </div>
+                    )}
+                </div>
                 {selectedActions?.map((action, index) => <div key={index}><ZapCell index={index + 2} name={action.actionType ? action.actionType : "Action"} onClick={() => handleCellClick(index + 2)} handleDelete={handleActionDelete} /></div>)}
             </div>
             <div className='mt-8 flex justify-center'>

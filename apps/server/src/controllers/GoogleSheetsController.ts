@@ -126,13 +126,13 @@ export const handleCallback = async (req: Request, res: Response): Promise<any> 
             });
         }
 
-        // Redirect to frontend with success
+        // Redirect to frontend - Editor page with success flag
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        return res.redirect(`${frontendUrl}/dashboard?sheets=connected`);
+        return res.redirect(`${frontendUrl}/editor?sheets=connected`);
     } catch (error) {
         console.error('❌ OAuth callback error:', error);
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        return res.redirect(`${frontendUrl}/dashboard?sheets=error`);
+        return res.redirect(`${frontendUrl}/editor?sheets=error`);
     }
 };
 
