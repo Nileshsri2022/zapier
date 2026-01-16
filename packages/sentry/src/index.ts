@@ -30,14 +30,8 @@ export function initSentry(config: SentryConfig): void {
         dsn,
         environment: config.environment || process.env.NODE_ENV || 'development',
         release: config.release || process.env.RELEASE_VERSION,
-        tracesSampleRate: config.sampleRate || 0.1, // 10% of transactions
-        profilesSampleRate: 0.1,
-        integrations: [
-            Sentry.httpIntegration(),
-            Sentry.expressIntegration(),
-        ],
+        tracesSampleRate: config.sampleRate || 0.1,
         beforeSend(event) {
-            // Add service name to all events
             event.tags = {
                 ...event.tags,
                 service: config.serviceName,
@@ -53,7 +47,7 @@ export function initSentry(config: SentryConfig): void {
 /**
  * Capture an exception
  */
-export function captureException(error: Error, context?: Record<string, any>): string {
+export function captureException(error: Error, context?: Record<string, unknown>): string {
     if (!isInitialized) {
         console.error('Sentry not initialized:', error.message);
         return '';
@@ -99,21 +93,19 @@ export function addBreadcrumb(breadcrumb: {
     category: string;
     message: string;
     level?: 'debug' | 'info' | 'warning' | 'error';
-    data?: Record<string, any>;
+    data?: Record<string, unknown>;
 }): void {
     if (!isInitialized) return;
     Sentry.addBreadcrumb(breadcrumb);
 }
 
 /**
- * Express error handler middleware
+ * Setup Express error handler (call this AFTER all routes)
  */
-export const sentryErrorHandler = Sentry.expressErrorMiddleware();
-
-/**
- * Express request handler middleware
- */
-export const sentryRequestHandler = Sentry.expressMiddleware();
+export function setupExpressErrorHandler(app: { use: Function }): void {
+    if (!isInitialized) return;
+    Sentry.setupExpressErrorHandler(app);
+}
 
 // Re-export Sentry for advanced usage
 export { Sentry };
