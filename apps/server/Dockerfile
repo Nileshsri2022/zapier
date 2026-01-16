@@ -15,6 +15,7 @@ COPY apps/server/package.json ./apps/server/
 COPY packages/db/package.json ./packages/db/
 COPY packages/email/package.json ./packages/email/
 COPY packages/redis/package.json ./packages/redis/
+COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/types/package.json ./packages/types/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 
@@ -36,6 +37,9 @@ WORKDIR /app/packages/email
 RUN bun run build
 
 WORKDIR /app/packages/redis
+RUN bun run build
+
+WORKDIR /app/packages/sentry
 RUN bun run build
 
 # Build server service
@@ -72,6 +76,11 @@ RUN rm -rf ./node_modules/@repo/redis 2>/dev/null || true
 RUN mkdir -p ./node_modules/@repo/redis
 COPY --from=builder /app/packages/redis/dist ./node_modules/@repo/redis/dist
 COPY --from=builder /app/packages/redis/package.json ./node_modules/@repo/redis/package.json
+
+RUN rm -rf ./node_modules/@repo/sentry 2>/dev/null || true
+RUN mkdir -p ./node_modules/@repo/sentry
+COPY --from=builder /app/packages/sentry/dist ./node_modules/@repo/sentry/dist
+COPY --from=builder /app/packages/sentry/package.json ./node_modules/@repo/sentry/package.json
 
 RUN rm -rf ./node_modules/@repo/db 2>/dev/null || true
 RUN mkdir -p ./node_modules/@repo/db
