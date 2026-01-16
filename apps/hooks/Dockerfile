@@ -17,6 +17,7 @@ COPY apps/hooks/package.json ./apps/hooks/
 COPY packages/db/package.json ./packages/db/
 COPY packages/email/package.json ./packages/email/
 COPY packages/kafka/package.json ./packages/kafka/
+COPY packages/redis/package.json ./packages/redis/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
 
 # 4️⃣ Install dependencies in a separate layer (cached)
@@ -41,6 +42,10 @@ RUN bun run build
 
 # Kafka package
 WORKDIR /app/packages/kafka
+RUN bun run build
+
+# Redis package
+WORKDIR /app/packages/redis
 RUN bun run build
 
 # -------------------------------
@@ -96,6 +101,12 @@ RUN rm -rf ./node_modules/@repo/email 2>/dev/null || true
 RUN mkdir -p ./node_modules/@repo/email
 COPY --from=builder /app/packages/email/dist ./node_modules/@repo/email/dist
 COPY --from=builder /app/packages/email/package.json ./node_modules/@repo/email/package.json
+
+# Redis package
+RUN rm -rf ./node_modules/@repo/redis 2>/dev/null || true
+RUN mkdir -p ./node_modules/@repo/redis
+COPY --from=builder /app/packages/redis/dist ./node_modules/@repo/redis/dist
+COPY --from=builder /app/packages/redis/package.json ./node_modules/@repo/redis/package.json
 
 # DB package
 RUN rm -rf ./node_modules/@repo/db 2>/dev/null || true
