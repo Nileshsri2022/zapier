@@ -21,6 +21,8 @@
         ],
         "@typescript-eslint/no-explicit-any": "warn",
         "@typescript-eslint/ban-ts-comment": "off",
+        "@typescript-eslint/no-var-requires": "off",
+        "@typescript-eslint/ban-types": "warn",
         "no-console": "off",
         "prefer-const": "warn"
     },
@@ -28,11 +30,23 @@
         "node_modules/",
         "dist/",
         ".turbo/",
+        ".next/",
         "*.config.js",
         "*.config.ts"
     ],
     "env": {
         "node": true,
-        "es2022": true
-    }
+        "es2022": true,
+        "browser": true
+    },
+    "overrides": [
+        {
+            "files": [
+                "*.tsx"
+            ],
+            "rules": {
+                "react-hooks/exhaustive-deps": "off"
+            }
+        }
+    ]
 }
