@@ -369,18 +369,125 @@ const GoogleSheetsMetaData = ({ handleClick, selectedType }: {
 }) => {
     const [formData, setFormData] = useState({
         spreadsheetId: "",
-        sheetName: "Sheet1"
+        sheetName: "Sheet1",
+        serverId: ""
     });
+    const [servers, setServers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [connecting, setConnecting] = useState(false);
+
+    // Check for connected Google accounts on mount
+    useEffect(() => {
+        const fetchServers = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                if (!token) return;
+
+                const response = await axios.get(`${API_URL}/api/sheets/servers`, {
+                    headers: { Authorization: token }
+                });
+
+                const connectedServers = response?.data?.servers || [];
+                setServers(connectedServers);
+
+                // Auto-select first server if available
+                if (connectedServers.length > 0) {
+                    setFormData(prev => ({ ...prev, serverId: connectedServers[0].id }));
+                }
+            } catch (error) {
+                console.error("Failed to fetch Google Sheets servers:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchServers();
+    }, []);
+
+    const handleConnectGoogle = async () => {
+        try {
+            setConnecting(true);
+            const token = localStorage.getItem("token");
+            if (!token) {
+                toast.error("Please log in first");
+                return;
+            }
+
+            // Get OAuth URL from server
+            const response = await axios.get(`${API_URL}/api/sheets/auth/initiate`, {
+                headers: { Authorization: token }
+            });
+
+            // Redirect to Google OAuth
+            if (response?.data?.authUrl) {
+                window.location.href = response.data.authUrl;
+            } else {
+                toast.error("Failed to get OAuth URL");
+            }
+        } catch (error: any) {
+            console.error("OAuth error:", error);
+            toast.error(error?.response?.data?.error || "Failed to connect Google");
+        } finally {
+            setConnecting(false);
+        }
+    };
 
     const handleFormDataChange = (e: any) => {
         setFormData({
             ...formData,
             [e.target.name]: e.target.value
-        })
+        });
+    };
+
+    if (loading) {
+        return (
+            <div className='my-4 flex flex-col gap-4 text-secondary-500'>
+                <p className='text-sm'>Loading...</p>
+            </div>
+        );
     }
 
+    // No connected accounts - show Connect button
+    if (servers.length === 0) {
+        return (
+            <div className='my-4 flex flex-col gap-4 text-secondary-500'>
+                <div className='bg-yellow-50 border border-yellow-200 rounded p-4 text-sm text-yellow-700'>
+                    <p className='font-medium'>📊 Connect Google Sheets</p>
+                    <p className='mt-1 text-xs'>
+                        You need to connect your Google account to use Google Sheets triggers.
+                    </p>
+                </div>
+                <Button
+                    variant='secondary'
+                    onClick={handleConnectGoogle}
+                    disabled={connecting}
+                >
+                    {connecting ? 'Connecting...' : '🔗 Connect Google Account'}
+                </Button>
+            </div>
+        );
+    }
+
+    // Has connected accounts - show form
     return (
         <div className='my-4 flex flex-col gap-4 text-secondary-500'>
+            {servers.length > 1 && (
+                <div>
+                    <label className='block text-sm font-medium mb-1'>Google Account</label>
+                    <select
+                        name='serverId'
+                        value={formData.serverId}
+                        onChange={handleFormDataChange}
+                        className='w-full p-2 border rounded text-sm'
+                    >
+                        {servers.map((server: any) => (
+                            <option key={server.id} value={server.id}>
+                                {server.email}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
             <FormInput
                 label='Spreadsheet ID'
                 name='spreadsheetId'
