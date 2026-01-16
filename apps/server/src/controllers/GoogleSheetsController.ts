@@ -166,7 +166,7 @@ export const deleteServer = async (req: Request, res: Response): Promise<any> =>
     try {
         // @ts-ignore
         const userId = req.id;
-        const { serverId } = req.params;
+        const serverId = req.params.serverId as string;
 
         // Verify ownership
         const server = await client.googleSheetsServer.findFirst({

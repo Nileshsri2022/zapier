@@ -158,7 +158,7 @@ export const updateTrigger = async (req: Request, res: Response): Promise<any> =
     try {
         // @ts-ignore
         const userId = req.id;
-        const { triggerId } = req.params;
+        const triggerId = req.params.triggerId as string;
         const { spreadsheetId, sheetName, isActive } = req.body;
 
         if (!triggerId) {
@@ -217,7 +217,7 @@ export const deleteTrigger = async (req: Request, res: Response): Promise<any> =
     try {
         // @ts-ignore
         const userId = req.id;
-        const { triggerId } = req.params;
+        const triggerId = req.params.triggerId as string;
 
         if (!triggerId) {
             return res.status(400).json({ message: 'Trigger ID is required' });
