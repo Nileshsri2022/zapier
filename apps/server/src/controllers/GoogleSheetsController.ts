@@ -17,6 +17,19 @@ export const initiateAuth = async (req: Request, res: Response): Promise<any> =>
         // @ts-ignore
         const userId = req.id;
 
+        // Validate required environment variables
+        if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_REDIRECT_URI) {
+            console.error('❌ Missing Google OAuth env vars:', {
+                hasClientId: !!process.env.GOOGLE_CLIENT_ID,
+                hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+                hasRedirectUri: !!process.env.GOOGLE_REDIRECT_URI,
+            });
+            return res.status(500).json({
+                message: 'Google OAuth is not configured. Please contact the administrator.',
+                error: 'Missing required environment variables',
+            });
+        }
+
         const oauth2Client = new google.auth.OAuth2(
             process.env.GOOGLE_CLIENT_ID,
             process.env.GOOGLE_CLIENT_SECRET,
@@ -30,6 +43,8 @@ export const initiateAuth = async (req: Request, res: Response): Promise<any> =>
             prompt: 'consent', // Force consent to get refresh token
             state: JSON.stringify({ userId }),
         });
+
+        console.log('✅ Generated OAuth URL for user:', userId);
 
         return res.status(200).json({
             message: 'OAuth URL generated',

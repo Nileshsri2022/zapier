@@ -24,8 +24,8 @@ export const initiateGmailAuth = async (req: Request, res: Response): Promise<an
 
     // Generate OAuth URL
     const oauth2Client = new google.auth.OAuth2(
-      process.env.GMAIL_CLIENT_ID,
-      process.env.GMAIL_CLIENT_SECRET,
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
       `${process.env.FRONTEND_URL}/auth/gmail/callback`
     );
 
@@ -61,8 +61,8 @@ export const handleGmailCallback = async (req: Request, res: Response): Promise<
     const { userId, name } = JSON.parse(state as string);
 
     const oauth2Client = new google.auth.OAuth2(
-      process.env.GMAIL_CLIENT_ID,
-      process.env.GMAIL_CLIENT_SECRET,
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
       `${process.env.FRONTEND_URL}/auth/gmail/callback`
     );
 
@@ -78,8 +78,8 @@ export const handleGmailCallback = async (req: Request, res: Response): Promise<
     const gmailServer = await client.gmailServer.create({
       data: {
         name,
-        clientId: process.env.GMAIL_CLIENT_ID!,
-        clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+        clientId: process.env.GOOGLE_CLIENT_ID!,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         refreshToken: tokens.refresh_token!,
         accessToken: tokens.access_token!,
         tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
@@ -90,8 +90,8 @@ export const handleGmailCallback = async (req: Request, res: Response): Promise<
 
     // Set up email watching
     const gmailService = new GmailService({
-      clientId: process.env.GMAIL_CLIENT_ID!,
-      clientSecret: process.env.GMAIL_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       refreshToken: tokens.refresh_token!,
       accessToken: tokens.access_token!,
       tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
