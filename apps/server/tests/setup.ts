@@ -90,6 +90,23 @@ jest.mock('@repo/db', () => ({
       update: jest.fn(),
       delete: jest.fn(),
     },
+    googleSheetsServer: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      upsert: jest.fn(),
+    },
+    googleSheetsTrigger: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
     $transaction: jest.fn((callback: any) => callback({
       user: {
         findUnique: jest.fn(),
