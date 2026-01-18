@@ -6,6 +6,7 @@ import { ActionsRouter } from "./ActionsRouter";
 import GmailRouter from "./GmailRoutes";
 import GitHubRouter from "./GitHubRoutes";
 import GoogleSheetsRouter from "./GoogleSheetsRoutes";
+import WhatsAppRouter from "./WhatsAppRoutes";
 
 const router = express.Router();
 
@@ -16,6 +17,7 @@ router.use("/actions", ActionsRouter);
 router.use("/gmail", GmailRouter);
 router.use("/github", GitHubRouter);
 router.use("/sheets", GoogleSheetsRouter);
+router.use("/whatsapp", WhatsAppRouter);
 
 export default router;
 
