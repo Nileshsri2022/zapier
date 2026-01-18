@@ -6,6 +6,14 @@
   box-sizing: border-box;
   padding: 0;
   margin: 0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Ensure body never overflows */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 .canvas {
@@ -31,4 +39,48 @@
 /* Handle on hover */
 ::-webkit-scrollbar-thumb:hover {
   background: #555; 
+}
+
+/* ===== EXTRA SMALL DEVICE SUPPORT (320px+) ===== */
+
+/* Minimum touch target size */
+button, input, select, textarea {
+  min-height: 44px;
+}
+
+/* Readable text on tiny screens */
+@media (max-width: 374px) {
+  html {
+    font-size: 14px;
+  }
+  
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+  h3 { font-size: 1.1rem; }
+  
+  /* Tighter padding on tiny screens */
+  .container, main, section {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+}
+
+/* Safe area for notched/pill phones */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  nav.fixed {
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+    padding-right: max(0.5rem, env(safe-area-inset-right));
+  }
+}
+
+/* Hide scrollbars on mobile */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  body { scrollbar-width: none; }
 }
