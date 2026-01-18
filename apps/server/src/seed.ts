@@ -52,6 +52,10 @@ async function seedDatabase() {
                 {
                     type: "Google Sheets Updated Row",
                     image: "https://img.icons8.com/color/48/google-sheets.png"
+                },
+                {
+                    type: "WhatsApp Message Received",
+                    image: "https://img.icons8.com/color/48/whatsapp.png"
                 }
             ],
             skipDuplicates: true
@@ -91,6 +95,10 @@ async function seedDatabase() {
                 {
                     type: "Gmail Archive",
                     image: "https://img.icons8.com/ios-filled/50/email.png"
+                },
+                {
+                    type: "WhatsApp Send Message",
+                    image: "https://img.icons8.com/color/48/whatsapp.png"
                 }
             ],
             skipDuplicates: true

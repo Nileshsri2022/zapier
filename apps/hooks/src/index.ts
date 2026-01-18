@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import client from "@repo/db";
 import { sendEmailWithTextBody } from "@repo/email";
 import dotenv from "dotenv";
+import { verifyWhatsAppWebhook, handleWhatsAppWebhook } from "./whatsappHandler";
 
 dotenv.config();
 
@@ -210,6 +211,12 @@ app.post("/hooks/:userId/:zapId", async (req: Request, res: Response) => {
         });
     }
 });
+
+// ============================================
+// WhatsApp Webhook Routes
+// ============================================
+app.get("/api/webhooks/whatsapp", verifyWhatsAppWebhook);
+app.post("/api/webhooks/whatsapp", handleWhatsAppWebhook);
 
 // JSON parsing error handler (must be after routes)
 app.use((err: any, req: any, res: any, next: any) => {

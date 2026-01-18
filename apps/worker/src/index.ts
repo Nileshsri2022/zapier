@@ -88,6 +88,29 @@ async function executeActionWithRetry(
             return { success: true, message: `${resolvedAmount} SOL sent to ${resolvedAddress}` };
         }
 
+        if (actionType === "WhatsApp") {
+            const { to, message, phoneNumberId, accessToken } = metadata;
+            const resolvedTo = replaceKeys(to, zapRunMetadata);
+            const resolvedMessage = replaceKeys(message, zapRunMetadata);
+
+            // Dynamic imports for sendWhatsApp
+            const { sendWhatsAppMessage } = await import("./sendWhatsApp");
+
+            const result = await sendWhatsAppMessage(
+                phoneNumberId,
+                accessToken,
+                resolvedTo,
+                resolvedMessage
+            );
+
+            if (!result.success) {
+                throw new Error(`WhatsApp send failed: ${result.error}`);
+            }
+
+            console.log(`✅ WhatsApp message sent to ${resolvedTo}`);
+            return { success: true, message: `WhatsApp sent to ${resolvedTo}` };
+        }
+
         return { success: true, message: `Unknown action: ${actionType}` };
     }, { maxRetries: 3, initialDelayMs: 1000 });
 }

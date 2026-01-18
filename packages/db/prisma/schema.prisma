@@ -22,6 +22,7 @@ model User {
   zaps     Zap[]
   gmailServers GmailServer[]
   googleSheetsServers GoogleSheetsServer[]
+  whatsAppServers WhatsAppServer[]
 }
 
 model Zap {
@@ -42,6 +43,9 @@ model Zap {
 
   // Google Sheets relations
   googleSheetsTriggers GoogleSheetsTrigger[]
+
+  // WhatsApp relations
+  whatsAppTriggers WhatsAppTrigger[]
 
   // Indexes for faster queries
   @@index([userId])
@@ -216,3 +220,45 @@ model GoogleSheetsTrigger {
   @@index([lastPolledAt])
   @@index([serverId])
 }
+
+// ============================================
+// WhatsApp Cloud API Integration
+// ============================================
+
+model WhatsAppServer {
+  id              String   @id @default(uuid())
+  userId          Int
+  phoneNumberId   String   @unique // Meta Phone Number ID
+  accessToken     String   // Permanent access token (encrypted in prod)
+  businessId      String   // WhatsApp Business Account ID
+  displayName     String?  // Display name for the account
+  phoneNumber     String?  // Actual phone number (for display)
+  webhookVerified Boolean  @default(false)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id])
+  triggers        WhatsAppTrigger[]
+
+  @@index([userId])
+  @@index([phoneNumberId])
+  @@index([isActive])
+}
+
+model WhatsAppTrigger {
+  id              String   @id @default(uuid())
+  serverId        String
+  server          WhatsAppServer @relation(fields: [serverId], references: [id])
+  zapId           String   @unique
+  zap             Zap      @relation(fields: [zapId], references: [id])
+  eventType       String   @default("message_received") // message_received, message_delivered, etc.
+  lastProcessedAt DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([serverId])
+  @@index([isActive])
+  @@index([zapId])
+}
+
