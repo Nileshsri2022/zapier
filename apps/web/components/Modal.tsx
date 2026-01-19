@@ -488,9 +488,11 @@ const Modal = ({
                 >
                   {connectedServers.map((server) => (
                     <option key={server.id} value={server.id}>
-                      {server.email || server.botUsername
-                        ? `@${server.botUsername}`
-                        : server.botName || server.displayName || server.name}
+                      {server.email
+                        ? server.email
+                        : server.botUsername
+                          ? `@${server.botUsername}`
+                          : server.botName || server.displayName || server.name || 'Account'}
                     </option>
                   ))}
                 </select>
