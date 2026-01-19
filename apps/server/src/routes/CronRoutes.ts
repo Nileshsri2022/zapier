@@ -124,7 +124,7 @@ function calculateNextRun(schedule: any): Date {
             next.setMilliseconds(0);
             break;
 
-        case 'weekly':
+        case 'weekly': {
             // Run on specified day of week at specified time
             const currentDay = now.getDay();
             const targetDay = schedule.dayOfWeek ?? 0;
@@ -137,6 +137,7 @@ function calculateNextRun(schedule: any): Date {
             next.setSeconds(0);
             next.setMilliseconds(0);
             break;
+        }
 
         case 'monthly':
             // Run on specified day of month at specified time

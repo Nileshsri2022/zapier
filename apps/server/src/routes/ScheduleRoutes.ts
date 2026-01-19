@@ -197,7 +197,7 @@ function calculateInitialNextRun(
             next.setMinutes(minute || 0);
             break;
 
-        case 'daily':
+        case 'daily': {
             // If current time is past the target, schedule for tomorrow
             const targetTimeToday = new Date(now);
             targetTimeToday.setHours(hour || 0, minute || 0, 0, 0);
@@ -208,8 +208,9 @@ function calculateInitialNextRun(
             next.setHours(hour || 0);
             next.setMinutes(minute || 0);
             break;
+        }
 
-        case 'weekly':
+        case 'weekly': {
             const currentDay = now.getDay();
             const targetDay = dayOfWeek ?? 0;
             let daysUntil = (7 + targetDay - currentDay) % 7;
@@ -227,8 +228,9 @@ function calculateInitialNextRun(
             next.setHours(hour || 0);
             next.setMinutes(minute || 0);
             break;
+        }
 
-        case 'monthly':
+        case 'monthly': {
             const targetDate = Math.min(dayOfMonth || 1, 28);
 
             // If current date is past the target, schedule for next month
@@ -241,6 +243,7 @@ function calculateInitialNextRun(
             next.setHours(hour || 0);
             next.setMinutes(minute || 0);
             break;
+        }
 
         default:
             // Default: 1 hour from now
