@@ -33,3 +33,8 @@ export { validateBody, validateParams, validateQuery } from './validateRequest';
 
 // Error handling middleware
 export { errorHandler, asyncHandler } from './errorHandler';
+
+// Security middleware
+export { apiLimiter, authLimiter, webhookLimiter } from './rateLimiter';
+export { sanitizeInput } from './sanitize';
+export { securityHeaders, apiSecurityHeaders } from './security';
