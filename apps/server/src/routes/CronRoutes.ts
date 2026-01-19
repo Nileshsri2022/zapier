@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import client from '@repo/db';
-import kafka from '@repo/kafka';
+import axios from 'axios';
 
 const router = Router();
 
@@ -68,19 +68,20 @@ router.get('/process-schedules', async (req: Request, res: Response): Promise<an
                     }
                 });
 
-                // Send to Kafka
-                const producer = kafka.producer();
-                await producer.connect();
-                await producer.send({
-                    topic: 'zap-events',
-                    messages: [{
-                        value: JSON.stringify({
-                            zapRunId: zapRun.id,
-                            stage: 1
-                        })
-                    }]
-                });
-                await producer.disconnect();
+                // Trigger processing via hooks service webhook
+                const hooksUrl = process.env.HOOKS_URL || 'https://zapier-hooks-bqyy.onrender.com';
+                try {
+                    await axios.post(`${hooksUrl}/api/webhooks/schedule`, {
+                        zapRunId: zapRun.id,
+                        stage: 1
+                    }, {
+                        headers: { 'Content-Type': 'application/json' },
+                        timeout: 5000
+                    });
+                } catch (webhookError) {
+                    // Even if webhook fails, ZapRun is created - processor can pick it up
+                    console.log(`⚠️ Webhook notification failed, ZapRun ${zapRun.id} created`);
+                }
 
                 console.log(`✅ Schedule triggered for Zap "${schedule.zap.name}" - Next run: ${nextRunAt.toISOString()}`);
             } catch (error) {

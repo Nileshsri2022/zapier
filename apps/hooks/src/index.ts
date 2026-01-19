@@ -224,6 +224,51 @@ app.post("/api/webhooks/whatsapp", handleWhatsAppWebhook);
 // ============================================
 app.post("/api/webhooks/telegram", handleTelegramWebhook);
 
+// ============================================
+// Schedule Webhook Routes (from cron service)
+// ============================================
+app.post("/api/webhooks/schedule", async (req: Request, res: Response) => {
+    const { zapRunId } = req.body;
+
+    if (!zapRunId) {
+        return res.status(400).json({ error: 'zapRunId is required' });
+    }
+
+    console.log(`📅 Schedule webhook received for ZapRun: ${zapRunId}`);
+
+    try {
+        // Get the ZapRun with its Zap
+        const zapRun = await client.zapRun.findUnique({
+            where: { id: zapRunId },
+            include: { zap: true }
+        });
+
+        if (!zapRun) {
+            return res.status(404).json({ error: 'ZapRun not found' });
+        }
+
+        // Process immediately
+        const triggerPayload = (zapRun.metadata as Record<string, any>) || {};
+
+        processZapImmediately(zapRun.zapId, triggerPayload)
+            .then(result => {
+                console.log(`📊 Schedule Zap result:`, result);
+            })
+            .catch(error => {
+                console.error(`❌ Schedule processing error:`, error);
+            });
+
+        res.status(200).json({
+            success: true,
+            message: 'Schedule processing started',
+            zapRunId
+        });
+    } catch (error: any) {
+        console.error('Schedule webhook error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // JSON parsing error handler (must be after routes)
 app.use((err: any, req: any, res: any, next: any) => {
     if (err instanceof SyntaxError && 'body' in err) {
