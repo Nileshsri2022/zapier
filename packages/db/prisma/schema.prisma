@@ -51,6 +51,9 @@ model Zap {
   // Telegram relations
   telegramTriggers TelegramTrigger[]
 
+  // Schedule trigger
+  scheduledTrigger ScheduledTrigger?
+
   // Indexes for faster queries
   @@index([userId])
   @@index([isActive])
@@ -303,4 +306,24 @@ model TelegramTrigger {
   @@index([botId])
   @@index([isActive])
   @@index([zapId])
+}
+
+model ScheduledTrigger {
+  id           String    @id @default(uuid())
+  zapId        String    @unique
+  zap          Zap       @relation(fields: [zapId], references: [id], onDelete: Cascade)
+  scheduleType String // "hourly" | "daily" | "weekly" | "monthly"
+  hour         Int? // 0-23 for daily/weekly/monthly
+  minute       Int       @default(0) // 0-59
+  dayOfWeek    Int? // 0-6 (Sunday=0) for weekly
+  dayOfMonth   Int? // 1-31 for monthly
+  timezone     String    @default("UTC")
+  lastRunAt    DateTime?
+  nextRunAt    DateTime?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([nextRunAt])
 }

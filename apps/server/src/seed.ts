@@ -60,6 +60,22 @@ async function seedDatabase() {
                 {
                     type: "Telegram New Message",
                     image: "https://img.icons8.com/color/48/telegram-app.png"
+                },
+                {
+                    type: "Schedule Every Hour",
+                    image: "https://img.icons8.com/ios-filled/50/schedule.png"
+                },
+                {
+                    type: "Schedule Every Day",
+                    image: "https://img.icons8.com/ios-filled/50/schedule.png"
+                },
+                {
+                    type: "Schedule Every Week",
+                    image: "https://img.icons8.com/ios-filled/50/schedule.png"
+                },
+                {
+                    type: "Schedule Every Month",
+                    image: "https://img.icons8.com/ios-filled/50/schedule.png"
                 }
             ],
             skipDuplicates: true

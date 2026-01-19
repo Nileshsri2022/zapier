@@ -8,6 +8,8 @@ import GitHubRouter from "./GitHubRoutes";
 import GoogleSheetsRouter from "./GoogleSheetsRoutes";
 import WhatsAppRouter from "./WhatsAppRoutes";
 import TelegramRouter from "./TelegramRoutes";
+import CronRouter from "./CronRoutes";
+import ScheduleRouter from "./ScheduleRoutes";
 
 const router = express.Router();
 
@@ -20,6 +22,8 @@ router.use("/github", GitHubRouter);
 router.use("/sheets", GoogleSheetsRouter);
 router.use("/whatsapp", WhatsAppRouter);
 router.use("/telegram", TelegramRouter);
+router.use("/cron", CronRouter);
+router.use("/schedule", ScheduleRouter);
 
 export default router;
 
