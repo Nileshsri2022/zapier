@@ -1,25 +1,13 @@
 import { Request, Response } from 'express';
-import { google, calendar_v3 } from 'googleapis';
+import { google } from 'googleapis';
 import client from '@repo/db';
+import { GoogleOAuthService, CALENDAR_SCOPES } from '../services';
 
-// OAuth2 scopes needed for Google Calendar
-const SCOPES = [
-  'https://www.googleapis.com/auth/calendar.readonly', // Read calendar data
-  'https://www.googleapis.com/auth/calendar.events', // Read/write events
-  'https://www.googleapis.com/auth/userinfo.email', // Get user email
-];
-
-/**
- * Create OAuth2 client with environment credentials
- */
-function createOAuth2Client() {
-  return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_CALENDAR_REDIRECT_URI ||
-      process.env.GOOGLE_REDIRECT_URI?.replace('sheets', 'calendar')
-  );
-}
+// Get redirect URI from environment
+const getRedirectUri = () =>
+  process.env.GOOGLE_CALENDAR_REDIRECT_URI ||
+  process.env.GOOGLE_REDIRECT_URI?.replace('sheets', 'calendar') ||
+  '';
 
 /**
  * Initiate Google Calendar OAuth flow
@@ -29,24 +17,12 @@ export const initiateAuth = async (req: Request, res: Response): Promise<any> =>
     // @ts-ignore
     const userId = req.id;
 
-    // Validate required environment variables
-    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-      console.error('❌ Missing Google OAuth env vars');
-      return res.status(500).json({
-        message: 'Google OAuth is not configured. Please contact the administrator.',
-        error: 'Missing required environment variables',
-      });
-    }
-
-    const oauth2Client = createOAuth2Client();
-
-    // Generate auth URL with state containing user ID and service type
-    const authUrl = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      scope: SCOPES,
-      prompt: 'consent', // Force consent to get refresh token
-      state: JSON.stringify({ userId, service: 'google-calendar' }),
-    });
+    const authUrl = GoogleOAuthService.generateAuthUrl(
+      getRedirectUri(),
+      CALENDAR_SCOPES,
+      userId,
+      'google-calendar'
+    );
 
     console.log('📅 Generated Calendar OAuth URL for user:', userId);
 
@@ -74,25 +50,15 @@ export const handleCallback = async (req: Request, res: Response): Promise<any> 
       return res.status(400).json({ message: 'Authorization code is required' });
     }
 
-    // Parse state to get user ID
-    let userId: number;
-    try {
-      const stateData = JSON.parse(state as string);
-      userId = parseInt(stateData.userId);
-    } catch {
-      return res.status(400).json({ message: 'Invalid state parameter' });
-    }
+    // Parse state to get user ID using shared service
+    const { userId } = GoogleOAuthService.parseState(state as string);
+    const redirectUri = getRedirectUri();
 
-    const oauth2Client = createOAuth2Client();
+    // Exchange code for tokens using shared service
+    const tokens = await GoogleOAuthService.exchangeCodeForTokens(code, redirectUri);
 
-    // Exchange code for tokens
-    const { tokens } = await oauth2Client.getToken(code);
-    oauth2Client.setCredentials(tokens);
-
-    // Get user info to get email
-    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
-    const userInfo = await oauth2.userinfo.get();
-    const email = userInfo.data.email || 'Unknown';
+    // Get user email using shared service
+    const email = await GoogleOAuthService.getUserEmail(tokens.access_token || '', redirectUri);
 
     // Check if server already exists for this user and email
     const existingServer = await client.googleCalendarServer.findFirst({
@@ -244,12 +210,14 @@ export const listCalendars = async (req: Request, res: Response): Promise<any> =
       return res.status(404).json({ message: 'Server not found' });
     }
 
-    const oauth2Client = createOAuth2Client();
-    oauth2Client.setCredentials({
-      refresh_token: server.refreshToken,
-      access_token: server.accessToken,
-      expiry_date: server.tokenExpiry?.getTime(),
-    });
+    const oauth2Client = GoogleOAuthService.createAuthenticatedClient(
+      {
+        refreshToken: server.refreshToken,
+        accessToken: server.accessToken,
+        tokenExpiry: server.tokenExpiry,
+      },
+      getRedirectUri()
+    );
 
     // Refresh token if needed
     const now = Date.now();
@@ -317,12 +285,14 @@ export const getEvents = async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ message: 'Server not found' });
     }
 
-    const oauth2Client = createOAuth2Client();
-    oauth2Client.setCredentials({
-      refresh_token: server.refreshToken,
-      access_token: server.accessToken,
-      expiry_date: server.tokenExpiry?.getTime(),
-    });
+    const oauth2Client = GoogleOAuthService.createAuthenticatedClient(
+      {
+        refreshToken: server.refreshToken,
+        accessToken: server.accessToken,
+        tokenExpiry: server.tokenExpiry,
+      },
+      getRedirectUri()
+    );
 
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
     const response = await calendar.events.list({

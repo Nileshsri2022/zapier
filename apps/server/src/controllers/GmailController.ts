@@ -2,13 +2,10 @@ import { Request, Response } from 'express';
 import { google } from 'googleapis';
 import client from '@repo/db';
 import { GmailService } from '../services/GmailService';
+import { GoogleOAuthService, GMAIL_SCOPES } from '../services';
 
-const SCOPES = [
-  'https://www.googleapis.com/auth/gmail.readonly',
-  'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/gmail.modify',
-  'https://www.googleapis.com/auth/gmail.compose',
-];
+// Get redirect URI for Gmail OAuth
+const getRedirectUri = () => `${process.env.FRONTEND_URL}/auth/gmail/callback`;
 
 export const initiateGmailAuth = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -22,22 +19,23 @@ export const initiateGmailAuth = async (req: Request, res: Response): Promise<an
       });
     }
 
-    // Generate OAuth URL
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.FRONTEND_URL}/auth/gmail/callback`
+    // Generate OAuth URL using shared service
+    const authUrl = GoogleOAuthService.generateAuthUrl(
+      getRedirectUri(),
+      GMAIL_SCOPES,
+      userId,
+      'gmail'
     );
 
-    const authUrl = oauth2Client.generateAuthUrl({
-      access_type: 'offline',
-      scope: SCOPES,
-      state: JSON.stringify({ userId, name }),
-    });
+    // Add name to the auth URL state by modifying it
+    const url = new URL(authUrl);
+    const state = JSON.parse(url.searchParams.get('state') || '{}');
+    state.name = name;
+    url.searchParams.set('state', JSON.stringify(state));
 
     return res.status(200).json({
       message: 'Gmail OAuth initiated',
-      authUrl,
+      authUrl: url.toString(),
     });
   } catch (error) {
     console.error('Error initiating Gmail auth:', error);
@@ -58,20 +56,19 @@ export const handleGmailCallback = async (req: Request, res: Response): Promise<
       });
     }
 
-    const { userId, name } = JSON.parse(state as string);
+    const stateData = JSON.parse(state as string);
+    const { userId, name } = stateData;
+    const redirectUri = getRedirectUri();
 
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.FRONTEND_URL}/auth/gmail/callback`
-    );
+    // Exchange code for tokens using shared service
+    const tokens = await GoogleOAuthService.exchangeCodeForTokens(code as string, redirectUri);
 
-    // Exchange code for tokens
-    const { tokens } = await oauth2Client.getToken(code as string);
+    // Create authenticated client for Gmail API
+    const oauth2Client = GoogleOAuthService.createClient(redirectUri);
     oauth2Client.setCredentials(tokens);
 
     // Get user profile to verify
-    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+    const gmail = google.gmail({ version: 'v1', auth: oauth2Client as any });
     const profile = await gmail.users.getProfile({ userId: 'me' });
 
     // Save Gmail server configuration

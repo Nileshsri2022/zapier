@@ -30,3 +30,6 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
 
 // Validation middleware
 export { validateBody, validateParams, validateQuery } from './validateRequest';
+
+// Error handling middleware
+export { errorHandler, asyncHandler } from './errorHandler';
