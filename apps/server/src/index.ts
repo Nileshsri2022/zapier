@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import client from '@repo/db';
 import { initSentry, captureException, sentryErrorHandler } from '@repo/sentry';
 import { apiLimiter, sanitizeInput, apiSecurityHeaders } from './middlewares';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './swagger';
 
 // Load environment variables first
 dotenv.config();
@@ -33,6 +35,17 @@ app.use(cors(corsOptions));
 app.use(apiSecurityHeaders); // Set secure HTTP headers
 app.use(sanitizeInput); // Sanitize all inputs against XSS
 app.use('/api', apiLimiter); // Rate limit API endpoints
+
+// API Documentation
+app.use(
+  '/api-docs',
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'ZapMate API Docs',
+  })
+);
 
 // Health check endpoint for Render
 app.get('/health', async (req, res) => {
