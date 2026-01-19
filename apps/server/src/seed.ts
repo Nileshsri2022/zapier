@@ -56,6 +56,10 @@ async function seedDatabase() {
                 {
                     type: "WhatsApp Message Received",
                     image: "https://img.icons8.com/color/48/whatsapp.png"
+                },
+                {
+                    type: "Telegram New Message",
+                    image: "https://img.icons8.com/color/48/telegram-app.png"
                 }
             ],
             skipDuplicates: true
@@ -99,6 +103,10 @@ async function seedDatabase() {
                 {
                     type: "WhatsApp Send Message",
                     image: "https://img.icons8.com/color/48/whatsapp.png"
+                },
+                {
+                    type: "Telegram Send Message",
+                    image: "https://img.icons8.com/color/48/telegram-app.png"
                 }
             ],
             skipDuplicates: true

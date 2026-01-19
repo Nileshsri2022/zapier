@@ -111,6 +111,28 @@ async function executeActionWithRetry(
             return { success: true, message: `WhatsApp sent to ${resolvedTo}` };
         }
 
+        if (actionType === "Telegram") {
+            const { chatId, message, botToken } = metadata;
+            const resolvedChatId = replaceKeys(chatId, zapRunMetadata);
+            const resolvedMessage = replaceKeys(message, zapRunMetadata);
+
+            // Dynamic imports for sendTelegram
+            const { sendTelegramMessage } = await import("./sendTelegram");
+
+            const result = await sendTelegramMessage(
+                botToken,
+                resolvedChatId,
+                resolvedMessage
+            );
+
+            if (!result.success) {
+                throw new Error(`Telegram send failed: ${result.error}`);
+            }
+
+            console.log(`✅ Telegram message sent to ${resolvedChatId}`);
+            return { success: true, message: `Telegram sent to chat ${resolvedChatId}` };
+        }
+
         return { success: true, message: `Unknown action: ${actionType}` };
     }, { maxRetries: 3, initialDelayMs: 1000 });
 }

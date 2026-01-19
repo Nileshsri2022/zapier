@@ -15,14 +15,15 @@ datasource db {
 }
 
 model User {
-  id       Int    @id @default(autoincrement())
-  name     String
-  email    String @unique
-  password String
-  zaps     Zap[]
-  gmailServers GmailServer[]
+  id                  Int                  @id @default(autoincrement())
+  name                String
+  email               String               @unique
+  password            String
+  zaps                Zap[]
+  gmailServers        GmailServer[]
   googleSheetsServers GoogleSheetsServer[]
-  whatsAppServers WhatsAppServer[]
+  whatsAppServers     WhatsAppServer[]
+  telegramBots        TelegramBot[]
 }
 
 model Zap {
@@ -46,6 +47,9 @@ model Zap {
 
   // WhatsApp relations
   whatsAppTriggers WhatsAppTrigger[]
+
+  // Telegram relations
+  telegramTriggers TelegramTrigger[]
 
   // Indexes for faster queries
   @@index([userId])
@@ -72,7 +76,7 @@ model Trigger {
 model Action {
   id           String           @id @default(uuid())
   actionId     String
-  zapId        String           
+  zapId        String
   zap          Zap              @relation(fields: [zapId], references: [id])
   action       AvailableActions @relation(fields: [actionId], references: [id])
   sortingOrder Int              @default(0)
@@ -88,7 +92,7 @@ model AvailableActions {
 
 model ZapRun {
   id           String        @id @default(uuid())
-  zapId        String        
+  zapId        String
   zap          Zap           @relation(fields: [zapId], references: [id])
   zapRunOutbox ZapRunOutbox?
   metadata     Json
@@ -107,18 +111,18 @@ model ZapRunOutbox {
 
 // Gmail MCP Server Configuration
 model GmailServer {
-  id           String @id @default(uuid())
+  id           String    @id @default(uuid())
   name         String
   clientId     String // OAuth Client ID
   clientSecret String // Encrypted
   refreshToken String // Encrypted
   accessToken  String // Encrypted, expires frequently
   tokenExpiry  DateTime?
-  isActive     Boolean @default(true)
+  isActive     Boolean   @default(true)
   userId       Int
-  user         User @relation(fields: [userId], references: [id])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  user         User      @relation(fields: [userId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   // Relations
   gmailTriggers GmailTrigger[]
@@ -132,11 +136,11 @@ model GmailServer {
 
 // Gmail-specific triggers
 model GmailTrigger {
-  id        String @id @default(uuid())
-  serverId  String
-  server    GmailServer @relation(fields: [serverId], references: [id])
-  zapId     String @unique
-  zap       Zap @relation(fields: [zapId], references: [id])
+  id       String      @id @default(uuid())
+  serverId String
+  server   GmailServer @relation(fields: [serverId], references: [id])
+  zapId    String      @unique
+  zap      Zap         @relation(fields: [zapId], references: [id])
 
   // Trigger configuration
   triggerType     String // 'new_email', 'labeled', 'starred', 'moved'
@@ -152,41 +156,41 @@ model GmailTrigger {
 
 // Gmail-specific actions
 model GmailAction {
-  id       String @id @default(uuid())
+  id       String      @id @default(uuid())
   serverId String
   server   GmailServer @relation(fields: [serverId], references: [id])
   zapId    String
-  zap      Zap @relation(fields: [zapId], references: [id])
+  zap      Zap         @relation(fields: [zapId], references: [id])
 
   // Action configuration
   actionType String // 'send_email', 'reply', 'add_label', 'remove_label', 'mark_read', 'archive'
-  metadata Json // Action-specific parameters
+  metadata   Json // Action-specific parameters
 }
 
 // Gmail webhook watch history
 model GmailWatch {
-  id        String @id @default(uuid())
+  id        String      @id @default(uuid())
   serverId  String
   server    GmailServer @relation(fields: [serverId], references: [id])
   watchId   String // Gmail's watch ID
   expiry    DateTime
-  isActive  Boolean @default(true)
-  createdAt DateTime @default(now())
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
 }
 
 // Google Sheets OAuth Server Configuration
 model GoogleSheetsServer {
-  id           String @id @default(uuid())
+  id           String    @id @default(uuid())
   name         String
   email        String // Google account email
   refreshToken String // Encrypted
   accessToken  String // Encrypted
   tokenExpiry  DateTime?
-  isActive     Boolean @default(true)
+  isActive     Boolean   @default(true)
   userId       Int
-  user         User @relation(fields: [userId], references: [id])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  user         User      @relation(fields: [userId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   // Relations
   triggers GoogleSheetsTrigger[]
@@ -198,22 +202,22 @@ model GoogleSheetsServer {
 
 // Google Sheets Trigger Configuration
 model GoogleSheetsTrigger {
-  id            String @id @default(uuid())
-  serverId      String
-  server        GoogleSheetsServer @relation(fields: [serverId], references: [id])
-  zapId         String @unique
-  zap           Zap @relation(fields: [zapId], references: [id])
+  id       String             @id @default(uuid())
+  serverId String
+  server   GoogleSheetsServer @relation(fields: [serverId], references: [id])
+  zapId    String             @unique
+  zap      Zap                @relation(fields: [zapId], references: [id])
 
   // Sheet configuration
   spreadsheetId String // Google Sheets ID
   sheetName     String @default("Sheet1") // Sheet tab name
 
   // Polling state
-  lastPolledAt  DateTime?
-  isActive      Boolean @default(true)
+  lastPolledAt DateTime?
+  isActive     Boolean   @default(true)
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Indexes for polling queries
   @@index([isActive])
@@ -226,18 +230,18 @@ model GoogleSheetsTrigger {
 // ============================================
 
 model WhatsAppServer {
-  id              String   @id @default(uuid())
+  id              String            @id @default(uuid())
   userId          Int
-  phoneNumberId   String   @unique // Meta Phone Number ID
-  accessToken     String   // Permanent access token (encrypted in prod)
-  businessId      String   // WhatsApp Business Account ID
-  displayName     String?  // Display name for the account
-  phoneNumber     String?  // Actual phone number (for display)
-  webhookVerified Boolean  @default(false)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  user            User     @relation(fields: [userId], references: [id])
+  phoneNumberId   String            @unique // Meta Phone Number ID
+  accessToken     String // Permanent access token (encrypted in prod)
+  businessId      String // WhatsApp Business Account ID
+  displayName     String? // Display name for the account
+  phoneNumber     String? // Actual phone number (for display)
+  webhookVerified Boolean           @default(false)
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  user            User              @relation(fields: [userId], references: [id])
   triggers        WhatsAppTrigger[]
 
   @@index([userId])
@@ -246,19 +250,57 @@ model WhatsAppServer {
 }
 
 model WhatsAppTrigger {
-  id              String   @id @default(uuid())
+  id              String         @id @default(uuid())
   serverId        String
   server          WhatsAppServer @relation(fields: [serverId], references: [id])
-  zapId           String   @unique
-  zap             Zap      @relation(fields: [zapId], references: [id])
-  eventType       String   @default("message_received") // message_received, message_delivered, etc.
+  zapId           String         @unique
+  zap             Zap            @relation(fields: [zapId], references: [id])
+  eventType       String         @default("message_received") // message_received, message_delivered, etc.
   lastProcessedAt DateTime?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   @@index([serverId])
   @@index([isActive])
   @@index([zapId])
 }
 
+// ============================================
+// Telegram Bot Integration
+// ============================================
+
+model TelegramBot {
+  id                String            @id @default(uuid())
+  userId            Int
+  botToken          String            @unique // Bot token from BotFather
+  botUsername       String // e.g., "myzapmate_bot"
+  botName           String // Display name
+  webhookConfigured Boolean           @default(false)
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  user              User              @relation(fields: [userId], references: [id])
+  triggers          TelegramTrigger[]
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+model TelegramTrigger {
+  id              String      @id @default(uuid())
+  botId           String
+  bot             TelegramBot @relation(fields: [botId], references: [id])
+  zapId           String      @unique
+  zap             Zap         @relation(fields: [zapId], references: [id])
+  eventType       String      @default("message") // message, command, callback_query
+  filterCommand   String? // Optional: only trigger on specific command like "/start"
+  lastProcessedAt DateTime?
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([botId])
+  @@index([isActive])
+  @@index([zapId])
+}
