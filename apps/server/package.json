@@ -31,6 +31,7 @@
     "@swc/cli": "^0.7.9",
     "@swc/core": "^1.15.8",
     "@types/bcrypt": "^5.0.2",
+    "@upstash/redis": "^1.36.1",
     "axios": "^1.6.0",
     "bcrypt": "^5.1.1",
     "compression": "^1.8.1",

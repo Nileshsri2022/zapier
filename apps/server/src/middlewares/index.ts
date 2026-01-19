@@ -41,3 +41,4 @@ export { securityHeaders, apiSecurityHeaders } from './security';
 
 // Performance middleware
 export { compressionMiddleware } from './compression';
+export { cacheMiddleware, invalidateUserCache, invalidateAllCache } from './cache';
