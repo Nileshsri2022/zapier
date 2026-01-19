@@ -22,7 +22,8 @@
     "@repo/kafka": "*",
     "@swc/cli": "^0.7.9",
     "@swc/core": "^1.15.8",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "googleapis": "^140.0.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
