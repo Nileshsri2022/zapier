@@ -1,9 +1,9 @@
-"use client";
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import axios from "axios";
-import { toast } from "react-toastify";
-import { API_URL } from "@/lib/config";
+'use client';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { API_URL } from '@/lib/config';
 
 interface UserData {
   id: number;
@@ -18,19 +18,19 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem('token');
       if (!token) {
-        router.push("/login");
+        router.push('/login');
         return;
       }
 
       try {
         const response = await axios.get(`${API_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         setUser(response.data.user);
       } catch (error) {
-        toast.error("Failed to load profile");
+        toast.error('Failed to load profile');
         console.error(error);
       } finally {
         setLoading(false);
@@ -57,12 +57,12 @@ export default function ProfilePage() {
           <div className="flex items-center gap-4 mb-6">
             <div className="w-16 h-16 rounded-full bg-primary-500 flex items-center justify-center">
               <span className="text-white text-2xl font-bold">
-                {user?.name?.charAt(0)?.toUpperCase() || "U"}
+                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
               </span>
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">{user?.name || "User"}</h2>
-              <p className="text-gray-600">{user?.email || "No email"}</p>
+              <h2 className="text-xl font-semibold text-gray-900">{user?.name || 'User'}</h2>
+              <p className="text-gray-600">{user?.email || 'No email'}</p>
             </div>
           </div>
 
@@ -87,7 +87,7 @@ export default function ProfilePage() {
 
           <div className="mt-6 pt-4 border-t">
             <button
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push('/dashboard')}
               className="w-full py-2 px-4 bg-primary-500 text-white rounded-md hover:bg-primary-600 transition"
             >
               Back to Dashboard

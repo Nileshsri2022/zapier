@@ -32,12 +32,14 @@ const GmailServerConfig = () => {
       }
 
       const response = await axios.get(`${API_URL}/api/gmail/servers`, {
-        headers: { Authorization: token }
+        headers: { Authorization: token },
       });
 
       setServers(response.data.gmailServers || []);
     } catch (error: any) {
-      toast.error('Failed to fetch Gmail servers: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to fetch Gmail servers: ' + (error.response?.data?.message || error.message)
+      );
     } finally {
       setIsLoading(false);
     }
@@ -56,16 +58,22 @@ const GmailServerConfig = () => {
         return;
       }
 
-      const response = await axios.post(`${API_URL}/api/gmail/auth/initiate`, {
-        name: newServerName
-      }, {
-        headers: { Authorization: token }
-      });
+      const response = await axios.post(
+        `${API_URL}/api/gmail/auth/initiate`,
+        {
+          name: newServerName,
+        },
+        {
+          headers: { Authorization: token },
+        }
+      );
 
       // Redirect to Gmail OAuth
       window.location.href = response.data.authUrl;
     } catch (error: any) {
-      toast.error('Failed to initiate Gmail auth: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to initiate Gmail auth: ' + (error.response?.data?.message || error.message)
+      );
     }
   };
 
@@ -77,9 +85,13 @@ const GmailServerConfig = () => {
         return;
       }
 
-      await axios.post(`${API_URL}/api/gmail/servers/${serverId}/test`, {}, {
-        headers: { Authorization: token }
-      });
+      await axios.post(
+        `${API_URL}/api/gmail/servers/${serverId}/test`,
+        {},
+        {
+          headers: { Authorization: token },
+        }
+      );
 
       toast.success('Gmail connection successful!');
     } catch (error: any) {
@@ -88,7 +100,11 @@ const GmailServerConfig = () => {
   };
 
   const deleteGmailServer = async (serverId: string) => {
-    if (!confirm('Are you sure you want to delete this Gmail server? This will also delete all associated triggers and actions.')) {
+    if (
+      !confirm(
+        'Are you sure you want to delete this Gmail server? This will also delete all associated triggers and actions.'
+      )
+    ) {
       return;
     }
 
@@ -100,13 +116,15 @@ const GmailServerConfig = () => {
       }
 
       await axios.delete(`${API_URL}/api/gmail/servers/${serverId}`, {
-        headers: { Authorization: token }
+        headers: { Authorization: token },
       });
 
       toast.success('Gmail server deleted successfully');
       fetchGmailServers(); // Refresh the list
     } catch (error: any) {
-      toast.error('Failed to delete Gmail server: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to delete Gmail server: ' + (error.response?.data?.message || error.message)
+      );
     }
   };
 
@@ -118,16 +136,22 @@ const GmailServerConfig = () => {
         return;
       }
 
-      await axios.put(`${API_URL}/api/gmail/servers/${serverId}`, {
-        isActive: !isActive
-      }, {
-        headers: { Authorization: token }
-      });
+      await axios.put(
+        `${API_URL}/api/gmail/servers/${serverId}`,
+        {
+          isActive: !isActive,
+        },
+        {
+          headers: { Authorization: token },
+        }
+      );
 
       toast.success(`Gmail server ${!isActive ? 'enabled' : 'disabled'} successfully`);
       fetchGmailServers(); // Refresh the list
     } catch (error: any) {
-      toast.error('Failed to update Gmail server: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to update Gmail server: ' + (error.response?.data?.message || error.message)
+      );
     }
   };
 
@@ -139,10 +163,7 @@ const GmailServerConfig = () => {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Gmail Servers</h2>
-        <Button
-          variant="primary"
-          onClick={() => setShowAddForm(!showAddForm)}
-        >
+        <Button variant="primary" onClick={() => setShowAddForm(!showAddForm)}>
           {showAddForm ? 'Cancel' : 'Add Gmail Server'}
         </Button>
       </div>
@@ -159,10 +180,7 @@ const GmailServerConfig = () => {
                 onChange={(e) => setNewServerName(e.target.value)}
               />
             </div>
-            <Button
-              variant="primary"
-              onClick={initiateGmailAuth}
-            >
+            <Button variant="primary" onClick={initiateGmailAuth}>
               Connect Gmail
             </Button>
           </div>
@@ -193,40 +211,32 @@ const GmailServerConfig = () => {
                     Created: {new Date(server.createdAt).toLocaleDateString()}
                   </p>
                   <p className="text-sm text-gray-600">
-                    Triggers: {server.gmailTriggers.length} |
-                    Actions: {server.gmailActions.length}
+                    Triggers: {server.gmailTriggers.length} | Actions: {server.gmailActions.length}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`px-2 py-1 text-xs rounded-full ${server.isActive
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
-                    }`}>
+                  <span
+                    className={`px-2 py-1 text-xs rounded-full ${
+                      server.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}
+                  >
                     {server.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
               </div>
 
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="md"
-                  onClick={() => testGmailConnection(server.id)}
-                >
+                <Button variant="outline" size="md" onClick={() => testGmailConnection(server.id)}>
                   Test Connection
                 </Button>
                 <Button
-                  variant={server.isActive ? "secondary" : "primary"}
+                  variant={server.isActive ? 'secondary' : 'primary'}
                   size="md"
                   onClick={() => toggleServerStatus(server.id, server.isActive)}
                 >
                   {server.isActive ? 'Disable' : 'Enable'}
                 </Button>
-                <Button
-                  variant="link"
-                  size="md"
-                  onClick={() => deleteGmailServer(server.id)}
-                >
+                <Button variant="link" size="md" onClick={() => deleteGmailServer(server.id)}>
                   Delete
                 </Button>
               </div>
@@ -239,4 +249,3 @@ const GmailServerConfig = () => {
 };
 
 export default GmailServerConfig;
-

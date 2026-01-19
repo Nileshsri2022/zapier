@@ -1,9 +1,7 @@
-import React from 'react'
+import React from 'react';
 
 const AuthProvider = () => {
-  return (
-    <div>AuthProvider</div>
-  )
-}
+  return <div>AuthProvider</div>;
+};
 
-export default AuthProvider
+export default AuthProvider;

@@ -48,42 +48,49 @@ const GmailActionConfig = () => {
       value: 'GmailSend',
       label: 'Send Email',
       description: 'Compose and send a new email',
-      requiresMetadata: true
+      requiresMetadata: true,
     },
     {
       value: 'GmailReply',
       label: 'Reply to Email',
       description: 'Reply to an existing email',
-      requiresMetadata: true
+      requiresMetadata: true,
     },
     {
       value: 'GmailAddLabel',
       label: 'Add Label',
       description: 'Add labels to an email',
-      requiresMetadata: true
+      requiresMetadata: true,
     },
     {
       value: 'GmailRemoveLabel',
       label: 'Remove Label',
       description: 'Remove labels from an email',
-      requiresMetadata: true
+      requiresMetadata: true,
     },
     {
       value: 'GmailMarkRead',
       label: 'Mark as Read/Unread',
       description: 'Change email read status',
-      requiresMetadata: true
+      requiresMetadata: true,
     },
     {
       value: 'GmailArchive',
       label: 'Archive Email',
       description: 'Move email to archive',
-      requiresMetadata: true
+      requiresMetadata: true,
     },
   ];
 
   const commonLabels = [
-    'INBOX', 'SENT', 'DRAFT', 'TRASH', 'SPAM', 'STARRED', 'IMPORTANT', 'UNREAD'
+    'INBOX',
+    'SENT',
+    'DRAFT',
+    'TRASH',
+    'SPAM',
+    'STARRED',
+    'IMPORTANT',
+    'UNREAD',
   ];
 
   const fetchGmailServers = async () => {
@@ -95,12 +102,14 @@ const GmailActionConfig = () => {
       }
 
       const response = await axios.get(`${API_URL}/api/gmail/servers`, {
-        headers: { Authorization: token }
+        headers: { Authorization: token },
       });
 
       setServers(response.data.gmailServers || []);
     } catch (error: any) {
-      toast.error('Failed to fetch Gmail servers: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to fetch Gmail servers: ' + (error.response?.data?.message || error.message)
+      );
     }
   };
 
@@ -113,15 +122,20 @@ const GmailActionConfig = () => {
         return;
       }
 
-      const response = await axios.get(`${API_URL}/api/gmail/triggers${serverId ? `/${serverId}` : ''}`, {
-        headers: { Authorization: token }
-      });
+      const response = await axios.get(
+        `${API_URL}/api/gmail/triggers${serverId ? `/${serverId}` : ''}`,
+        {
+          headers: { Authorization: token },
+        }
+      );
 
       // Note: This endpoint doesn't exist yet - would need to be implemented
       // For now, we'll show a placeholder
       setActions([]);
     } catch (error: any) {
-      toast.error('Failed to fetch Gmail actions: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to fetch Gmail actions: ' + (error.response?.data?.message || error.message)
+      );
     } finally {
       setIsLoading(false);
     }
@@ -191,7 +205,9 @@ const GmailActionConfig = () => {
       setShowAddForm(false);
       resetForm();
     } catch (error: any) {
-      toast.error('Failed to create Gmail action: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to create Gmail action: ' + (error.response?.data?.message || error.message)
+      );
     }
   };
 
@@ -212,16 +228,16 @@ const GmailActionConfig = () => {
   };
 
   const handleLabelToggle = (label: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       labelIds: prev.labelIds.includes(label)
-        ? prev.labelIds.filter(l => l !== label)
-        : [...prev.labelIds, label]
+        ? prev.labelIds.filter((l) => l !== label)
+        : [...prev.labelIds, label],
     }));
   };
 
   const renderActionMetadata = () => {
-    const currentAction = actionTypes.find(a => a.value === formData.actionType);
+    const currentAction = actionTypes.find((a) => a.value === formData.actionType);
 
     if (!currentAction?.requiresMetadata) {
       return null;
@@ -235,13 +251,13 @@ const GmailActionConfig = () => {
               label="To"
               name="to"
               placeholder="recipient@example.com"
-              onChange={(e) => setFormData(prev => ({ ...prev, to: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, to: e.target.value }))}
             />
             <FormInput
               label="Subject"
               name="subject"
               placeholder="Email subject"
-              onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, subject: e.target.value }))}
             />
             <div>
               <label className="block text-sm font-medium mb-2">Body</label>
@@ -250,7 +266,7 @@ const GmailActionConfig = () => {
                 placeholder="Email content..."
                 rows={6}
                 className="w-full p-2 border border-gray-300 rounded-md"
-                onChange={(e) => setFormData(prev => ({ ...prev, body: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, body: e.target.value }))}
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -258,13 +274,13 @@ const GmailActionConfig = () => {
                 label="CC (optional)"
                 name="cc"
                 placeholder="cc@example.com"
-                onChange={(e) => setFormData(prev => ({ ...prev, cc: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, cc: e.target.value }))}
               />
               <FormInput
                 label="BCC (optional)"
                 name="bcc"
                 placeholder="bcc@example.com"
-                onChange={(e) => setFormData(prev => ({ ...prev, bcc: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, bcc: e.target.value }))}
               />
             </div>
           </div>
@@ -277,14 +293,14 @@ const GmailActionConfig = () => {
               label="Message ID to Reply To"
               name="replyMessageId"
               placeholder="Gmail message ID"
-              onChange={(e) => setFormData(prev => ({ ...prev, replyMessageId: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, replyMessageId: e.target.value }))}
             />
             <div className="flex items-center">
               <input
                 type="checkbox"
                 id="replyAll"
                 checked={formData.replyAll}
-                onChange={(e) => setFormData(prev => ({ ...prev, replyAll: e.target.checked }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, replyAll: e.target.checked }))}
                 className="mr-2"
               />
               <label htmlFor="replyAll">Reply to all recipients</label>
@@ -296,7 +312,7 @@ const GmailActionConfig = () => {
                 placeholder="Reply content..."
                 rows={6}
                 className="w-full p-2 border border-gray-300 rounded-md"
-                onChange={(e) => setFormData(prev => ({ ...prev, body: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, body: e.target.value }))}
               />
             </div>
           </div>
@@ -310,19 +326,20 @@ const GmailActionConfig = () => {
               label="Message ID"
               name="messageId"
               placeholder="Gmail message ID"
-              onChange={(e) => setFormData(prev => ({ ...prev, replyMessageId: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, replyMessageId: e.target.value }))}
             />
             <div>
               <label className="block text-sm font-medium mb-2">Labels</label>
               <div className="flex flex-wrap gap-2">
-                {commonLabels.map(label => (
+                {commonLabels.map((label) => (
                   <button
                     key={label}
                     onClick={() => handleLabelToggle(label)}
-                    className={`px-2 py-1 text-xs rounded-full border ${formData.labelIds.includes(label)
+                    className={`px-2 py-1 text-xs rounded-full border ${
+                      formData.labelIds.includes(label)
                         ? 'bg-blue-100 border-blue-300 text-blue-800'
                         : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-                      }`}
+                    }`}
                   >
                     {label}
                   </button>
@@ -339,14 +356,14 @@ const GmailActionConfig = () => {
               label="Message ID"
               name="messageId"
               placeholder="Gmail message ID"
-              onChange={(e) => setFormData(prev => ({ ...prev, replyMessageId: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, replyMessageId: e.target.value }))}
             />
             <div className="flex items-center">
               <input
                 type="checkbox"
                 id="markAsRead"
                 checked={formData.markAsRead}
-                onChange={(e) => setFormData(prev => ({ ...prev, markAsRead: e.target.checked }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, markAsRead: e.target.checked }))}
                 className="mr-2"
               />
               <label htmlFor="markAsRead">Mark as read (uncheck to mark as unread)</label>
@@ -361,7 +378,7 @@ const GmailActionConfig = () => {
               label="Message ID"
               name="messageId"
               placeholder="Gmail message ID"
-              onChange={(e) => setFormData(prev => ({ ...prev, replyMessageId: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, replyMessageId: e.target.value }))}
             />
           </div>
         );
@@ -386,14 +403,13 @@ const GmailActionConfig = () => {
             className="px-3 py-2 border border-gray-300 rounded-md"
           >
             <option value="">Select Gmail Server</option>
-            {servers.map(server => (
-              <option key={server.id} value={server.id}>{server.name}</option>
+            {servers.map((server) => (
+              <option key={server.id} value={server.id}>
+                {server.name}
+              </option>
             ))}
           </select>
-          <Button
-            variant="primary"
-            onClick={() => setShowAddForm(!showAddForm)}
-          >
+          <Button variant="primary" onClick={() => setShowAddForm(!showAddForm)}>
             {showAddForm ? 'Cancel' : 'Add Action'}
           </Button>
         </div>
@@ -408,17 +424,17 @@ const GmailActionConfig = () => {
               <label className="block text-sm font-medium mb-2">Action Type</label>
               <select
                 value={formData.actionType}
-                onChange={(e) => setFormData(prev => ({ ...prev, actionType: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, actionType: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md"
               >
-                {actionTypes.map(action => (
+                {actionTypes.map((action) => (
                   <option key={action.value} value={action.value}>
                     {action.label}
                   </option>
                 ))}
               </select>
               <p className="text-xs text-gray-600 mt-1">
-                {actionTypes.find(a => a.value === formData.actionType)?.description}
+                {actionTypes.find((a) => a.value === formData.actionType)?.description}
               </p>
             </div>
           </div>
@@ -444,7 +460,9 @@ const GmailActionConfig = () => {
       ) : actions.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <p>No Gmail actions configured yet.</p>
-          <p className="text-sm mt-2">Select a Gmail server and create actions to start email automations.</p>
+          <p className="text-sm mt-2">
+            Select a Gmail server and create actions to start email automations.
+          </p>
         </div>
       ) : (
         <div className="grid gap-4">
@@ -455,9 +473,7 @@ const GmailActionConfig = () => {
                   <h3 className="text-lg font-semibold capitalize">
                     {action.actionType.replace('Gmail', '').toLowerCase()} Action
                   </h3>
-                  <p className="text-sm text-gray-600">
-                    Used in Zap: {action.zap.name}
-                  </p>
+                  <p className="text-sm text-gray-600">Used in Zap: {action.zap.name}</p>
                 </div>
                 <Button
                   variant="link"

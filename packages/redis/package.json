@@ -1,26 +1,26 @@
 {
-    "name": "@repo/redis",
-    "version": "1.0.0",
-    "main": "./dist/src/index.js",
-    "types": "./dist/src/index.d.ts",
-    "scripts": {
-        "build": "npx swc src -d dist --copy-files",
-        "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "keywords": [],
-    "author": "",
-    "license": "ISC",
-    "description": "Upstash Redis client for ZapMate",
-    "dependencies": {
-        "@swc/cli": "^0.7.9",
-        "@swc/core": "^1.15.8",
-        "@upstash/redis": "^1.28.0",
-        "dotenv": "^16.4.5"
-    },
-    "exports": {
-        ".": {
-            "types": "./dist/src/index.d.ts",
-            "default": "./dist/src/index.js"
-        }
+  "name": "@repo/redis",
+  "version": "1.0.0",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "scripts": {
+    "build": "npx swc src -d dist --copy-files",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Upstash Redis client for ZapMate",
+  "dependencies": {
+    "@swc/cli": "^0.7.9",
+    "@swc/core": "^1.15.8",
+    "@upstash/redis": "^1.28.0",
+    "dotenv": "^16.4.5"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
     }
+  }
 }

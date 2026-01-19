@@ -31,21 +31,25 @@
 <div align="center">
 
 ### Backend Services
+
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
 ![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 
 ### Frontend
+
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 
 ### Database & Messaging
+
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)
 ![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-000?style=for-the-badge&logo=apachekafka)
 
 ### DevOps & Tools
+
 ![TurboRepo](https://img.shields.io/badge/TurboRepo-EF4444?style=for-the-badge&logo=turborepo&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2CA5E0?style=for-the-badge&logo=docker&logoColor=white)
 ![Bun](https://img.shields.io/badge/Bun-000000?style=for-the-badge&logo=bun&logoColor=white)
@@ -77,13 +81,13 @@ graph TB
 
 ### Service Architecture
 
-| Service | Port | Purpose | Deployment |
-|---------|------|---------|------------|
-| **Main Server** | 5000 | User management & Zap operations | Render (Free) |
-| **Web Frontend** | 3000 | User interface | Vercel (Free) |
-| **Hooks Service** | 8000 | Webhook handling | Render (Free) |
-| **Processor** | 3001 | Outbox → Kafka publishing | Render (Free + Cron) |
-| **Worker** | 3002 | Action execution | Render (Free + Cron) |
+| Service           | Port | Purpose                          | Deployment           |
+| ----------------- | ---- | -------------------------------- | -------------------- |
+| **Main Server**   | 5000 | User management & Zap operations | Render (Free)        |
+| **Web Frontend**  | 3000 | User interface                   | Vercel (Free)        |
+| **Hooks Service** | 8000 | Webhook handling                 | Render (Free)        |
+| **Processor**     | 3001 | Outbox → Kafka publishing        | Render (Free + Cron) |
+| **Worker**        | 3002 | Action execution                 | Render (Free + Cron) |
 
 ### Data Flow
 
@@ -120,33 +124,38 @@ graph LR
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd zapmate
    ```
 
 2. **Install dependencies**
+
    ```bash
    bun install
    ```
 
 3. **Set up environment variables**
+
    ```bash
    cp apps/server/.env.example apps/server/.env
    cp apps/web/.env.example apps/web/.env
    ```
 
 4. **Configure database**
+
    ```bash
    # Update DATABASE_URL in apps/server/.env
    DATABASE_URL="postgresql://username:password@localhost:5432/zapmate"
    ```
 
 5. **Start services**
+
    ```bash
    # Start all services
    bun run dev
-   
+
    # Or start individual services
    cd apps/server && bun run dev  # API Server
    cd apps/web && bun run dev     # Frontend

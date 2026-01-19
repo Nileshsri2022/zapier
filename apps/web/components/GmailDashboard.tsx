@@ -77,9 +77,7 @@ const GmailDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6">
-        {renderContent()}
-      </main>
+      <main className="max-w-7xl mx-auto py-6">{renderContent()}</main>
 
       {/* Footer */}
       <footer className="bg-white border-t mt-12">

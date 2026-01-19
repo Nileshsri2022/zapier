@@ -30,7 +30,9 @@ const GmailStatusMonitor = () => {
   const [servers, setServers] = useState<GmailServer[]>([]);
   const [selectedServer, setSelectedServer] = useState<string>('');
   const [rateLimitStatus, setRateLimitStatus] = useState<RateLimitStatus | null>(null);
-  const [circuitBreakerStatus, setCircuitBreakerStatus] = useState<CircuitBreakerStatus | null>(null);
+  const [circuitBreakerStatus, setCircuitBreakerStatus] = useState<CircuitBreakerStatus | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
@@ -43,12 +45,14 @@ const GmailStatusMonitor = () => {
       }
 
       const response = await axios.get('${API_URL}/api/gmail/servers', {
-        headers: { Authorization: token }
+        headers: { Authorization: token },
       });
 
       setServers(response.data.gmailServers || []);
     } catch (error: any) {
-      toast.error('Failed to fetch Gmail servers: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to fetch Gmail servers: ' + (error.response?.data?.message || error.message)
+      );
     }
   };
 
@@ -62,14 +66,16 @@ const GmailStatusMonitor = () => {
       }
 
       const response = await axios.get(`${API_URL}/api/gmail/servers/${serverId}/ratelimit`, {
-        headers: { Authorization: token }
+        headers: { Authorization: token },
       });
 
       setRateLimitStatus(response.data.rateLimitStatus);
       setCircuitBreakerStatus(response.data.circuitBreakerStatus);
       setLastUpdated(new Date());
     } catch (error: any) {
-      toast.error('Failed to fetch server status: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to fetch server status: ' + (error.response?.data?.message || error.message)
+      );
     } finally {
       setIsLoading(false);
     }
@@ -83,14 +89,20 @@ const GmailStatusMonitor = () => {
         return;
       }
 
-      await axios.post(`${API_URL}/api/gmail/servers/${serverId}/reset-circuit`, {}, {
-        headers: { Authorization: token }
-      });
+      await axios.post(
+        `${API_URL}/api/gmail/servers/${serverId}/reset-circuit`,
+        {},
+        {
+          headers: { Authorization: token },
+        }
+      );
 
       toast.success('Circuit breaker reset successfully');
       fetchServerStatus(serverId); // Refresh status
     } catch (error: any) {
-      toast.error('Failed to reset circuit breaker: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to reset circuit breaker: ' + (error.response?.data?.message || error.message)
+      );
     }
   };
 
@@ -143,8 +155,10 @@ const GmailStatusMonitor = () => {
           className="px-3 py-2 border border-gray-300 rounded-md"
         >
           <option value="">Select Gmail Server</option>
-          {servers.map(server => (
-            <option key={server.id} value={server.id}>{server.name}</option>
+          {servers.map((server) => (
+            <option key={server.id} value={server.id}>
+              {server.name}
+            </option>
           ))}
         </select>
       </div>
@@ -171,7 +185,10 @@ const GmailStatusMonitor = () => {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span>API Quota Usage</span>
-                  <span>{rateLimitStatus.quotaUsed} / {rateLimitStatus.quotaUsed + rateLimitStatus.quotaRemaining}</span>
+                  <span>
+                    {rateLimitStatus.quotaUsed} /{' '}
+                    {rateLimitStatus.quotaUsed + rateLimitStatus.quotaRemaining}
+                  </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
@@ -186,15 +203,21 @@ const GmailStatusMonitor = () => {
 
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <p className="text-2xl font-bold text-blue-600">{rateLimitStatus.requestsPerSecond}</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {rateLimitStatus.requestsPerSecond}
+                  </p>
                   <p className="text-xs text-gray-600">Req/Sec</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-green-600">{rateLimitStatus.requestsPerMinute}</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {rateLimitStatus.requestsPerMinute}
+                  </p>
                   <p className="text-xs text-gray-600">Req/Min</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-purple-600">{rateLimitStatus.requestsPerHour}</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {rateLimitStatus.requestsPerHour}
+                  </p>
                   <p className="text-xs text-gray-600">Req/Hour</p>
                 </div>
               </div>
@@ -216,7 +239,9 @@ const GmailStatusMonitor = () => {
 
             <div className="space-y-4">
               <div>
-                <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(circuitBreakerStatus.state)}`}>
+                <span
+                  className={`px-2 py-1 text-xs rounded-full ${getStatusColor(circuitBreakerStatus.state)}`}
+                >
                   {circuitBreakerStatus.state}
                 </span>
                 <p className="text-sm text-gray-600 mt-1">
@@ -233,7 +258,9 @@ const GmailStatusMonitor = () => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Timeout</p>
-                  <p className="text-lg font-semibold">{Math.round(circuitBreakerStatus.timeout / 1000)}s</p>
+                  <p className="text-lg font-semibold">
+                    {Math.round(circuitBreakerStatus.timeout / 1000)}s
+                  </p>
                 </div>
               </div>
 
@@ -254,18 +281,30 @@ const GmailStatusMonitor = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-3 bg-blue-50 rounded-lg">
                 <p className="text-2xl font-bold text-blue-600">
-                  {rateLimitStatus.requestsPerSecond < 5 ? '🟢' : rateLimitStatus.requestsPerSecond < 8 ? '🟡' : '🔴'}
+                  {rateLimitStatus.requestsPerSecond < 5
+                    ? '🟢'
+                    : rateLimitStatus.requestsPerSecond < 8
+                      ? '🟡'
+                      : '🔴'}
                 </p>
                 <p className="text-sm text-gray-600">Per Second</p>
-                <p className="text-xs text-gray-500">Rate: {rateLimitStatus.requestsPerSecond}/10</p>
+                <p className="text-xs text-gray-500">
+                  Rate: {rateLimitStatus.requestsPerSecond}/10
+                </p>
               </div>
 
               <div className="text-center p-3 bg-green-50 rounded-lg">
                 <p className="text-2xl font-bold text-green-600">
-                  {rateLimitStatus.requestsPerMinute < 50 ? '🟢' : rateLimitStatus.requestsPerMinute < 80 ? '🟡' : '🔴'}
+                  {rateLimitStatus.requestsPerMinute < 50
+                    ? '🟢'
+                    : rateLimitStatus.requestsPerMinute < 80
+                      ? '🟡'
+                      : '🔴'}
                 </p>
                 <p className="text-sm text-gray-600">Per Minute</p>
-                <p className="text-xs text-gray-500">Rate: {rateLimitStatus.requestsPerMinute}/100</p>
+                <p className="text-xs text-gray-500">
+                  Rate: {rateLimitStatus.requestsPerMinute}/100
+                </p>
               </div>
 
               <div className="text-center p-3 bg-purple-50 rounded-lg">
@@ -278,7 +317,11 @@ const GmailStatusMonitor = () => {
 
               <div className="text-center p-3 bg-orange-50 rounded-lg">
                 <p className="text-2xl font-bold text-orange-600">
-                  {circuitBreakerStatus.state === 'CLOSED' ? '🟢' : circuitBreakerStatus.state === 'HALF_OPEN' ? '🟡' : '🔴'}
+                  {circuitBreakerStatus.state === 'CLOSED'
+                    ? '🟢'
+                    : circuitBreakerStatus.state === 'HALF_OPEN'
+                      ? '🟡'
+                      : '🔴'}
                 </p>
                 <p className="text-sm text-gray-600">Health</p>
                 <p className="text-xs text-gray-500 capitalize">{circuitBreakerStatus.state}</p>
@@ -298,4 +341,3 @@ const GmailStatusMonitor = () => {
 };
 
 export default GmailStatusMonitor;
-

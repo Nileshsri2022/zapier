@@ -44,11 +44,22 @@ const GmailTriggerConfig = () => {
     { value: 'new_email', label: 'New Email', description: 'Trigger when new emails arrive' },
     { value: 'labeled', label: 'Email Labeled', description: 'Trigger when emails are labeled' },
     { value: 'starred', label: 'Email Starred', description: 'Trigger when emails are starred' },
-    { value: 'moved', label: 'Email Moved', description: 'Trigger when emails are moved between folders' },
+    {
+      value: 'moved',
+      label: 'Email Moved',
+      description: 'Trigger when emails are moved between folders',
+    },
   ];
 
   const commonLabels = [
-    'INBOX', 'SENT', 'DRAFT', 'TRASH', 'SPAM', 'STARRED', 'IMPORTANT', 'UNREAD'
+    'INBOX',
+    'SENT',
+    'DRAFT',
+    'TRASH',
+    'SPAM',
+    'STARRED',
+    'IMPORTANT',
+    'UNREAD',
   ];
 
   const fetchGmailServers = async () => {
@@ -60,12 +71,14 @@ const GmailTriggerConfig = () => {
       }
 
       const response = await axios.get('${API_URL}/api/gmail/servers', {
-        headers: { Authorization: token }
+        headers: { Authorization: token },
       });
 
       setServers(response.data.gmailServers || []);
     } catch (error: any) {
-      toast.error('Failed to fetch Gmail servers: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to fetch Gmail servers: ' + (error.response?.data?.message || error.message)
+      );
     }
   };
 
@@ -78,13 +91,18 @@ const GmailTriggerConfig = () => {
         return;
       }
 
-      const response = await axios.get(`${API_URL}/api/gmail/triggers${serverId ? `/${serverId}` : ''}`, {
-        headers: { Authorization: token }
-      });
+      const response = await axios.get(
+        `${API_URL}/api/gmail/triggers${serverId ? `/${serverId}` : ''}`,
+        {
+          headers: { Authorization: token },
+        }
+      );
 
       setTriggers(response.data.gmailTriggers || []);
     } catch (error: any) {
-      toast.error('Failed to fetch Gmail triggers: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to fetch Gmail triggers: ' + (error.response?.data?.message || error.message)
+      );
     } finally {
       setIsLoading(false);
     }
@@ -103,23 +121,29 @@ const GmailTriggerConfig = () => {
         return;
       }
 
-      await axios.post('${API_URL}/api/gmail/triggers', {
-        serverId: selectedServer,
-        zapId: formData.zapId,
-        triggerType: formData.triggerType,
-        watchedLabels: formData.watchedLabels,
-        senderFilter: formData.senderFilter || undefined,
-        subjectFilter: formData.subjectFilter || undefined,
-      }, {
-        headers: { Authorization: token }
-      });
+      await axios.post(
+        '${API_URL}/api/gmail/triggers',
+        {
+          serverId: selectedServer,
+          zapId: formData.zapId,
+          triggerType: formData.triggerType,
+          watchedLabels: formData.watchedLabels,
+          senderFilter: formData.senderFilter || undefined,
+          subjectFilter: formData.subjectFilter || undefined,
+        },
+        {
+          headers: { Authorization: token },
+        }
+      );
 
       toast.success('Gmail trigger created successfully');
       setShowAddForm(false);
       resetForm();
       fetchGmailTriggers(selectedServer);
     } catch (error: any) {
-      toast.error('Failed to create Gmail trigger: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to create Gmail trigger: ' + (error.response?.data?.message || error.message)
+      );
     }
   };
 
@@ -136,13 +160,15 @@ const GmailTriggerConfig = () => {
       }
 
       await axios.delete(`${API_URL}/api/gmail/triggers/${triggerId}`, {
-        headers: { Authorization: token }
+        headers: { Authorization: token },
       });
 
       toast.success('Gmail trigger deleted successfully');
       fetchGmailTriggers(selectedServer);
     } catch (error: any) {
-      toast.error('Failed to delete Gmail trigger: ' + (error.response?.data?.message || error.message));
+      toast.error(
+        'Failed to delete Gmail trigger: ' + (error.response?.data?.message || error.message)
+      );
     }
   };
 
@@ -157,11 +183,11 @@ const GmailTriggerConfig = () => {
   };
 
   const handleLabelToggle = (label: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       watchedLabels: prev.watchedLabels.includes(label)
-        ? prev.watchedLabels.filter(l => l !== label)
-        : [...prev.watchedLabels, label]
+        ? prev.watchedLabels.filter((l) => l !== label)
+        : [...prev.watchedLabels, label],
     }));
   };
 
@@ -188,14 +214,13 @@ const GmailTriggerConfig = () => {
             className="px-3 py-2 border border-gray-300 rounded-md"
           >
             <option value="">Select Gmail Server</option>
-            {servers.map(server => (
-              <option key={server.id} value={server.id}>{server.name}</option>
+            {servers.map((server) => (
+              <option key={server.id} value={server.id}>
+                {server.name}
+              </option>
             ))}
           </select>
-          <Button
-            variant="primary"
-            onClick={() => setShowAddForm(!showAddForm)}
-          >
+          <Button variant="primary" onClick={() => setShowAddForm(!showAddForm)}>
             {showAddForm ? 'Cancel' : 'Add Trigger'}
           </Button>
         </div>
@@ -210,17 +235,17 @@ const GmailTriggerConfig = () => {
               <label className="block text-sm font-medium mb-2">Trigger Type</label>
               <select
                 value={formData.triggerType}
-                onChange={(e) => setFormData(prev => ({ ...prev, triggerType: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, triggerType: e.target.value }))}
                 className="w-full p-2 border border-gray-300 rounded-md"
               >
-                {triggerTypes.map(type => (
+                {triggerTypes.map((type) => (
                   <option key={type.value} value={type.value}>
                     {type.label}
                   </option>
                 ))}
               </select>
               <p className="text-xs text-gray-600 mt-1">
-                {triggerTypes.find(t => t.value === formData.triggerType)?.description}
+                {triggerTypes.find((t) => t.value === formData.triggerType)?.description}
               </p>
             </div>
 
@@ -229,7 +254,7 @@ const GmailTriggerConfig = () => {
                 label="Zap ID"
                 name="zapId"
                 placeholder="Enter Zap ID to trigger"
-                onChange={(e) => setFormData(prev => ({ ...prev, zapId: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, zapId: e.target.value }))}
               />
             </div>
           </div>
@@ -237,7 +262,7 @@ const GmailTriggerConfig = () => {
           <div className="mt-4">
             <label className="block text-sm font-medium mb-2">Watch Labels</label>
             <div className="flex flex-wrap gap-2">
-              {commonLabels.map(label => (
+              {commonLabels.map((label) => (
                 <button
                   key={label}
                   onClick={() => handleLabelToggle(label)}
@@ -258,13 +283,13 @@ const GmailTriggerConfig = () => {
               label="Sender Filter (optional)"
               name="senderFilter"
               placeholder="e.g., boss@company.com"
-              onChange={(e) => setFormData(prev => ({ ...prev, senderFilter: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, senderFilter: e.target.value }))}
             />
             <FormInput
               label="Subject Filter (optional)"
               name="subjectFilter"
               placeholder="e.g., urgent"
-              onChange={(e) => setFormData(prev => ({ ...prev, subjectFilter: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, subjectFilter: e.target.value }))}
             />
           </div>
 
@@ -287,7 +312,9 @@ const GmailTriggerConfig = () => {
       ) : triggers.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <p>No Gmail triggers configured yet.</p>
-          <p className="text-sm mt-2">Select a Gmail server and create triggers to start email automations.</p>
+          <p className="text-sm mt-2">
+            Select a Gmail server and create triggers to start email automations.
+          </p>
         </div>
       ) : (
         <div className="grid gap-4">
@@ -298,29 +325,20 @@ const GmailTriggerConfig = () => {
                   <h3 className="text-lg font-semibold capitalize">
                     {trigger.triggerType.replace('_', ' ')} Trigger
                   </h3>
-                  <p className="text-sm text-gray-600">
-                    Triggers Zap: {trigger.zap.name}
-                  </p>
+                  <p className="text-sm text-gray-600">Triggers Zap: {trigger.zap.name}</p>
                   {trigger.watchedLabels.length > 0 && (
                     <p className="text-sm text-gray-600">
                       Watching: {trigger.watchedLabels.join(', ')}
                     </p>
                   )}
                   {trigger.senderFilter && (
-                    <p className="text-sm text-gray-600">
-                      Sender: {trigger.senderFilter}
-                    </p>
+                    <p className="text-sm text-gray-600">Sender: {trigger.senderFilter}</p>
                   )}
                   {trigger.subjectFilter && (
-                    <p className="text-sm text-gray-600">
-                      Subject: {trigger.subjectFilter}
-                    </p>
+                    <p className="text-sm text-gray-600">Subject: {trigger.subjectFilter}</p>
                   )}
                 </div>
-                <Button
-                  variant="link"
-                  onClick={() => deleteGmailTrigger(trigger.id)}
-                >
+                <Button variant="link" onClick={() => deleteGmailTrigger(trigger.id)}>
                   Delete
                 </Button>
               </div>
@@ -333,4 +351,3 @@ const GmailTriggerConfig = () => {
 };
 
 export default GmailTriggerConfig;
-
