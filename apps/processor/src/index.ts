@@ -10,15 +10,51 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 let producer: any = null;
+let isProducerConnected = false;
 
-// Initialize Kafka producer
+// Initialize Kafka producer with reconnection support
 async function initKafka() {
-  if (!producer) {
-    producer = kafka.producer();
-    await producer.connect();
-    console.log('Kafka producer connected');
+  try {
+    // If no producer or disconnected, create new one
+    if (!producer || !isProducerConnected) {
+      if (producer) {
+        // Try to disconnect old producer gracefully
+        try {
+          await producer.disconnect();
+        } catch (e) {
+          // Ignore disconnect errors
+        }
+      }
+
+      producer = kafka.producer({
+        allowAutoTopicCreation: true,
+        retry: {
+          initialRetryTime: 100,
+          retries: 5,
+        },
+      });
+
+      // Set up event handlers
+      producer.on('producer.connect', () => {
+        console.log('✅ Kafka producer connected');
+        isProducerConnected = true;
+      });
+
+      producer.on('producer.disconnect', () => {
+        console.log('⚠️ Kafka producer disconnected');
+        isProducerConnected = false;
+      });
+
+      await producer.connect();
+      isProducerConnected = true;
+    }
+
+    return producer;
+  } catch (error) {
+    console.error('❌ Kafka connection error:', error);
+    isProducerConnected = false;
+    throw error;
   }
-  return producer;
 }
 
 // Middleware to verify cron secret
