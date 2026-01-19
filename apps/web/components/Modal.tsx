@@ -52,6 +52,18 @@ const APPS: App[] = [
     icon: 'https://img.icons8.com/ios-filled/50/webhook.png',
     exact: 'Webhook',
   },
+  {
+    id: 'whatsapp',
+    name: 'WhatsApp',
+    icon: 'https://img.icons8.com/color/48/whatsapp.png',
+    prefix: 'WhatsApp',
+  },
+  {
+    id: 'telegram',
+    name: 'Telegram',
+    icon: 'https://img.icons8.com/color/48/telegram-app.png',
+    prefix: 'Telegram',
+  },
 ];
 
 interface AvailableItem {
@@ -910,7 +922,7 @@ const GoogleSheetsMetaData = ({
             You need to connect your Google account to use Google Sheets triggers.
           </p>
         </div>
-        <Button variant="secondary" onClick={connecting ? () => {} : handleConnectGoogle}>
+        <Button variant="secondary" onClick={connecting ? () => { } : handleConnectGoogle}>
           {connecting ? 'Connecting...' : '🔗 Connect Google Account'}
         </Button>
       </div>
