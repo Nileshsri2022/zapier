@@ -13,9 +13,14 @@ const KAFKA_SSL_CA = process.env.KAFKA_SSL_CA; // Optional: CA certificate for S
 const isCloudKafka = KAFKA_USERNAME && KAFKA_PASSWORD;
 
 // SASL configuration for cloud Kafka (Aiven/Upstash/Confluent)
+// Aiven uses SCRAM-SHA-512, Upstash uses SCRAM-SHA-256
+const KAFKA_SASL_MECHANISM = (process.env.KAFKA_SASL_MECHANISM || 'scram-sha-512') as
+  | 'scram-sha-512'
+  | 'scram-sha-256';
+
 const saslConfig = isCloudKafka
   ? {
-      mechanism: 'scram-sha-256' as const,
+      mechanism: KAFKA_SASL_MECHANISM,
       username: KAFKA_USERNAME!,
       password: KAFKA_PASSWORD!,
     }
