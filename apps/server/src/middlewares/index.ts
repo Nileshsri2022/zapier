@@ -38,3 +38,6 @@ export { errorHandler, asyncHandler } from './errorHandler';
 export { apiLimiter, authLimiter, webhookLimiter } from './rateLimiter';
 export { sanitizeInput } from './sanitize';
 export { securityHeaders, apiSecurityHeaders } from './security';
+
+// Performance middleware
+export { compressionMiddleware } from './compression';

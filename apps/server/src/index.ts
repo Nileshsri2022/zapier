@@ -4,7 +4,12 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import client from '@repo/db';
 import { initSentry, captureException, sentryErrorHandler } from '@repo/sentry';
-import { apiLimiter, sanitizeInput, apiSecurityHeaders } from './middlewares';
+import {
+  apiLimiter,
+  sanitizeInput,
+  apiSecurityHeaders,
+  compressionMiddleware,
+} from './middlewares';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger';
 
@@ -30,6 +35,7 @@ const corsOptions = {
 
 app.use(express.json());
 app.use(cors(corsOptions));
+app.use(compressionMiddleware); // Compress API responses
 
 // Security middleware
 app.use(apiSecurityHeaders); // Set secure HTTP headers
