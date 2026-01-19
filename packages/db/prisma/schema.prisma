@@ -15,15 +15,16 @@ datasource db {
 }
 
 model User {
-  id                  Int                  @id @default(autoincrement())
-  name                String
-  email               String               @unique
-  password            String
-  zaps                Zap[]
-  gmailServers        GmailServer[]
-  googleSheetsServers GoogleSheetsServer[]
-  whatsAppServers     WhatsAppServer[]
-  telegramBots        TelegramBot[]
+  id                    Int                    @id @default(autoincrement())
+  name                  String
+  email                 String                 @unique
+  password              String
+  zaps                  Zap[]
+  gmailServers          GmailServer[]
+  googleSheetsServers   GoogleSheetsServer[]
+  googleCalendarServers GoogleCalendarServer[]
+  whatsAppServers       WhatsAppServer[]
+  telegramBots          TelegramBot[]
 }
 
 model Zap {
@@ -50,6 +51,9 @@ model Zap {
 
   // Telegram relations
   telegramTriggers TelegramTrigger[]
+
+  // Google Calendar relations
+  googleCalendarTriggers GoogleCalendarTrigger[]
 
   // Schedule trigger
   scheduledTrigger ScheduledTrigger?
@@ -306,6 +310,65 @@ model TelegramTrigger {
   @@index([botId])
   @@index([isActive])
   @@index([zapId])
+}
+
+// ============================================
+// Google Calendar Integration
+// ============================================
+
+model GoogleCalendarServer {
+  id           String    @id @default(uuid())
+  userId       Int
+  email        String // Google account email
+  refreshToken String // Encrypted
+  accessToken  String // Encrypted
+  tokenExpiry  DateTime?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id])
+
+  // Relations
+  triggers GoogleCalendarTrigger[]
+
+  // Indexes
+  @@index([userId])
+  @@index([isActive])
+}
+
+model GoogleCalendarTrigger {
+  id       String               @id @default(uuid())
+  serverId String
+  server   GoogleCalendarServer @relation(fields: [serverId], references: [id])
+  zapId    String               @unique
+  zap      Zap                  @relation(fields: [zapId], references: [id])
+
+  // Calendar configuration
+  calendarId  String  @default("primary") // Calendar to watch
+  triggerType String // 'new_event', 'event_updated', 'event_cancelled', 'event_start', 'event_ended', 'new_calendar', 'event_matching_search'
+  isInstant   Boolean @default(false) // true for webhook-based, false for polling
+
+  // Polling trigger options
+  searchQuery     String? // For 'event_matching_search'
+  reminderMinutes Int? // For 'event_start' - minutes before event
+
+  // Webhook (instant) trigger state
+  watchChannelId  String? // Google push notification channel ID
+  watchResourceId String? // Google push notification resource ID
+  watchExpiry     DateTime? // When the watch expires (max 7 days)
+
+  // Polling state
+  syncToken    String? // For incremental sync
+  lastPolledAt DateTime?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([serverId])
+  @@index([isActive])
+  @@index([zapId])
+  @@index([triggerType])
+  @@index([lastPolledAt])
 }
 
 model ScheduledTrigger {
