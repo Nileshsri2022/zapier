@@ -32,7 +32,7 @@ const APPS: App[] = [
   {
     id: 'calendar',
     name: 'Google Calendar',
-    icon: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
+    icon: 'https://ssl.gstatic.com/calendar/images/dynamiclogo_2020q4/calendar_31_2x.png',
     prefix: 'Google Calendar',
   },
   {
@@ -427,6 +427,7 @@ const Modal = ({
     const needsAccount =
       selectedApp?.id === 'sheets' ||
       selectedApp?.id === 'gmail' ||
+      selectedApp?.id === 'calendar' ||
       selectedApp?.id === 'telegram' ||
       selectedApp?.id === 'whatsapp';
 
