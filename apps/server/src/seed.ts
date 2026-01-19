@@ -153,6 +153,10 @@ async function seedDatabase() {
           type: 'Telegram Send Message',
           image: 'https://img.icons8.com/color/48/telegram-app.png',
         },
+        {
+          type: 'Webhook',
+          image: 'https://img.icons8.com/ios-filled/50/webhook.png',
+        },
       ],
       skipDuplicates: true,
     });
