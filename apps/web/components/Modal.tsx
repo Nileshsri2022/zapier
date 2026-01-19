@@ -94,6 +94,12 @@ const Modal = ({
   const [selectedServerId, setSelectedServerId] = useState<string>('');
   const [loadingServers, setLoadingServers] = useState(false);
 
+  // For Telegram/WhatsApp bot connection
+  const [showBotForm, setShowBotForm] = useState(false);
+  const [botToken, setBotToken] = useState('');
+  const [botName, setBotName] = useState('');
+  const [connectingBot, setConnectingBot] = useState(false);
+
   const handleSaveMetaData = (data: any) => {
     onClick && onClick({ ...selectedItem, metadata: data });
     resetModal();
@@ -106,6 +112,9 @@ const Modal = ({
     setSelectedItem(null);
     setConnectedServers([]);
     setSelectedServerId('');
+    setShowBotForm(false);
+    setBotToken('');
+    setBotName('');
   };
 
   const fetchAvailableTriggers = async () => {
@@ -144,9 +153,9 @@ const Modal = ({
     }
   };
 
-  // Fetch connected accounts for OAuth apps
+  // Fetch connected accounts for OAuth apps and bots
   const fetchConnectedAccounts = async (app: App) => {
-    if (app.id !== 'sheets' && app.id !== 'gmail') {
+    if (app.id !== 'sheets' && app.id !== 'gmail' && app.id !== 'telegram' && app.id !== 'whatsapp') {
       return;
     }
 
@@ -155,12 +164,17 @@ const Modal = ({
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const endpoint = app.id === 'sheets' ? '/api/sheets/servers' : '/api/gmail/servers';
+      let endpoint = '';
+      if (app.id === 'sheets') endpoint = '/api/sheets/servers';
+      else if (app.id === 'gmail') endpoint = '/api/gmail/servers';
+      else if (app.id === 'telegram') endpoint = '/api/telegram/bots';
+      else if (app.id === 'whatsapp') endpoint = '/api/whatsapp/servers';
+
       const response = await axios.get(`${API_URL}${endpoint}`, {
         headers: { Authorization: token },
       });
 
-      const servers = response?.data?.servers || [];
+      const servers = response?.data?.servers || response?.data?.bots || [];
       setConnectedServers(servers);
       if (servers.length > 0) {
         setSelectedServerId(servers[0].id);
@@ -279,10 +293,55 @@ const Modal = ({
     }
   };
 
+  // Connect Telegram/WhatsApp bot with token
+  const connectBot = async () => {
+    if (!selectedApp || !botToken.trim() || !botName.trim()) {
+      toast.error('Please enter bot name and token');
+      return;
+    }
+
+    setConnectingBot(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Please log in first');
+        return;
+      }
+
+      const endpoint = selectedApp.id === 'telegram' ? '/api/telegram/bots' : '/api/whatsapp/servers';
+      const payload = selectedApp.id === 'telegram'
+        ? { botToken: botToken.trim(), botName: botName.trim() }
+        : {
+          displayName: botName.trim(),
+          accessToken: botToken.trim(),
+          phoneNumberId: '',
+          businessId: '',
+          phoneNumber: ''
+        };
+
+      await axios.post(`${API_URL}${endpoint}`, payload, {
+        headers: { Authorization: token },
+      });
+
+      toast.success(`${selectedApp.name} connected successfully!`);
+      setShowBotForm(false);
+      setBotToken('');
+      setBotName('');
+      // Refresh the list
+      fetchConnectedAccounts(selectedApp);
+    } catch (error: any) {
+      console.error('Bot connect error:', error);
+      toast.error(error?.response?.data?.message || 'Failed to connect');
+    } finally {
+      setConnectingBot(false);
+    }
+  };
+
   // Check if can continue (event selected + account for OAuth apps)
   const canContinue = () => {
     if (!selectedEvent) return false;
-    if ((selectedApp?.id === 'sheets' || selectedApp?.id === 'gmail') && !selectedServerId) {
+    const needsAccountApps = ['sheets', 'gmail', 'telegram', 'whatsapp'];
+    if (selectedApp && needsAccountApps.includes(selectedApp.id) && !selectedServerId) {
       return false;
     }
     return true;
@@ -335,7 +394,7 @@ const Modal = ({
   // ============ STEP 2: Configuration Panel ============
   const renderStep2 = () => {
     const events = selectedApp ? getEventsForApp(selectedApp) : [];
-    const needsAccount = selectedApp?.id === 'sheets' || selectedApp?.id === 'gmail';
+    const needsAccount = selectedApp?.id === 'sheets' || selectedApp?.id === 'gmail' || selectedApp?.id === 'telegram' || selectedApp?.id === 'whatsapp';
 
     return (
       <div className="p-4 min-h-[400px]">
@@ -375,24 +434,79 @@ const Modal = ({
           </select>
         </div>
 
-        {/* Account Section (for OAuth apps) */}
+        {/* Account Section (for OAuth apps and bots) */}
         {needsAccount && (
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Account *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {selectedApp?.id === 'telegram' || selectedApp?.id === 'whatsapp' ? 'Bot/Account *' : 'Account *'}
+            </label>
             {loadingServers ? (
               <div className="text-gray-500 py-2">Loading accounts...</div>
-            ) : connectedServers.length > 0 ? (
-              <select
-                value={selectedServerId}
-                onChange={(e) => setSelectedServerId(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              >
-                {connectedServers.map((server) => (
-                  <option key={server.id} value={server.id}>
-                    {server.email || server.name}
-                  </option>
-                ))}
-              </select>
+            ) : connectedServers.length > 0 && !showBotForm ? (
+              <div className="space-y-2">
+                <select
+                  value={selectedServerId}
+                  onChange={(e) => setSelectedServerId(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                >
+                  {connectedServers.map((server) => (
+                    <option key={server.id} value={server.id}>
+                      {server.email || server.botUsername ? `@${server.botUsername}` : server.botName || server.displayName || server.name}
+                    </option>
+                  ))}
+                </select>
+                {(selectedApp?.id === 'telegram' || selectedApp?.id === 'whatsapp') && (
+                  <button
+                    onClick={() => setShowBotForm(true)}
+                    className="text-sm text-purple-600 hover:text-purple-800"
+                  >
+                    + Add another {selectedApp.name}
+                  </button>
+                )}
+              </div>
+            ) : (selectedApp?.id === 'telegram' || selectedApp?.id === 'whatsapp') ? (
+              <div className="space-y-3">
+                {showBotForm || connectedServers.length === 0 ? (
+                  <>
+                    <input
+                      type="text"
+                      placeholder={selectedApp.id === 'telegram' ? 'Bot Name (e.g. MyZapBot)' : 'Display Name'}
+                      value={botName}
+                      onChange={(e) => setBotName(e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    />
+                    <input
+                      type="password"
+                      placeholder={selectedApp.id === 'telegram' ? 'Bot Token from @BotFather' : 'Access Token from Meta'}
+                      value={botToken}
+                      onChange={(e) => setBotToken(e.target.value)}
+                      className="w-full p-3 border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={connectBot}
+                        disabled={connectingBot}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium disabled:opacity-50"
+                      >
+                        {connectingBot ? 'Connecting...' : `Connect ${selectedApp.name}`}
+                      </button>
+                      {connectedServers.length > 0 && (
+                        <button
+                          onClick={() => setShowBotForm(false)}
+                          className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {selectedApp.id === 'telegram'
+                        ? 'Get your token from @BotFather in Telegram. The webhook will be configured automatically.'
+                        : 'Get your token from Meta Developer Portal.'}
+                    </p>
+                  </>
+                ) : null}
+              </div>
             ) : (
               <div className="flex items-center gap-3">
                 <div className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-gray-500">
