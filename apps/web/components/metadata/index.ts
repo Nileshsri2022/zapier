@@ -6,3 +6,4 @@ export { default as GmailMetaData } from './GmailMetaData';
 export { default as GoogleSheetsMetaData } from './GoogleSheetsMetaData';
 export { default as GoogleCalendarMetaData } from './GoogleCalendarMetaData';
 export { default as ScheduleMetaData } from './ScheduleMetaData';
+export { GitHubMetaData } from './GitHubMetaData';

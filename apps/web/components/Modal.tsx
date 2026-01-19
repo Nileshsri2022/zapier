@@ -17,6 +17,7 @@ import {
   GoogleSheetsMetaData,
   GoogleCalendarMetaData,
   ScheduleMetaData,
+  GitHubMetaData,
 } from './metadata';
 
 // APPS and types are now imported from ./modal/
@@ -571,6 +572,8 @@ const Modal = ({
                 .toLowerCase()
                 .replace(' ', '')}
             />
+          ) : selectedItem?.type?.startsWith('GitHub') ? (
+            <GitHubMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} />
           ) : (
             <div className="text-center text-gray-500 py-4">No configuration needed</div>
           )}
