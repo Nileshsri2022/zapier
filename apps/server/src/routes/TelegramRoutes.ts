@@ -71,7 +71,7 @@ router.post('/bots', authMiddleware, async (req: Request, res: Response): Promis
         }
 
         // Set webhook automatically
-        const webhookUrl = `${process.env.HOOKS_URL || 'https://zapmate-hooks.onrender.com'}/api/webhooks/telegram`;
+        const webhookUrl = `${process.env.HOOKS_URL || 'https://zapier-hooks-bqyy.onrender.com'}/api/webhooks/telegram`;
         try {
             await axios.post(`${TELEGRAM_API}${botToken}/setWebhook`, {
                 url: webhookUrl,
