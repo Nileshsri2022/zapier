@@ -80,31 +80,31 @@ async function seedDatabase() {
         // Google Calendar Triggers
         {
           type: 'Google Calendar New Event',
-          image: 'https://img.icons8.com/color/48/google-calendar.png',
+          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
         },
         {
           type: 'Google Calendar Event Updated',
-          image: 'https://img.icons8.com/color/48/google-calendar.png',
+          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
         },
         {
           type: 'Google Calendar Event Start',
-          image: 'https://img.icons8.com/color/48/google-calendar.png',
+          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
         },
         {
           type: 'Google Calendar Event Ended',
-          image: 'https://img.icons8.com/color/48/google-calendar.png',
+          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
         },
         {
           type: 'Google Calendar Event Cancelled',
-          image: 'https://img.icons8.com/color/48/google-calendar.png',
+          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
         },
         {
           type: 'Google Calendar New Calendar',
-          image: 'https://img.icons8.com/color/48/google-calendar.png',
+          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
         },
         {
           type: 'Google Calendar Event Matching Search',
-          image: 'https://img.icons8.com/color/48/google-calendar.png',
+          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
         },
       ],
       skipDuplicates: true,
