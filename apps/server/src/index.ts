@@ -9,6 +9,7 @@ import {
   sanitizeInput,
   apiSecurityHeaders,
   compressionMiddleware,
+  getCsrfToken,
 } from './middlewares';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger';
@@ -30,7 +31,7 @@ const corsOptions = {
   origin: true, // Allow all origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'X-CSRF-Token'],
 };
 
 app.use(express.json());
@@ -41,6 +42,9 @@ app.use(compressionMiddleware); // Compress API responses
 app.use(apiSecurityHeaders); // Set secure HTTP headers
 app.use(sanitizeInput); // Sanitize all inputs against XSS
 app.use('/api', apiLimiter); // Rate limit API endpoints
+
+// CSRF token endpoint (for future cookie-based auth)
+app.get('/api/csrf-token', getCsrfToken);
 
 // API Documentation
 app.use(
