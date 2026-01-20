@@ -59,6 +59,10 @@ const kafka = new Kafka({
 console.log(
   `🔗 Kafka configured for: ${isCloudKafka ? 'Cloud (SSL+SASL)' : 'Local'} - Broker: ${KAFKA_BROKER}`
 );
+console.log(
+  `   SASL: ${KAFKA_SASL_MECHANISM}, User: ${KAFKA_USERNAME ? KAFKA_USERNAME.substring(0, 3) + '***' : 'NOT SET'}`
+);
+console.log(`   SSL CA: ${KAFKA_SSL_CA ? 'PROVIDED' : 'NOT SET (rejectUnauthorized=false)'}`);
 
 // Export producer and consumer factories for convenience
 export const createProducer = () => kafka.producer();
