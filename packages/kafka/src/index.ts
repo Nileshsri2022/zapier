@@ -28,10 +28,11 @@ const saslConfig = isCloudKafka
 
 // SSL configuration
 // For cloud Kafka providers, SSL is required
-// rejectUnauthorized: true ensures we verify the server certificate
+// WARNING: rejectUnauthorized: false is insecure - add KAFKA_SSL_CA for production
 const sslConfig = isCloudKafka
   ? {
-      rejectUnauthorized: true, // Verify server certificate
+      // If CA cert provided, verify it; otherwise allow insecure for testing
+      rejectUnauthorized: KAFKA_SSL_CA ? true : false,
       // If CA certificate is provided, use it
       ...(KAFKA_SSL_CA && { ca: [KAFKA_SSL_CA] }),
     }
