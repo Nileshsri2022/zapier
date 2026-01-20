@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-toastify';
 import Spinner from './Spinner';
 import Modal from './Modal';
+import FilterBuilder, { FilterCondition } from './FilterBuilder';
 import { API_URL } from '@/lib/config';
 
 const emptyAction = {
@@ -24,6 +25,8 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
   const [selectedActions, setSelectedActions] = useState<TSelectedAction[]>([emptyAction]);
   const [modalVisibilityFor, setModalVisibilityFor] = useState<number>(0);
   const [sheetsConnected, setSheetsConnected] = useState<boolean>(false);
+  const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
+  const [zapIdString, setZapIdString] = useState<string>('');
 
   // Check if sheets were just connected
   useEffect(() => {
@@ -43,10 +46,11 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
     if (zapId !== '') {
       const fetchZapDetails = async () => {
         try {
-          const zapIdString = JSON.parse(zapId as string);
+          const parsedZapId = JSON.parse(zapId as string);
+          setZapIdString(parsedZapId);
           const {
             data: { zap },
-          } = await axios.get(`${API_URL}/api/zaps/${zapIdString}`, {
+          } = await axios.get(`${API_URL}/api/zaps/${parsedZapId}`, {
             headers: { Authorization: localStorage.getItem('token') },
           });
           setSelectedTrigger({
@@ -59,6 +63,10 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
               actionType: a.action.type,
             }))
           );
+          // Load filter conditions
+          if (zap.filterConditions) {
+            setFilterConditions(zap.filterConditions);
+          }
         } catch (error) {
           toast.error('Could not fetch zap details!');
           router.push('/dashboard');
@@ -185,6 +193,17 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
             </div>
           )}
         </div>
+
+        {/* Filter Builder - shown when editing existing Zap */}
+        {zapIdString && (
+          <div className="w-full max-w-md">
+            <FilterBuilder
+              zapId={zapIdString}
+              initialConditions={filterConditions}
+              onSave={setFilterConditions}
+            />
+          </div>
+        )}
         {selectedActions?.map((action, index) => (
           <div key={index}>
             <ZapCell
