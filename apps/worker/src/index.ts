@@ -21,9 +21,21 @@ const validateEmail = (email: string) => {
   return regex.test(email);
 };
 
-function replaceKeys(template: string, replacements: Record<string, string>): string {
+function replaceKeys(template: string, replacements: Record<string, any>): string {
   return template.replace(/{(.*?)}/g, (_, key) => {
-    return replacements[key] || `{${key}}`;
+    // Support nested keys like {previousOutput.amount} or {data.user.email}
+    const keys = key.split('.');
+    let value: any = replacements;
+
+    for (const k of keys) {
+      if (value && typeof value === 'object' && k in value) {
+        value = value[k];
+      } else {
+        return `{${key}}`; // Key not found, return placeholder
+      }
+    }
+
+    return value !== undefined && value !== null ? String(value) : `{${key}}`;
   });
 }
 
@@ -42,12 +54,13 @@ async function initKafka() {
   }
 }
 
-// Execute action with retry
+// Execute action with retry - returns output data for chaining
 async function executeActionWithRetry(
   actionType: string,
   metadata: any,
-  zapRunMetadata: any
-): Promise<RetryResult<{ success: boolean; message: string }>> {
+  zapRunMetadata: any,
+  previousOutputs?: Record<number, any> // Outputs from previous steps
+): Promise<RetryResult<{ success: boolean; message: string; output?: any }>> {
   return withRetry(
     async () => {
       if (actionType === 'Email') {
@@ -73,7 +86,11 @@ async function executeActionWithRetry(
           throw new Error(`Email send failed: ${result.error}`);
         }
 
-        return { success: true, message: `Email sent to ${emailReceiver}` };
+        return {
+          success: true,
+          message: `Email sent to ${emailReceiver}`,
+          output: { to: emailReceiver, subject, sentAt: new Date().toISOString() },
+        };
       }
 
       if (actionType === 'Solana') {
@@ -90,7 +107,15 @@ async function executeActionWithRetry(
         console.log(`Sending ${resolvedAmount} SOL to ${resolvedAddress}...`);
         await sendSol(resolvedAddress, resolvedAmount);
         console.log(`✅ SOL sent successfully to ${resolvedAddress}`);
-        return { success: true, message: `${resolvedAmount} SOL sent to ${resolvedAddress}` };
+        return {
+          success: true,
+          message: `${resolvedAmount} SOL sent to ${resolvedAddress}`,
+          output: {
+            address: resolvedAddress,
+            amount: resolvedAmount,
+            sentAt: new Date().toISOString(),
+          },
+        };
       }
 
       if (actionType === 'WhatsApp') {
@@ -113,7 +138,11 @@ async function executeActionWithRetry(
         }
 
         console.log(`✅ WhatsApp message sent to ${resolvedTo}`);
-        return { success: true, message: `WhatsApp sent to ${resolvedTo}` };
+        return {
+          success: true,
+          message: `WhatsApp sent to ${resolvedTo}`,
+          output: { to: resolvedTo, sentAt: new Date().toISOString() },
+        };
       }
 
       if (actionType === 'Telegram') {
@@ -131,7 +160,11 @@ async function executeActionWithRetry(
         }
 
         console.log(`✅ Telegram message sent to ${resolvedChatId}`);
-        return { success: true, message: `Telegram sent to chat ${resolvedChatId}` };
+        return {
+          success: true,
+          message: `Telegram sent to chat ${resolvedChatId}`,
+          output: { chatId: resolvedChatId, sentAt: new Date().toISOString() },
+        };
       }
 
       if (actionType === 'Webhook') {
@@ -154,10 +187,14 @@ async function executeActionWithRetry(
         }
 
         console.log(`✅ Webhook sent to ${resolvedUrl} (${result.statusCode})`);
-        return { success: true, message: `Webhook sent to ${resolvedUrl}` };
+        return {
+          success: true,
+          message: `Webhook sent to ${resolvedUrl}`,
+          output: { url: resolvedUrl, statusCode: result.statusCode, response: result.data },
+        };
       }
 
-      return { success: true, message: `Unknown action: ${actionType}` };
+      return { success: true, message: `Unknown action: ${actionType}`, output: {} };
     },
     { maxRetries: 3, initialDelayMs: 1000 }
   );
@@ -213,16 +250,33 @@ async function processMessage(message: any) {
     return { success: false, reason: 'action_not_found', duration: Date.now() - startTime };
   }
 
-  // Execute action with retry
+  // Get previous step outputs from metadata (for chaining)
+  const zapMetadata = (zapRunDetails?.metadata || {}) as Record<string, any>;
+  const stepOutputs: Record<number, any> = zapMetadata.stepOutputs || {};
+
+  // Execute action with retry - passing previous outputs
   const result = await executeActionWithRetry(
     currentAction.action.type,
     currentAction.metadata,
-    zapRunDetails?.metadata
+    { ...zapMetadata, stepOutputs, previousOutput: stepOutputs[stage - 1] },
+    stepOutputs
   );
 
   console.log(
     `Action ${currentAction.action.type}: ${result.success ? 'SUCCESS' : 'FAILED'} after ${result.attempts} attempt(s)`
   );
+
+  // Store action output for next step (chaining)
+  if (result.success && result.data?.output) {
+    const updatedStepOutputs = { ...stepOutputs, [stage]: result.data.output };
+    await client.zapRun.update({
+      where: { id: zapRunId },
+      data: {
+        metadata: { ...zapMetadata, stepOutputs: updatedStepOutputs },
+      },
+    });
+    console.log(`📦 Stored output from step ${stage} for next action`);
+  }
 
   // Queue next stage if not last and action succeeded
   if (result.success && stage !== lastStage) {
