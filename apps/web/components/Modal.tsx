@@ -238,13 +238,28 @@ const Modal = ({
 
       localStorage.setItem('oauth_pending', 'true');
 
-      let endpoint = '/api/gmail/auth';
-      if (selectedApp.id === 'sheets') endpoint = '/api/sheets/auth/initiate';
-      else if (selectedApp.id === 'calendar') endpoint = '/api/calendar/auth/initiate';
+      let endpoint = '/api/gmail/auth/initiate';
+      let method: 'get' | 'post' = 'post';
+      let body: any = { name: 'Gmail Account' };
 
-      const response = await axios.get(`${API_URL}${endpoint}`, {
-        headers: { Authorization: token },
-      });
+      if (selectedApp.id === 'sheets') {
+        endpoint = '/api/sheets/auth/initiate';
+        method = 'get';
+        body = null;
+      } else if (selectedApp.id === 'calendar') {
+        endpoint = '/api/calendar/auth/initiate';
+        method = 'get';
+        body = null;
+      }
+
+      const response =
+        method === 'post'
+          ? await axios.post(`${API_URL}${endpoint}`, body, {
+              headers: { Authorization: token },
+            })
+          : await axios.get(`${API_URL}${endpoint}`, {
+              headers: { Authorization: token },
+            });
 
       if (response?.data?.authUrl) {
         window.location.href = response.data.authUrl;
@@ -253,7 +268,7 @@ const Modal = ({
       }
     } catch (error: any) {
       console.error('OAuth error:', error);
-      toast.error(error?.response?.data?.error || 'Failed to connect');
+      toast.error(error?.response?.data?.message || 'Failed to connect');
     }
   };
 
