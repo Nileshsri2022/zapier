@@ -39,6 +39,10 @@ model Zap {
   createdDate DateTime @default(now())
   isActive    Boolean  @default(false)
 
+  // Filter conditions - JSON array for conditional logic
+  // Format: [{ "field": "data.amount", "operator": "greater_than", "value": "100" }]
+  filterConditions Json @default("[]")
+
   // Gmail MCP relations
   gmailTriggers GmailTrigger[]
   gmailActions  GmailAction[]

@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { sendEmailWithTextBody } from '@repo/email';
 import { withRetry, RetryResult } from './utils/retry';
 import { sendSol } from './sendSolana';
+import { evaluateFilters, FilterCondition } from './evaluateFilters';
 
 dotenv.config();
 
@@ -182,6 +183,23 @@ async function processMessage(message: any) {
 
   const lastStage = zapRunDetails?.zap?.actions?.length || 1;
   const currentAction = zapRunDetails?.zap?.actions?.find((a: any) => a.sortingOrder === stage);
+
+  // Evaluate filters on first stage only
+  if (stage === 1) {
+    const filterConditions =
+      ((zapRunDetails?.zap as any)?.filterConditions as FilterCondition[]) || [];
+    const triggerData = zapRunDetails?.metadata || {};
+
+    if (!evaluateFilters(filterConditions, triggerData)) {
+      console.log(`🚫 Filters blocked ZapRun ${zapRunId} - skipping all actions`);
+      return {
+        success: true,
+        reason: 'filtered',
+        duration: Date.now() - startTime,
+        message: 'Zap run skipped due to filter conditions',
+      };
+    }
+  }
 
   if (!currentAction) {
     console.log('Current Action not found');

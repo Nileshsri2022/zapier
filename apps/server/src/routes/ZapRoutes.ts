@@ -22,6 +22,7 @@ router.patch(
   validateBody(EnableZapSchema),
   ZapController.enableZapExecution
 );
+router.patch('/:zapId/filters', authMiddleware, ZapController.updateZapFilters);
 router.get('/:zapId/runs', authMiddleware, ZapController.fetchZapRuns);
 router.post('/', authMiddleware, ZapController.createZap);
 router.get('/', authMiddleware, ZapController.fetchZapList);
