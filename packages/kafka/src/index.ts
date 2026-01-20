@@ -1,4 +1,4 @@
-import { Kafka, logLevel } from 'kafkajs';
+import { Kafka, logLevel, SASLOptions } from 'kafkajs';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -18,13 +18,27 @@ const KAFKA_SASL_MECHANISM = (process.env.KAFKA_SASL_MECHANISM || 'scram-sha-512
   | 'scram-sha-512'
   | 'scram-sha-256';
 
-const saslConfig = isCloudKafka
-  ? {
-      mechanism: KAFKA_SASL_MECHANISM,
+// Build SASL config with proper type narrowing for discriminated union
+const buildSaslConfig = (): SASLOptions | undefined => {
+  if (!isCloudKafka) return undefined;
+
+  // Type narrowing: each branch returns a correctly typed object
+  if (KAFKA_SASL_MECHANISM === 'scram-sha-512') {
+    return {
+      mechanism: 'scram-sha-512',
       username: KAFKA_USERNAME!,
       password: KAFKA_PASSWORD!,
-    }
-  : undefined;
+    };
+  } else {
+    return {
+      mechanism: 'scram-sha-256',
+      username: KAFKA_USERNAME!,
+      password: KAFKA_PASSWORD!,
+    };
+  }
+};
+
+const saslConfig = buildSaslConfig();
 
 // SSL configuration
 // For cloud Kafka providers, SSL is required

@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Tooltip from '@/components/Tooltip';
 import { API_URL, HOOKS_URL } from '@/lib/config';
+import ZapRunHistory from '@/components/ZapRunHistory';
 
 interface TZap {
   id: string;
@@ -51,6 +52,7 @@ export default function Page() {
   const [selectedRow, setSelectedRow] = useState<number>(-1);
   const [renameEnabled, setRenameEnabled] = useState<number>(-1);
   const [data, setData] = useState<{ zaps: TZap[] | []; total: number }>({ zaps: [], total: 0 });
+  const [historyZap, setHistoryZap] = useState<TZap | null>(null);
 
   const fetchData = async () => {
     if (!session) return;
@@ -299,6 +301,29 @@ export default function Page() {
                             Rename
                           </div>
                           <div
+                            onClick={() => {
+                              setHistoryZap(zap);
+                              setSelectedRow(-1);
+                            }}
+                            className="hover:bg-blue-100 flex items-center gap-1 text-blue-600 py-1 px-2 rounded-md"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth={1.5}
+                              stroke="currentColor"
+                              className="size-5"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                              />
+                            </svg>
+                            History
+                          </div>
+                          <div
                             onClick={() => handleZapDelete(zap)}
                             className="hover:bg-red-100 flex items-center gap-1 text-red-600 py-1 px-2 rounded-md"
                           >
@@ -401,6 +426,24 @@ export default function Page() {
                       Copy URL
                     </button>
                     <button
+                      onClick={() => setHistoryZap(zap)}
+                      className="text-xs py-2 px-3 bg-blue-50 hover:bg-blue-100 rounded text-blue-600 flex items-center justify-center gap-1"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="w-4 h-4"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-13a.75.75 0 0 0-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 0 0 0-1.5h-3.25V5Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      History
+                    </button>
+                    <button
                       onClick={() => handleZapDelete(zap)}
                       className="text-xs py-2 px-3 bg-red-50 hover:bg-red-100 rounded text-red-600 flex items-center justify-center gap-1"
                     >
@@ -429,6 +472,16 @@ export default function Page() {
           )}
         </div>
       </div>
+
+      {/* Zap Run History Modal */}
+      {historyZap && (
+        <ZapRunHistory
+          zapId={historyZap.id}
+          zapName={historyZap.name || 'Untitled'}
+          isOpen={!!historyZap}
+          onClose={() => setHistoryZap(null)}
+        />
+      )}
     </MainSection>
   );
 }
