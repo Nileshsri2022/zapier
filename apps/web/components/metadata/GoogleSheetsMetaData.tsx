@@ -29,11 +29,8 @@ const GoogleSheetsMetaData = ({
   useEffect(() => {
     const fetchServers = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
         const response = await axios.get(`${API_URL}/api/sheets/servers`, {
-          headers: { Authorization: token },
+          withCredentials: true, // Use httpOnly cookie for auth
         });
 
         const connectedServers = response?.data?.servers || [];
@@ -57,16 +54,10 @@ const GoogleSheetsMetaData = ({
   const handleConnectGoogle = async () => {
     try {
       setConnecting(true);
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast.error('Please log in first');
-        return;
-      }
-
       localStorage.setItem('sheets_oauth_pending', 'true');
 
       const response = await axios.get(`${API_URL}/api/sheets/auth/initiate`, {
-        headers: { Authorization: token },
+        withCredentials: true, // Use httpOnly cookie for auth
       });
 
       if (response?.data?.authUrl) {

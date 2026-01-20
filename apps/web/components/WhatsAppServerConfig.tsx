@@ -32,14 +32,14 @@ const WhatsAppServerConfig = () => {
   const fetchWhatsAppServers = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) {
         toast.error('No authentication token found');
         return;
       }
 
       const response = await axios.get(`${API_URL}/api/whatsapp/servers`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       setServers(response.data.servers || []);
@@ -63,14 +63,14 @@ const WhatsAppServerConfig = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) {
         toast.error('No authentication token found');
         return;
       }
 
       await axios.post(`${API_URL}/api/whatsapp/servers`, formData, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       toast.success('WhatsApp server connected successfully!');
@@ -92,14 +92,14 @@ const WhatsAppServerConfig = () => {
 
   const testConnection = async (serverId: string) => {
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       await axios.post(
         `${API_URL}/api/whatsapp/servers/${serverId}/test`,
         {},
         {
-          headers: { Authorization: token },
+          withCredentials: true,
         }
       );
 
@@ -113,11 +113,11 @@ const WhatsAppServerConfig = () => {
     if (!confirm('Are you sure you want to delete this WhatsApp server?')) return;
 
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       await axios.delete(`${API_URL}/api/whatsapp/servers/${serverId}`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       toast.success('WhatsApp server deleted successfully');
@@ -129,14 +129,14 @@ const WhatsAppServerConfig = () => {
 
   const toggleStatus = async (serverId: string, isActive: boolean) => {
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       await axios.put(
         `${API_URL}/api/whatsapp/servers/${serverId}`,
         { isActive: !isActive },
         {
-          headers: { Authorization: token },
+          withCredentials: true,
         }
       );
 

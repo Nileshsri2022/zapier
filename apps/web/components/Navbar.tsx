@@ -66,8 +66,18 @@ const Navbar = ({
             <div className="bg-white z-50 w-40 h-20 p-2 border border-gray-300 rounded-sm flex flex-col gap-2 transition-all">
               <div
                 className="border-b text-gray-500 cursor-pointer hover:bg-base-200 px-1 text-nm border-gray-300"
-                onClick={() => {
-                  localStorage.setItem('token', '');
+                onClick={async () => {
+                  // Call logout API to clear httpOnly cookie
+                  try {
+                    await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/auth/logout`, {
+                      method: 'POST',
+                      credentials: 'include',
+                    });
+                  } catch (e) {
+                    console.error('Logout error:', e);
+                  }
+                  // Clear local user data
+                  localStorage.removeItem('user');
                   router.push('/login');
                 }}
               >

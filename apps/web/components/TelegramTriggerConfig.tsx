@@ -45,11 +45,11 @@ const TelegramTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
 
   const fetchBots = async () => {
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       const response = await axios.get(`${API_URL}/api/telegram/bots`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       setBots(response.data.bots || []);
@@ -61,7 +61,7 @@ const TelegramTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
   const fetchTriggers = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       const url = zapId
@@ -69,7 +69,7 @@ const TelegramTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
         : `${API_URL}/api/telegram/triggers`;
 
       const response = await axios.get(url, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       setTriggers(response.data.triggers || []);
@@ -87,7 +87,7 @@ const TelegramTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       const response = await axios.post(
@@ -99,7 +99,7 @@ const TelegramTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
           filterCommand: eventType === 'command' ? filterCommand : null,
         },
         {
-          headers: { Authorization: token },
+          withCredentials: true,
         }
       );
 
@@ -121,11 +121,11 @@ const TelegramTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
     if (!confirm('Delete this Telegram trigger?')) return;
 
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       await axios.delete(`${API_URL}/api/telegram/triggers/${triggerId}`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       toast.success('Trigger deleted');

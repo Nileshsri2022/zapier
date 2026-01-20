@@ -28,14 +28,14 @@ const TelegramBotConfig = () => {
   const fetchBots = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) {
         toast.error('No authentication token found');
         return;
       }
 
       const response = await axios.get(`${API_URL}/api/telegram/bots`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       setBots(response.data.bots || []);
@@ -55,14 +55,14 @@ const TelegramBotConfig = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) {
         toast.error('No authentication token found');
         return;
       }
 
       await axios.post(`${API_URL}/api/telegram/bots`, formData, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       toast.success('Telegram bot connected successfully!');
@@ -76,14 +76,14 @@ const TelegramBotConfig = () => {
 
   const testConnection = async (botId: string) => {
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       const response = await axios.post(
         `${API_URL}/api/telegram/bots/${botId}/test`,
         {},
         {
-          headers: { Authorization: token },
+          withCredentials: true,
         }
       );
 
@@ -97,11 +97,11 @@ const TelegramBotConfig = () => {
     if (!confirm('Are you sure you want to disconnect this bot?')) return;
 
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       await axios.delete(`${API_URL}/api/telegram/bots/${botId}`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       toast.success('Bot disconnected successfully');
@@ -113,14 +113,14 @@ const TelegramBotConfig = () => {
 
   const toggleStatus = async (botId: string, isActive: boolean) => {
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       await axios.put(
         `${API_URL}/api/telegram/bots/${botId}`,
         { isActive: !isActive },
         {
-          headers: { Authorization: token },
+          withCredentials: true,
         }
       );
 

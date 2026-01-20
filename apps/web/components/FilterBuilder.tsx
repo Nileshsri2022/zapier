@@ -67,14 +67,12 @@ export function FilterBuilder({ zapId, initialConditions = [], onSave }: FilterB
 
     setIsSaving(true);
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/zaps/${zapId}/filters`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
-        credentials: 'include',
+        credentials: 'include', // Use httpOnly cookie for auth
         body: JSON.stringify({ filterConditions: conditions }),
       });
 

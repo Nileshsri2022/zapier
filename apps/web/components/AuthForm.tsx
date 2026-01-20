@@ -80,13 +80,24 @@ export const LoginForm = () => {
   const signin = async (data: TLogin) => {
     setLoading(true);
     await axios
-      .post(`${API_URL}/api/auth/signin`, {
-        email: data?.login_email,
-        password: data?.login_pw,
-      })
+      .post(
+        `${API_URL}/api/auth/signin`,
+        {
+          email: data?.login_email,
+          password: data?.login_pw,
+        },
+        { withCredentials: true } // Cookie will be set automatically by server
+      )
       .then((res) => {
-        localStorage.setItem('token', res?.data?.data?.token);
-        localStorage.setItem('user', JSON.stringify(res?.data?.data));
+        // Only store non-sensitive user data (token is in httpOnly cookie)
+        localStorage.setItem(
+          'user',
+          JSON.stringify({
+            id: res?.data?.data?.id,
+            name: res?.data?.data?.name,
+            email: res?.data?.data?.email,
+          })
+        );
         setTimeout(() => {
           router.push('/dashboard');
         }, 500);

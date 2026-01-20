@@ -64,14 +64,14 @@ const GmailTriggerConfig = () => {
 
   const fetchGmailServers = async () => {
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) {
         toast.error('No authentication token found');
         return;
       }
 
       const response = await axios.get('${API_URL}/api/gmail/servers', {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       setServers(response.data.gmailServers || []);
@@ -85,7 +85,7 @@ const GmailTriggerConfig = () => {
   const fetchGmailTriggers = async (serverId?: string) => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) {
         toast.error('No authentication token found');
         return;
@@ -94,7 +94,7 @@ const GmailTriggerConfig = () => {
       const response = await axios.get(
         `${API_URL}/api/gmail/triggers${serverId ? `/${serverId}` : ''}`,
         {
-          headers: { Authorization: token },
+          withCredentials: true,
         }
       );
 
@@ -115,7 +115,7 @@ const GmailTriggerConfig = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) {
         toast.error('No authentication token found');
         return;
@@ -132,7 +132,7 @@ const GmailTriggerConfig = () => {
           subjectFilter: formData.subjectFilter || undefined,
         },
         {
-          headers: { Authorization: token },
+          withCredentials: true,
         }
       );
 
@@ -153,14 +153,14 @@ const GmailTriggerConfig = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) {
         toast.error('No authentication token found');
         return;
       }
 
       await axios.delete(`${API_URL}/api/gmail/triggers/${triggerId}`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       toast.success('Gmail trigger deleted successfully');

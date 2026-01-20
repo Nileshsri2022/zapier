@@ -14,23 +14,37 @@ export function formatDateTimeToCustomString(dateTime: string | Date): string {
   return parsedDateTime.toLocaleString('en-US', options);
 }
 
+/**
+ * Get session details from localStorage (user data only)
+ * Token is stored in httpOnly cookie - not accessible from JS (secure!)
+ */
 export const getSessionDetails = () => {
   let session = {
-    token: '',
-    user: {},
+    isLoggedIn: false,
+    user: null as { id?: number; name?: string; email?: string } | null,
   };
 
   // Check if localStorage is available (browser environment)
-  if (
-    typeof localStorage !== 'undefined' &&
-    localStorage.getItem('user') !== null &&
-    localStorage.getItem('token') !== null
-  ) {
-    session = {
-      token: localStorage.getItem('token') as string,
-      user: JSON.parse(localStorage.getItem('user') as string),
-    };
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('user') !== null) {
+    try {
+      session = {
+        isLoggedIn: true,
+        user: JSON.parse(localStorage.getItem('user') as string),
+      };
+    } catch {
+      // Invalid JSON in localStorage
+      localStorage.removeItem('user');
+    }
   }
 
   return session;
+};
+
+/**
+ * Check if user is logged in (based on stored user data)
+ * Note: Actual auth validation happens server-side via httpOnly cookie
+ */
+export const isLoggedIn = (): boolean => {
+  if (typeof localStorage === 'undefined') return false;
+  return localStorage.getItem('user') !== null;
 };

@@ -31,11 +31,11 @@ const GoogleCalendarMetaData = ({
   useEffect(() => {
     const fetchServers = async () => {
       try {
-        const token = localStorage.getItem('token');
+        // Cookie auth - no token needed
         if (!token) return;
 
         const response = await axios.get(`${API_URL}/api/calendar/servers`, {
-          headers: { Authorization: token },
+          withCredentials: true,
         });
 
         const connectedServers = response?.data?.servers || [];
@@ -63,12 +63,12 @@ const GoogleCalendarMetaData = ({
 
       setLoadingCalendars(true);
       try {
-        const token = localStorage.getItem('token');
+        // Cookie auth - no token needed
         if (!token) return;
 
         const response = await axios.get(
           `${API_URL}/api/calendar/calendars?serverId=${formData.serverId}`,
-          { headers: { Authorization: token } }
+          { withCredentials: true }
         );
 
         setCalendars(response?.data?.calendars || []);
@@ -85,7 +85,7 @@ const GoogleCalendarMetaData = ({
   const handleConnectGoogle = async () => {
     try {
       setConnecting(true);
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) {
         toast.error('Please log in first');
         return;
@@ -94,7 +94,7 @@ const GoogleCalendarMetaData = ({
       localStorage.setItem('calendar_oauth_pending', 'true');
 
       const response = await axios.get(`${API_URL}/api/calendar/auth/initiate`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       if (response?.data?.authUrl) {

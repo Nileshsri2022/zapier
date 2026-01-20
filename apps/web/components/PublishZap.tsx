@@ -51,7 +51,7 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
           const {
             data: { zap },
           } = await axios.get(`${API_URL}/api/zaps/${parsedZapId}`, {
-            headers: { Authorization: localStorage.getItem('token') },
+            withCredentials: true, // Use httpOnly cookie for auth
           });
           setSelectedTrigger({
             availableTriggerId: zap.trigger.trigger.id,
@@ -95,16 +95,12 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
     try {
       if (!zapId) {
         await axios.post(`${API_URL}/api/zaps`, createZapData, {
-          headers: {
-            Authorization: localStorage.getItem('token'),
-          },
+          withCredentials: true, // Use httpOnly cookie for auth
         });
       } else {
         const zapIdString = JSON.parse(zapId as string);
         await axios.put(`${API_URL}/api/zaps/${zapIdString}`, createZapData, {
-          headers: {
-            Authorization: localStorage.getItem('token'),
-          },
+          withCredentials: true, // Use httpOnly cookie for auth
         });
       }
       router.push('/dashboard');

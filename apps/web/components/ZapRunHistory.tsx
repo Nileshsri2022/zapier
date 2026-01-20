@@ -30,9 +30,8 @@ export function ZapRunHistory({ zapId, zapName, isOpen, onClose }: ZapRunHistory
     setLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_URL}/api/zaps/${zapId}/runs?page=${pageNum}&limit=10`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include', // Use httpOnly cookie for auth
       });
       const data = await res.json();
 

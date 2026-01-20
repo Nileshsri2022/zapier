@@ -62,11 +62,11 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
   // Fetch connected Google Calendar accounts
   const fetchServers = async () => {
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       const response = await axios.get(`${API_URL}/api/calendar/servers`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
       setServers(response.data.servers || []);
     } catch (error: any) {
@@ -77,11 +77,11 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
   // Fetch calendars for selected server
   const fetchCalendars = async (serverId: string) => {
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token || !serverId) return;
 
       const response = await axios.get(`${API_URL}/api/calendar/calendars?serverId=${serverId}`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
       setCalendars(response.data.calendars || []);
     } catch (error: any) {
@@ -92,11 +92,11 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
   // Fetch available trigger types
   const fetchTriggerTypes = async () => {
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       const response = await axios.get(`${API_URL}/api/calendar/trigger-types`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
       setTriggerTypes(response.data.types || []);
     } catch (error: any) {
@@ -152,7 +152,7 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
   const fetchTriggers = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       const url = zapId
@@ -160,7 +160,7 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
         : `${API_URL}/api/calendar/triggers`;
 
       const response = await axios.get(url, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
       setTriggers(response.data.triggers || []);
     } catch (error: any) {
@@ -174,11 +174,11 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
   const connectGoogleCalendar = async () => {
     try {
       setIsConnecting(true);
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       const response = await axios.get(`${API_URL}/api/calendar/auth/initiate`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       if (response.data.authUrl) {
@@ -208,7 +208,7 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       const response = await axios.post(
@@ -222,7 +222,7 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
           reminderMinutes: selectedTriggerType === 'event_start' ? reminderMinutes : undefined,
         },
         {
-          headers: { Authorization: token },
+          withCredentials: true,
         }
       );
 
@@ -244,11 +244,11 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
     if (!confirm('Delete this Google Calendar trigger?')) return;
 
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       await axios.delete(`${API_URL}/api/calendar/triggers/${triggerId}`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       toast.success('Trigger deleted');

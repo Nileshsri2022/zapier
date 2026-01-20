@@ -56,11 +56,11 @@ const WhatsAppTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
 
   const fetchServers = async () => {
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       const response = await axios.get(`${API_URL}/api/whatsapp/servers`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       setServers(response.data.servers || []);
@@ -72,7 +72,7 @@ const WhatsAppTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
   const fetchTriggers = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       const url = zapId
@@ -80,7 +80,7 @@ const WhatsAppTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
         : `${API_URL}/api/whatsapp/triggers`;
 
       const response = await axios.get(url, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       setTriggers(response.data.triggers || []);
@@ -98,7 +98,7 @@ const WhatsAppTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
     }
 
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       const response = await axios.post(
@@ -109,7 +109,7 @@ const WhatsAppTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
           eventType: eventType,
         },
         {
-          headers: { Authorization: token },
+          withCredentials: true,
         }
       );
 
@@ -130,11 +130,11 @@ const WhatsAppTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
     if (!confirm('Delete this WhatsApp trigger?')) return;
 
     try {
-      const token = localStorage.getItem('token');
+      // Cookie auth - no token needed
       if (!token) return;
 
       await axios.delete(`${API_URL}/api/whatsapp/triggers/${triggerId}`, {
-        headers: { Authorization: token },
+        withCredentials: true,
       });
 
       toast.success('Trigger deleted');

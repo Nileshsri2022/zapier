@@ -69,15 +69,8 @@ const Modal = ({
 
   const fetchAvailableTriggers = async () => {
     try {
-      const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
       const response = await axios.get(`${API_URL}/api/triggers`, {
-        headers: {
-          Authorization: token,
-        },
+        withCredentials: true, // Use httpOnly cookie for auth
       });
       setAvailableItems(response?.data?.avialableTriggers || []);
     } catch (error) {
@@ -87,15 +80,8 @@ const Modal = ({
 
   const fetchAvailableActions = async () => {
     try {
-      const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
       const response = await axios.get(`${API_URL}/api/actions`, {
-        headers: {
-          Authorization: token,
-        },
+        withCredentials: true, // Use httpOnly cookie for auth
       });
       setAvailableItems(response?.data?.availableActions || []);
     } catch (error) {
@@ -117,9 +103,6 @@ const Modal = ({
 
     setLoadingServers(true);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
       let endpoint = '';
       if (app.id === 'sheets') endpoint = '/api/sheets/servers';
       else if (app.id === 'gmail') endpoint = '/api/gmail/servers';
@@ -128,7 +111,7 @@ const Modal = ({
       else if (app.id === 'whatsapp') endpoint = '/api/whatsapp/servers';
 
       const response = await axios.get(`${API_URL}${endpoint}`, {
-        headers: { Authorization: token },
+        withCredentials: true, // Use httpOnly cookie for auth
       });
 
       const servers = response?.data?.servers || response?.data?.bots || [];
@@ -230,12 +213,6 @@ const Modal = ({
     if (!selectedApp) return;
 
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast.error('Please log in first');
-        return;
-      }
-
       localStorage.setItem('oauth_pending', 'true');
 
       let endpoint = '/api/gmail/auth/initiate';
@@ -255,10 +232,10 @@ const Modal = ({
       const response =
         method === 'post'
           ? await axios.post(`${API_URL}${endpoint}`, body, {
-              headers: { Authorization: token },
+              withCredentials: true, // Use httpOnly cookie for auth
             })
           : await axios.get(`${API_URL}${endpoint}`, {
-              headers: { Authorization: token },
+              withCredentials: true, // Use httpOnly cookie for auth
             });
 
       if (response?.data?.authUrl) {
@@ -281,12 +258,6 @@ const Modal = ({
 
     setConnectingBot(true);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast.error('Please log in first');
-        return;
-      }
-
       const endpoint =
         selectedApp.id === 'telegram' ? '/api/telegram/bots' : '/api/whatsapp/servers';
       const payload =
@@ -301,7 +272,7 @@ const Modal = ({
             };
 
       await axios.post(`${API_URL}${endpoint}`, payload, {
-        headers: { Authorization: token },
+        withCredentials: true, // Use httpOnly cookie for auth
       });
 
       toast.success(`${selectedApp.name} connected successfully!`);

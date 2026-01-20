@@ -18,18 +18,25 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      // Check if user data exists in localStorage (indicates possible login)
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) {
         router.push('/login');
         return;
       }
 
       try {
         const response = await axios.get(`${API_URL}/api/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true, // Use httpOnly cookie for auth
         });
         setUser(response.data.user);
-      } catch (error) {
+      } catch (error: any) {
+        // If unauthorized, redirect to login
+        if (error?.response?.status === 401 || error?.response?.status === 403) {
+          localStorage.removeItem('user');
+          router.push('/login');
+          return;
+        }
         toast.error('Failed to load profile');
         console.error(error);
       } finally {
