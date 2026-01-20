@@ -9,7 +9,7 @@ dotenv.config({ path: __dirname + '/../.env' });
 
 // Initialize Resend with API key
 const resend = new Resend(process.env.RESEND_API_KEY);
-const fromEmail = process.env.SENDER_EMAIL || 'onboarding@resend.dev';
+const fromEmail = process.env.SENDER_EMAIL || 'ZapMate <noreply@meradomain.qzz.io>';
 
 // Rate limiting config (Resend free tier: 100/day, ~4/hour safe limit)
 const RATE_LIMIT_KEY = 'email:rate_limit';

@@ -125,8 +125,11 @@ export class GoogleSheetsPoller extends BasePoller {
       // Get stored hash from Redis
       const oldHash = (await redis.hget(redisKey, rowKey)) as string | null;
 
-      // Check if row was updated (existed before AND hash changed)
-      if (oldHash && oldHash !== newHash) {
+      // Trigger on NEW rows (no oldHash) OR CHANGED rows (hash differs)
+      const isNewRow = !oldHash;
+      const isChangedRow = oldHash && oldHash !== newHash;
+
+      if (isNewRow || isChangedRow) {
         const rowData: Record<string, any> = {};
         headers.forEach((header: string, idx: number) => {
           rowData[header] = row.values[idx] ?? '';
@@ -137,7 +140,7 @@ export class GoogleSheetsPoller extends BasePoller {
           row_data: rowData,
         });
 
-        console.log(`${this.emoji} Row ${row.index} updated in trigger ${trigger.id}`);
+        console.log(`📊 ${isNewRow ? 'New' : 'Updated'} row ${row.index} in trigger ${trigger.id}`);
       }
 
       // Update hash in Redis
