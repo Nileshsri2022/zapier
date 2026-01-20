@@ -259,3 +259,40 @@ export const sendEmailWithHtmlBody = async (to: string, subject: string, html: s
 export const getRateLimitStatus = async () => {
   return checkRateLimit();
 };
+
+/**
+ * Send notification when a Zap run fails
+ */
+export const sendZapFailureNotification = async (
+  userEmail: string,
+  zapName: string,
+  zapId: string,
+  errorMessage: string,
+  runId: string
+) => {
+  try {
+    const dashboardUrl = process.env.FRONTEND_URL || 'https://zapmate.vercel.app';
+    const timestamp = new Date().toLocaleString('en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+
+    return await sendEmail(
+      userEmail,
+      `⚠️ Your Zap "${zapName}" Failed`,
+      'zap-failure-notification.html',
+      {
+        zapName,
+        zapId,
+        errorMessage: errorMessage || 'Unknown error occurred',
+        runId,
+        dashboardUrl,
+        timestamp,
+      }
+    );
+  } catch (error) {
+    console.error('Failed to send Zap failure notification:', error);
+    // Don't throw - notification failure shouldn't break the worker
+    return null;
+  }
+};

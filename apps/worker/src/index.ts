@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import kafka from '@repo/kafka';
 import client from '@repo/db';
 import dotenv from 'dotenv';
-import { sendEmailWithTextBody } from '@repo/email';
+import { sendEmailWithTextBody, sendZapFailureNotification } from '@repo/email';
 import { withRetry, RetryResult } from './utils/retry';
 import { sendSol } from './sendSolana';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
@@ -176,9 +176,16 @@ async function processMessage(message: any) {
           actions: {
             include: { action: true },
           },
+          user: true, // Include user for email notification
         },
       },
     },
+  });
+
+  // Update status to running
+  await client.zapRun.update({
+    where: { id: zapRunId },
+    data: { status: 'running' },
   });
 
   const lastStage = zapRunDetails?.zap?.actions?.length || 1;
@@ -228,6 +235,45 @@ async function processMessage(message: any) {
         },
       ],
     });
+  }
+
+  // Update ZapRun status based on result
+  if (result.success && stage === lastStage) {
+    // All actions completed successfully
+    await client.zapRun.update({
+      where: { id: zapRunId },
+      data: {
+        status: 'completed',
+        completedAt: new Date(),
+      },
+    });
+    console.log(`✅ ZapRun ${zapRunId} completed successfully`);
+  } else if (!result.success) {
+    // Action failed after all retries
+    await client.zapRun.update({
+      where: { id: zapRunId },
+      data: {
+        status: 'failed',
+        errorMessage: result.error?.message || 'Unknown error',
+        completedAt: new Date(),
+      },
+    });
+
+    // Send failure notification email
+    const userEmail = (zapRunDetails?.zap as any)?.user?.email;
+    const zapName = zapRunDetails?.zap?.name || 'Untitled Zap';
+    const zapId = zapRunDetails?.zap?.id;
+
+    if (userEmail && zapId) {
+      console.log(`📧 Sending failure notification to ${userEmail}`);
+      await sendZapFailureNotification(
+        userEmail,
+        zapName,
+        zapId,
+        result.error?.message || 'Action failed after retries',
+        zapRunId
+      );
+    }
   }
 
   return {

@@ -109,9 +109,15 @@ model ZapRun {
   metadata     Json
   createdAt    DateTime      @default(now())
 
+  // Status tracking for error notifications
+  status       String    @default("pending") // pending, running, completed, failed
+  errorMessage String? // Error details if failed
+  completedAt  DateTime? // When the run finished
+
   // Index for faster zap run lookups
   @@index([zapId])
   @@index([createdAt])
+  @@index([status])
 }
 
 model ZapRunOutbox {
