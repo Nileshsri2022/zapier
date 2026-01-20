@@ -92,6 +92,10 @@ model Action {
   action       AvailableActions @relation(fields: [actionId], references: [id])
   sortingOrder Int              @default(0)
   metadata     Json             @default("{}")
+
+  // Per-step conditions - skip this action if conditions not met
+  // Format: [{ "field": "previousOutput.status", "operator": "equals", "value": "paid" }]
+  stepConditions Json @default("[]")
 }
 
 model AvailableActions {

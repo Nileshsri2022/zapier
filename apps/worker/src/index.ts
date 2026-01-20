@@ -253,12 +253,41 @@ async function processMessage(message: any) {
   // Get previous step outputs from metadata (for chaining)
   const zapMetadata = (zapRunDetails?.metadata || {}) as Record<string, any>;
   const stepOutputs: Record<number, any> = zapMetadata.stepOutputs || {};
+  const previousOutput = stepOutputs[stage - 1] || {};
+
+  // Evaluate step conditions (skip action if conditions not met)
+  const stepConditions = (currentAction as any).stepConditions || [];
+  if (stepConditions.length > 0) {
+    const conditionContext = { ...zapMetadata, previousOutput, stepOutputs };
+
+    if (!evaluateFilters(stepConditions as FilterCondition[], conditionContext)) {
+      console.log(
+        `⏭️ Skipping action ${stage} (${currentAction.action.type}) - step conditions not met`
+      );
+
+      // Queue next stage even though this one was skipped
+      if (stage !== lastStage) {
+        await producer.send({
+          topic: TOPIC_NAME,
+          messages: [{ value: JSON.stringify({ zapRunId, stage: stage + 1 }) }],
+        });
+      }
+
+      return {
+        success: true,
+        reason: 'skipped',
+        action: currentAction.action.type,
+        duration: Date.now() - startTime,
+        message: 'Action skipped due to step conditions',
+      };
+    }
+  }
 
   // Execute action with retry - passing previous outputs
   const result = await executeActionWithRetry(
     currentAction.action.type,
     currentAction.metadata,
-    { ...zapMetadata, stepOutputs, previousOutput: stepOutputs[stage - 1] },
+    { ...zapMetadata, stepOutputs, previousOutput },
     stepOutputs
   );
 
