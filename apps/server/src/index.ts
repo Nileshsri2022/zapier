@@ -1,6 +1,7 @@
 import express, { Express } from 'express';
 import router from './routes';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import client from '@repo/db';
 import { initSentry, captureException, sentryErrorHandler } from '@repo/sentry';
@@ -35,6 +36,7 @@ const corsOptions = {
 };
 
 app.use(express.json());
+app.use(cookieParser()); // Parse cookies for auth
 app.use(cors(corsOptions));
 app.use(compressionMiddleware); // Compress API responses
 

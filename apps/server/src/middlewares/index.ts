@@ -5,8 +5,15 @@ import jwt from 'jsonwebtoken';
 export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization as string | undefined;
 
-  // Handle both "Bearer <token>" and plain "<token>" formats
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
+  // Handle both "Bearer <token>" and plain "<token>" formats from header
+  const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : authHeader;
+
+  // Also check for httpOnly cookie (new method)
+  // @ts-ignore - cookies added by cookie-parser
+  const cookieToken = req.cookies?.auth_token;
+
+  // Use cookie token if available, otherwise fall back to header
+  const token = cookieToken || headerToken;
 
   if (!token) {
     res.status(403).json({
