@@ -4,7 +4,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import client from '@repo/db';
-import { initSentry, captureException, sentryErrorHandler } from '@repo/sentry';
+import { initSentry, captureException } from '@repo/sentry';
 import {
   apiLimiter,
   sanitizeInput,

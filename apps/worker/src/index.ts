@@ -67,6 +67,11 @@ async function executeActionWithRetry(
         const { to, subject, body } = metadata;
         let emailReceiver: string;
 
+        console.log('📧 [Worker] Processing Email action:');
+        console.log('  - Raw "to" from metadata:', to);
+        console.log('  - Subject:', subject);
+        console.log('  - Body (first 100 chars):', body?.substring(0, 100));
+
         if (validateEmail(to)) {
           emailReceiver = to;
         } else {
@@ -75,10 +80,15 @@ async function executeActionWithRetry(
             searchKey.indexOf('email') + 8,
             searchKey.indexOf('.com') + 4
           );
+          console.log('  - Extracted email from metadata:', emailReceiver);
         }
 
+        console.log('📧 [Worker] Sending email to:', emailReceiver);
         const emailBody = replaceKeys(body, zapRunMetadata);
+        console.log('  - Processed body (first 100 chars):', emailBody?.substring(0, 100));
+
         const result = await sendEmailWithTextBody(emailReceiver, subject, emailBody);
+        console.log('📧 [Worker] Email send result:', JSON.stringify(result));
 
         // @ts-ignore - Handle both success and error response types
         if (result && result.error) {

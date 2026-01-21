@@ -25,20 +25,36 @@ export class GoogleCalendarPoller extends BasePoller {
     this.logStart();
 
     try {
-      // Get all active polling triggers (not instant ones)
+      // Check if webhooks are configured - if not, we need to poll "instant" triggers too
+      // Set CALENDAR_WEBHOOKS_ENABLED=true in production when webhooks are set up
+      const webhooksEnabled = process.env.CALENDAR_WEBHOOKS_ENABLED === 'true';
+
+      // Build query based on webhook configuration
+      const whereClause: any = {
+        isActive: true,
+        zap: { isActive: true },
+      };
+
+      // If webhooks are enabled, only poll non-instant triggers (instant ones handled by webhook)
+      // If webhooks are NOT enabled (local dev), poll ALL triggers as fallback
+      if (webhooksEnabled) {
+        whereClause.isInstant = false;
+      }
+
       const triggers = await client.googleCalendarTrigger.findMany({
-        where: {
-          isActive: true,
-          isInstant: false, // Only poll non-instant triggers
-          zap: { isActive: true },
-        },
+        where: whereClause,
         include: {
           server: true,
           zap: true,
         },
       });
 
-      console.log(`${this.emoji} Found ${triggers.length} active Google Calendar polling triggers`);
+      const triggerMode = webhooksEnabled
+        ? 'polling only (webhooks enabled)'
+        : 'all triggers (no webhooks)';
+      console.log(
+        `${this.emoji} Found ${triggers.length} active Calendar triggers - ${triggerMode}`
+      );
 
       for (const trigger of triggers) {
         try {
@@ -79,6 +95,12 @@ export class GoogleCalendarPoller extends BasePoller {
     // Route to appropriate handler based on trigger type
     let processed = 0;
     switch (trigger.triggerType) {
+      case 'new_event':
+        processed = await this.pollNewEvent(trigger, calendar);
+        break;
+      case 'event_updated':
+        processed = await this.pollEventUpdated(trigger, calendar);
+        break;
       case 'event_start':
         processed = await this.pollEventStart(trigger, calendar);
         break;
@@ -103,6 +125,120 @@ export class GoogleCalendarPoller extends BasePoller {
       where: { id: trigger.id },
       data: { lastPolledAt: new Date() },
     });
+
+    return processed;
+  }
+
+  /**
+   * New Event - Triggers when a new event is created
+   */
+  private async pollNewEvent(trigger: any, calendar: calendar_v3.Calendar): Promise<number> {
+    const now = new Date();
+    // Check for events created since last poll (default: last 5 minutes)
+    const lastPolled = trigger.lastPolledAt || new Date(now.getTime() - 5 * 60 * 1000);
+
+    console.log(
+      `${this.emoji} [New Event] Checking events created since ${lastPolled.toISOString()}`
+    );
+
+    // Get events from now to 30 days in the future
+    const response = await calendar.events.list({
+      calendarId: trigger.calendarId || 'primary',
+      timeMin: now.toISOString(),
+      timeMax: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+      maxResults: 100,
+    });
+
+    let processed = 0;
+    for (const event of response.data.items || []) {
+      if (!event.id || !event.created) continue;
+
+      const createdTime = new Date(event.created);
+
+      // Only trigger for events created after last poll
+      if (createdTime > lastPolled) {
+        const redisKey = `calendar:new_event:${trigger.id}:${event.id}`;
+        const alreadyTriggered = await redis.get(redisKey);
+
+        if (!alreadyTriggered) {
+          await this.createZapRun(trigger.zapId, {
+            trigger_type: 'new_event',
+            event_id: event.id,
+            summary: event.summary,
+            description: event.description,
+            start: event.start,
+            end: event.end,
+            location: event.location,
+            attendees: event.attendees,
+            html_link: event.htmlLink,
+            created: event.created,
+          });
+
+          await redis.set(redisKey, '1', { ex: 86400 });
+          processed++;
+          console.log(`${this.emoji} New event detected: ${event.summary}`);
+        }
+      }
+    }
+
+    return processed;
+  }
+
+  /**
+   * Event Updated - Triggers when an existing event is modified
+   */
+  private async pollEventUpdated(trigger: any, calendar: calendar_v3.Calendar): Promise<number> {
+    const now = new Date();
+    const lastPolled = trigger.lastPolledAt || new Date(now.getTime() - 5 * 60 * 1000);
+
+    console.log(
+      `${this.emoji} [Event Updated] Checking events updated since ${lastPolled.toISOString()}`
+    );
+
+    const response = await calendar.events.list({
+      calendarId: trigger.calendarId || 'primary',
+      timeMin: now.toISOString(),
+      timeMax: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedMin: lastPolled.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
+
+    let processed = 0;
+    for (const event of response.data.items || []) {
+      if (!event.id || !event.updated) continue;
+
+      const updatedTime = new Date(event.updated);
+      const createdTime = event.created ? new Date(event.created) : null;
+
+      // Skip if event was just created (not updated)
+      if (createdTime && updatedTime.getTime() - createdTime.getTime() < 1000) continue;
+
+      // Only trigger for events updated after last poll
+      if (updatedTime > lastPolled) {
+        const redisKey = `calendar:event_updated:${trigger.id}:${event.id}:${event.updated}`;
+        const alreadyTriggered = await redis.get(redisKey);
+
+        if (!alreadyTriggered) {
+          await this.createZapRun(trigger.zapId, {
+            trigger_type: 'event_updated',
+            event_id: event.id,
+            summary: event.summary,
+            description: event.description,
+            start: event.start,
+            end: event.end,
+            location: event.location,
+            updated: event.updated,
+          });
+
+          await redis.set(redisKey, '1', { ex: 86400 });
+          processed++;
+          console.log(`${this.emoji} Event updated: ${event.summary}`);
+        }
+      }
+    }
 
     return processed;
   }
@@ -145,7 +281,7 @@ export class GoogleCalendarPoller extends BasePoller {
         });
 
         // Mark as triggered (TTL = 24 hours to avoid re-triggering)
-        await redis.set(redisKey, '1', 'EX', 86400);
+        await redis.set(redisKey, '1', { ex: 86400 });
         processed++;
         console.log(`${this.emoji} Event starting soon: ${event.summary}`);
       }
@@ -192,7 +328,7 @@ export class GoogleCalendarPoller extends BasePoller {
           location: event.location,
         });
 
-        await redis.set(redisKey, '1', 'EX', 86400);
+        await redis.set(redisKey, '1', { ex: 86400 });
         processed++;
         console.log(`${this.emoji} Event ended: ${event.summary}`);
       }
@@ -233,7 +369,7 @@ export class GoogleCalendarPoller extends BasePoller {
 
         // Store new syncToken
         if (response.data.nextSyncToken) {
-          await redis.set(redisKey, response.data.nextSyncToken, 'EX', 60 * 60 * 24 * 7);
+          await redis.set(redisKey, response.data.nextSyncToken, { ex: 60 * 60 * 24 * 7 });
         }
       } else {
         // First time - get events and store syncToken
@@ -244,7 +380,7 @@ export class GoogleCalendarPoller extends BasePoller {
         });
 
         if (response.data.nextSyncToken) {
-          await redis.set(redisKey, response.data.nextSyncToken, 'EX', 60 * 60 * 24 * 7);
+          await redis.set(redisKey, response.data.nextSyncToken, { ex: 60 * 60 * 24 * 7 });
         }
       }
     } catch (error: any) {
@@ -341,7 +477,7 @@ export class GoogleCalendarPoller extends BasePoller {
           end: event.end,
         });
 
-        await redis.set(redisKey, '1', 'EX', 86400);
+        await redis.set(redisKey, '1', { ex: 86400 });
         processed++;
         console.log(`${this.emoji} Event matching "${trigger.searchQuery}": ${event.summary}`);
       }

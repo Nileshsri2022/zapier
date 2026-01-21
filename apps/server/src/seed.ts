@@ -15,7 +15,7 @@ async function seedDatabase() {
         },
         {
           type: 'Solana',
-          image: 'https://img.icons8.com/ios-filled/50/solana.png',
+          image: 'https://cryptologos.cc/logos/solana-sol-logo.png?v=029',
         },
         {
           type: 'Gmail New Email',
@@ -60,6 +60,10 @@ async function seedDatabase() {
         {
           type: 'Telegram New Message',
           image: 'https://img.icons8.com/color/48/telegram-app.png',
+        },
+        {
+          type: 'Schedule Every Minute',
+          image: 'https://img.icons8.com/ios-filled/50/schedule.png',
         },
         {
           type: 'Schedule Every Hour',
@@ -119,7 +123,7 @@ async function seedDatabase() {
         },
         {
           type: 'Solana',
-          image: 'https://img.icons8.com/ios-filled/50/solana.png',
+          image: 'https://cryptologos.cc/logos/solana-sol-logo.png?v=029',
         },
         {
           type: 'Gmail Send Email',

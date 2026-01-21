@@ -50,6 +50,8 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
     const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 
     switch (scheduleType) {
+      case 'everyminute':
+        return 'Runs every minute';
       case 'everyhour':
         return `Runs every hour at minute :${minute.toString().padStart(2, '0')}`;
       case 'everyday':
@@ -72,8 +74,8 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
         <p className="text-sm text-purple-600 mt-1">{getScheduleDescription()}</p>
       </div>
 
-      {/* Time Picker (for daily, weekly, monthly) */}
-      {scheduleType !== 'everyhour' && (
+      {/* Time Picker (for daily, weekly, monthly - NOT for everyminute or everyhour) */}
+      {scheduleType !== 'everyhour' && scheduleType !== 'everyminute' && (
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium mb-1">Hour</label>
@@ -167,23 +169,25 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
         </div>
       )}
 
-      {/* Timezone */}
-      <div>
-        <label className="block text-sm font-medium mb-1">Timezone</label>
-        <select
-          name="timezone"
-          value={formData.timezone}
-          onChange={handleChange}
-          className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-        >
-          <option value="UTC">UTC</option>
-          <option value="Asia/Kolkata">India (IST)</option>
-          <option value="America/New_York">Eastern (US)</option>
-          <option value="America/Los_Angeles">Pacific (US)</option>
-          <option value="Europe/London">London (UK)</option>
-          <option value="Europe/Paris">Paris (EU)</option>
-        </select>
-      </div>
+      {/* Timezone (not needed for everyminute) */}
+      {scheduleType !== 'everyminute' && (
+        <div>
+          <label className="block text-sm font-medium mb-1">Timezone</label>
+          <select
+            name="timezone"
+            value={formData.timezone}
+            onChange={handleChange}
+            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="UTC">UTC</option>
+            <option value="Asia/Kolkata">India (IST)</option>
+            <option value="America/New_York">Eastern (US)</option>
+            <option value="America/Los_Angeles">Pacific (US)</option>
+            <option value="Europe/London">London (UK)</option>
+            <option value="Europe/Paris">Paris (EU)</option>
+          </select>
+        </div>
+      )}
 
       <Button variant="secondary" onClick={() => handleClick(formData)}>
         Save Schedule

@@ -169,6 +169,13 @@ export const sendEmail = async (
  * Send email with plain text body (for Zap actions)
  */
 export const sendEmailWithTextBody = async (to: string, subject: string, body: string) => {
+  console.log('📧 [Email Package] sendEmailWithTextBody called:');
+  console.log('  - To:', to);
+  console.log('  - Subject:', subject);
+  console.log('  - Body length:', body?.length || 0);
+  console.log('  - From:', fromEmail);
+  console.log('  - RESEND_API_KEY exists:', !!process.env.RESEND_API_KEY);
+
   try {
     // Check per-recipient cooldown first
     const cooldown = await checkRecipientCooldown(to);
@@ -184,6 +191,7 @@ export const sendEmailWithTextBody = async (to: string, subject: string, body: s
       return { error: 'RATE_LIMITED', resetIn: rateLimit.resetIn };
     }
 
+    console.log('📧 [Email Package] Calling Resend API...');
     const { data, error } = await resend.emails.send({
       from: fromEmail,
       to: [to],
@@ -191,9 +199,13 @@ export const sendEmailWithTextBody = async (to: string, subject: string, body: s
       text: body,
     });
 
+    console.log('📧 [Email Package] Resend API response:');
+    console.log('  - Data:', JSON.stringify(data));
+    console.log('  - Error:', JSON.stringify(error));
+
     if (error) {
       console.error('Email send error:', error);
-      return;
+      return { error: error.message || 'Unknown Resend error' };
     }
 
     // Increment rate limit and set cooldown on success
@@ -206,6 +218,7 @@ export const sendEmailWithTextBody = async (to: string, subject: string, body: s
     return data;
   } catch (error) {
     console.error('Email service error:', error);
+    return { error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };
 

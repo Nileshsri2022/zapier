@@ -77,6 +77,110 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
         }
       }
 
+      // If this is a Google Calendar trigger, also create GoogleCalendarTrigger entry
+      if (availableTrigger?.type?.startsWith('Google Calendar')) {
+        const triggerMeta = validation?.data?.triggerMetaData as any;
+
+        if (triggerMeta?.serverId) {
+          // Map the trigger type from AvailableTriggers to internal trigger type
+          const triggerTypeMap: Record<string, string> = {
+            'Google Calendar New Event': 'new_event',
+            'Google Calendar Event Updated': 'event_updated',
+            'Google Calendar Event Start': 'event_start',
+            'Google Calendar Event Ended': 'event_ended',
+            'Google Calendar Event Cancelled': 'event_cancelled',
+            'Google Calendar New Calendar': 'new_calendar',
+            'Google Calendar Event Matching Search': 'event_matching_search',
+          };
+
+          const internalTriggerType = triggerTypeMap[availableTrigger.type] || 'new_event';
+          const isInstant = ['new_event', 'event_updated'].includes(internalTriggerType);
+
+          await tx.googleCalendarTrigger.create({
+            data: {
+              serverId: triggerMeta.serverId,
+              zapId: zap.id,
+              calendarId: triggerMeta.calendarId || 'primary',
+              triggerType: internalTriggerType,
+              isInstant,
+              searchQuery: triggerMeta.searchQuery || null,
+              reminderMinutes: triggerMeta.reminderMinutes || null,
+              isActive: true,
+            },
+          });
+          console.log(
+            `📅 Created GoogleCalendarTrigger (${internalTriggerType}) for zap ${zap.id}`
+          );
+        } else {
+          console.log(`⚠️ Google Calendar trigger missing metadata: serverId`);
+        }
+      }
+
+      // If this is a Schedule trigger, also create ScheduledTrigger entry
+      if (availableTrigger?.type?.startsWith('Schedule')) {
+        const triggerMeta = validation?.data?.triggerMetaData as any;
+
+        // Map the trigger type from AvailableTriggers to internal schedule type
+        const scheduleTypeMap: Record<string, string> = {
+          'Schedule Every Minute': 'minutely',
+          'Schedule Every Hour': 'hourly',
+          'Schedule Every Day': 'daily',
+          'Schedule Every Week': 'weekly',
+          'Schedule Every Month': 'monthly',
+        };
+
+        const internalScheduleType = scheduleTypeMap[availableTrigger.type] || 'hourly';
+
+        // Calculate initial nextRunAt
+        const now = new Date();
+        const nextRunAt = new Date(now);
+        nextRunAt.setSeconds(0);
+        nextRunAt.setMilliseconds(0);
+
+        switch (internalScheduleType) {
+          case 'minutely':
+            nextRunAt.setMinutes(nextRunAt.getMinutes() + 1);
+            break;
+          case 'hourly':
+            nextRunAt.setHours(nextRunAt.getHours() + 1);
+            nextRunAt.setMinutes(triggerMeta?.minute || 0);
+            break;
+          case 'daily':
+            nextRunAt.setDate(nextRunAt.getDate() + 1);
+            nextRunAt.setHours(triggerMeta?.hour || 9);
+            nextRunAt.setMinutes(triggerMeta?.minute || 0);
+            break;
+          case 'weekly':
+            nextRunAt.setDate(nextRunAt.getDate() + 7);
+            nextRunAt.setHours(triggerMeta?.hour || 9);
+            nextRunAt.setMinutes(triggerMeta?.minute || 0);
+            break;
+          case 'monthly':
+            nextRunAt.setMonth(nextRunAt.getMonth() + 1);
+            nextRunAt.setDate(triggerMeta?.dayOfMonth || 1);
+            nextRunAt.setHours(triggerMeta?.hour || 9);
+            nextRunAt.setMinutes(triggerMeta?.minute || 0);
+            break;
+        }
+
+        await tx.scheduledTrigger.create({
+          data: {
+            zapId: zap.id,
+            scheduleType: internalScheduleType,
+            hour: triggerMeta?.hour ?? null,
+            minute: triggerMeta?.minute ?? 0,
+            dayOfWeek: triggerMeta?.dayOfWeek ?? null,
+            dayOfMonth: triggerMeta?.dayOfMonth ?? null,
+            timezone: triggerMeta?.timezone || 'UTC',
+            nextRunAt,
+            isActive: true,
+          },
+        });
+        console.log(
+          `⏰ Created ScheduledTrigger (${internalScheduleType}) for zap ${zap.id} - Next run: ${nextRunAt.toISOString()}`
+        );
+      }
+
       return zap.id;
     });
 

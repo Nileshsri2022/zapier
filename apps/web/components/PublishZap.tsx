@@ -10,6 +10,7 @@ import Spinner from './Spinner';
 import Modal from './Modal';
 import FilterBuilder, { FilterCondition } from './FilterBuilder';
 import { API_URL } from '@/lib/config';
+import { getPendingSelection } from '@/lib/oauth';
 
 const emptyAction = {
   availableActionId: '',
@@ -67,6 +68,37 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
           sessionStorage.removeItem('zapmate_editor_state'); // Clean up
         } catch (e) {
           console.error('Failed to restore Zap state:', e);
+        }
+      }
+
+      // Restore pending selection from Modal (action/trigger that was being configured)
+      const pendingSelection = getPendingSelection();
+      if (pendingSelection?.selectedItem) {
+        const { selectedItem, modalFor } = pendingSelection;
+
+        if (modalFor === 1) {
+          // It was a trigger selection
+          setSelectedTrigger({
+            availableTriggerId: selectedItem.id,
+            triggerType: selectedItem.type,
+            triggerMetaData: selectedItem.metadata || {},
+          });
+        } else if (modalFor > 1) {
+          // It was an action selection (modalFor - 2 = action index)
+          const actionIndex = modalFor - 2;
+          setSelectedActions((prev) => {
+            const updated = [...prev];
+            // Ensure we have enough action slots
+            while (updated.length <= actionIndex) {
+              updated.push({ availableActionId: '', actionType: '', actionMetaData: {} });
+            }
+            updated[actionIndex] = {
+              availableActionId: selectedItem.id,
+              actionType: selectedItem.type,
+              actionMetaData: selectedItem.metadata || {},
+            };
+            return updated;
+          });
         }
       }
 

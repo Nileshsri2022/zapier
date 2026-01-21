@@ -59,6 +59,21 @@ export const handleGmailCallback = async (req: Request, res: Response): Promise<
 
     const stateData = JSON.parse(state as string);
     const { userId, name } = stateData;
+
+    // Validate userId
+    if (!userId) {
+      console.error('Gmail callback: userId is missing from state', stateData);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/editor?gmail=error`);
+    }
+
+    const parsedUserId = parseInt(userId);
+    if (isNaN(parsedUserId)) {
+      console.error('Gmail callback: userId is not a valid number', userId);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/editor?gmail=error`);
+    }
+
     const redirectUri = getRedirectUri();
 
     // Exchange code for tokens using shared service
@@ -72,40 +87,55 @@ export const handleGmailCallback = async (req: Request, res: Response): Promise<
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client as any });
     const profile = await gmail.users.getProfile({ userId: 'me' });
 
-    // Save Gmail server configuration
+    // Save Gmail server configuration using connect for user relation
     const gmailServer = await client.gmailServer.create({
       data: {
-        name,
+        name: name || 'Gmail Server',
         clientId: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         refreshToken: tokens.refresh_token!,
         accessToken: tokens.access_token!,
         tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-        userId: parseInt(userId),
         isActive: true,
+        user: {
+          connect: { id: parsedUserId },
+        },
       },
     });
 
-    // Set up email watching
-    const gmailService = new GmailService({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      refreshToken: tokens.refresh_token!,
-      accessToken: tokens.access_token!,
-      tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
-    });
+    // Set up email watching (only works with public URL, not localhost)
+    // Skip watch setup for localhost since Google can't reach it
+    const isLocalHost = (process.env.API_URL || '').includes('localhost');
 
-    const watchResult = await gmailService.watchEmails(['INBOX']);
+    if (!isLocalHost) {
+      try {
+        const gmailService = new GmailService({
+          clientId: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+          refreshToken: tokens.refresh_token!,
+          accessToken: tokens.access_token!,
+          tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
+        });
 
-    // Save watch configuration
-    await client.gmailWatch.create({
-      data: {
-        serverId: gmailServer.id,
-        watchId: watchResult.watchId,
-        expiry: watchResult.expiry,
-        isActive: true,
-      },
-    });
+        const watchResult = await gmailService.watchEmails(['INBOX']);
+
+        // Save watch configuration
+        await client.gmailWatch.create({
+          data: {
+            serverId: gmailServer.id,
+            watchId: watchResult.watchId,
+            expiry: watchResult.expiry,
+            isActive: true,
+          },
+        });
+        console.log('Gmail watch setup successful');
+      } catch (watchError) {
+        console.warn('Gmail watch setup failed (non-fatal):', watchError);
+        // Continue without watch - user can still send emails
+      }
+    } else {
+      console.log('Skipping Gmail watch setup for localhost - requires public URL');
+    }
 
     // Redirect to frontend with success flag (consistent with Sheets/Calendar)
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';

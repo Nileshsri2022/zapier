@@ -3,7 +3,7 @@ import axios from 'axios';
 import React, { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { toast } from 'react-toastify';
 import { API_URL } from '@/lib/config';
-import { redirectToOAuth } from '@/lib/oauth';
+import { redirectToOAuth, savePendingSelection } from '@/lib/oauth';
 
 // Import types and constants from modal/
 import { App, AvailableItem } from './modal/types';
@@ -215,6 +215,13 @@ const Modal = ({
 
     try {
       localStorage.setItem('oauth_pending', 'true');
+
+      // Save the pending selection before OAuth redirect
+      savePendingSelection({
+        selectedItem,
+        selectedApp,
+        modalFor: isVisible, // 1 = trigger, >1 = action index
+      });
 
       let endpoint = '/api/gmail/auth/initiate';
       let method: 'get' | 'post' = 'post';

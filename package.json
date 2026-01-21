@@ -1,6 +1,7 @@
 {
   "name": "zapier",
   "private": true,
+  "packageManager": "bun@1.2.22",
   "scripts": {
     "build": "bun run build:packages && bun run build:web",
     "build:packages": "cd packages/types && bun run build",

@@ -17,27 +17,28 @@ import {
   deleteGmailTrigger,
 } from '../controllers/GmailTriggersController';
 import { handleGmailWebhook } from '../controllers/GmailWebhookController';
+import { authMiddleware } from '../middlewares';
 
 const router = Router();
 
-// Gmail Server Management Routes
-router.post('/auth/initiate', initiateGmailAuth);
-router.get('/auth/callback', handleGmailCallback);
-router.get('/servers', getGmailServers);
-router.get('/servers/:serverId', getGmailServer);
-router.put('/servers/:serverId', updateGmailServer);
-router.delete('/servers/:serverId', deleteGmailServer);
-router.post('/servers/:serverId/test', testGmailConnection);
-router.get('/servers/:serverId/ratelimit', getGmailRateLimitStatus);
-router.post('/servers/:serverId/reset-circuit', resetGmailCircuitBreaker);
+// Gmail Server Management Routes (require auth)
+router.post('/auth/initiate', authMiddleware, initiateGmailAuth);
+router.get('/auth/callback', handleGmailCallback); // No auth - called by Google
+router.get('/servers', authMiddleware, getGmailServers);
+router.get('/servers/:serverId', authMiddleware, getGmailServer);
+router.put('/servers/:serverId', authMiddleware, updateGmailServer);
+router.delete('/servers/:serverId', authMiddleware, deleteGmailServer);
+router.post('/servers/:serverId/test', authMiddleware, testGmailConnection);
+router.get('/servers/:serverId/ratelimit', authMiddleware, getGmailRateLimitStatus);
+router.post('/servers/:serverId/reset-circuit', authMiddleware, resetGmailCircuitBreaker);
 
-// Gmail Trigger Routes
-router.post('/triggers', createGmailTrigger);
-router.get('/triggers/:serverId?', getGmailTriggers);
-router.put('/triggers/:triggerId', updateGmailTrigger);
-router.delete('/triggers/:triggerId', deleteGmailTrigger);
+// Gmail Trigger Routes (require auth)
+router.post('/triggers', authMiddleware, createGmailTrigger);
+router.get('/triggers/:serverId?', authMiddleware, getGmailTriggers);
+router.put('/triggers/:triggerId', authMiddleware, updateGmailTrigger);
+router.delete('/triggers/:triggerId', authMiddleware, deleteGmailTrigger);
 
-// Gmail Webhook Route (for push notifications)
+// Gmail Webhook Route (for push notifications - no auth, validated by Google)
 router.post('/webhook', handleGmailWebhook);
 
 export default router;
