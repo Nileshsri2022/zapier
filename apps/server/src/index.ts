@@ -27,6 +27,9 @@ import { env } from './env';
 const app: Express = express();
 const PORT = env.PORT || 5000;
 
+// Trust proxy - required for express-rate-limit behind reverse proxy (Render, etc.)
+app.set('trust proxy', 1);
+
 // CORS configuration - allow all origins (auth is handled by JWT)
 const corsOptions = {
   origin: true, // Allow all origins
