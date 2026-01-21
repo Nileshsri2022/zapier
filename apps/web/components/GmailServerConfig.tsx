@@ -57,6 +57,11 @@ const GmailServerConfig = () => {
         }
       );
 
+      // Save Zap state before OAuth redirect
+      if ((window as any).saveZapStateForOAuth) {
+        (window as any).saveZapStateForOAuth();
+      }
+
       // Redirect to Gmail OAuth
       window.location.href = response.data.authUrl;
     } catch (error: any) {

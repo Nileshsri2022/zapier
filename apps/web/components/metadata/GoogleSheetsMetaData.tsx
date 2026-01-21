@@ -61,6 +61,10 @@ const GoogleSheetsMetaData = ({
       });
 
       if (response?.data?.authUrl) {
+        // Save Zap state before OAuth redirect
+        if ((window as any).saveZapStateForOAuth) {
+          (window as any).saveZapStateForOAuth();
+        }
         window.location.href = response.data.authUrl;
       } else {
         toast.error('Failed to get OAuth URL');

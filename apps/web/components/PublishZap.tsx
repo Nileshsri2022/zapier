@@ -28,16 +28,67 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
   const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
   const [zapIdString, setZapIdString] = useState<string>('');
 
-  // Check if sheets were just connected
+  // Save state to sessionStorage before OAuth redirect (call this before redirecting)
+  const saveStateForOAuth = () => {
+    const stateToSave = {
+      selectedTrigger,
+      selectedActions,
+      filterConditions,
+      zapIdString,
+    };
+    sessionStorage.setItem('zapmate_editor_state', JSON.stringify(stateToSave));
+  };
+
+  // Expose saveStateForOAuth globally so OAuth components can call it
+  useEffect(() => {
+    (window as any).saveZapStateForOAuth = saveStateForOAuth;
+    return () => {
+      delete (window as any).saveZapStateForOAuth;
+    };
+  }, [selectedTrigger, selectedActions, filterConditions, zapIdString]);
+
+  // Restore state from sessionStorage after OAuth redirect
   useEffect(() => {
     const sheetsStatus = searchParams.get('sheets');
-    if (sheetsStatus === 'connected') {
-      setSheetsConnected(true);
-      toast.success('✅ Google Sheets connected! Now select Google Sheets trigger.');
-      // Clean up URL after 100ms to prevent flicker
-      setTimeout(() => router.replace('/editor'), 100);
-    } else if (sheetsStatus === 'error') {
-      toast.error('❌ Failed to connect Google Sheets. Please try again.');
+    const gmailStatus = searchParams.get('gmail');
+    const calendarStatus = searchParams.get('calendar');
+
+    // Check if we came back from OAuth
+    if (sheetsStatus || gmailStatus || calendarStatus) {
+      // Restore state from sessionStorage
+      const savedState = sessionStorage.getItem('zapmate_editor_state');
+      if (savedState) {
+        try {
+          const parsed = JSON.parse(savedState);
+          if (parsed.selectedTrigger) setSelectedTrigger(parsed.selectedTrigger);
+          if (parsed.selectedActions) setSelectedActions(parsed.selectedActions);
+          if (parsed.filterConditions) setFilterConditions(parsed.filterConditions);
+          if (parsed.zapIdString) setZapIdString(parsed.zapIdString);
+          sessionStorage.removeItem('zapmate_editor_state'); // Clean up
+        } catch (e) {
+          console.error('Failed to restore Zap state:', e);
+        }
+      }
+
+      // Show success/error toasts
+      if (sheetsStatus === 'connected') {
+        setSheetsConnected(true);
+        toast.success('✅ Google Sheets connected!');
+      } else if (sheetsStatus === 'error') {
+        toast.error('❌ Failed to connect Google Sheets.');
+      }
+      if (gmailStatus === 'connected') {
+        toast.success('✅ Gmail connected!');
+      } else if (gmailStatus === 'error') {
+        toast.error('❌ Failed to connect Gmail.');
+      }
+      if (calendarStatus === 'connected') {
+        toast.success('✅ Google Calendar connected!');
+      } else if (calendarStatus === 'error') {
+        toast.error('❌ Failed to connect Google Calendar.');
+      }
+
+      // Clean up URL
       setTimeout(() => router.replace('/editor'), 100);
     }
   }, [searchParams, router]);
