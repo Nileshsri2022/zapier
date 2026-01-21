@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import FormInput from './FormInput';
 import Button from './Button';
 import { API_URL } from '@/lib/config';
+import { redirectToOAuth } from '@/lib/oauth';
 
 interface GmailServer {
   id: string;
@@ -57,13 +58,8 @@ const GmailServerConfig = () => {
         }
       );
 
-      // Save Zap state before OAuth redirect
-      if ((window as any).saveZapStateForOAuth) {
-        (window as any).saveZapStateForOAuth();
-      }
-
-      // Redirect to Gmail OAuth
-      window.location.href = response.data.authUrl;
+      // Redirect to Gmail OAuth with state preservation
+      redirectToOAuth(response.data.authUrl);
     } catch (error: any) {
       toast.error(
         'Failed to initiate Gmail auth: ' + (error.response?.data?.message || error.message)

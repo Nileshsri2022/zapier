@@ -3,6 +3,7 @@ import axios from 'axios';
 import React, { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { toast } from 'react-toastify';
 import { API_URL } from '@/lib/config';
+import { redirectToOAuth } from '@/lib/oauth';
 
 // Import types and constants from modal/
 import { App, AvailableItem } from './modal/types';
@@ -239,11 +240,7 @@ const Modal = ({
             });
 
       if (response?.data?.authUrl) {
-        // Save Zap state before OAuth redirect
-        if ((window as any).saveZapStateForOAuth) {
-          (window as any).saveZapStateForOAuth();
-        }
-        window.location.href = response.data.authUrl;
+        redirectToOAuth(response.data.authUrl);
       } else {
         toast.error('Failed to get OAuth URL');
       }
