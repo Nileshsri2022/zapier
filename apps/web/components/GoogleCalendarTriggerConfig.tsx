@@ -62,9 +62,6 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
   // Fetch connected Google Calendar accounts
   const fetchServers = async () => {
     try {
-      // Cookie auth - no token needed
-      if (!token) return;
-
       const response = await axios.get(`${API_URL}/api/calendar/servers`, {
         withCredentials: true,
       });
@@ -77,8 +74,7 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
   // Fetch calendars for selected server
   const fetchCalendars = async (serverId: string) => {
     try {
-      // Cookie auth - no token needed
-      if (!token || !serverId) return;
+      if (!serverId) return;
 
       const response = await axios.get(`${API_URL}/api/calendar/calendars?serverId=${serverId}`, {
         withCredentials: true,
@@ -92,9 +88,6 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
   // Fetch available trigger types
   const fetchTriggerTypes = async () => {
     try {
-      // Cookie auth - no token needed
-      if (!token) return;
-
       const response = await axios.get(`${API_URL}/api/calendar/trigger-types`, {
         withCredentials: true,
       });
@@ -152,8 +145,6 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
   const fetchTriggers = async () => {
     try {
       setIsLoading(true);
-      // Cookie auth - no token needed
-      if (!token) return;
 
       const url = zapId
         ? `${API_URL}/api/calendar/triggers?zapId=${zapId}`
@@ -174,8 +165,6 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
   const connectGoogleCalendar = async () => {
     try {
       setIsConnecting(true);
-      // Cookie auth - no token needed
-      if (!token) return;
 
       const response = await axios.get(`${API_URL}/api/calendar/auth/initiate`, {
         withCredentials: true,
@@ -208,9 +197,6 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
     }
 
     try {
-      // Cookie auth - no token needed
-      if (!token) return;
-
       const response = await axios.post(
         `${API_URL}/api/calendar/triggers`,
         {
@@ -244,9 +230,6 @@ const GoogleCalendarTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
     if (!confirm('Delete this Google Calendar trigger?')) return;
 
     try {
-      // Cookie auth - no token needed
-      if (!token) return;
-
       await axios.delete(`${API_URL}/api/calendar/triggers/${triggerId}`, {
         withCredentials: true,
       });

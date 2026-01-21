@@ -41,8 +41,6 @@ const TelegramActionConfig = ({ zapId, onActionConfigured }: Props) => {
   const fetchBots = async () => {
     try {
       setIsLoading(true);
-      // Cookie auth - no token needed
-      if (!token) return;
 
       const response = await axios.get(`${API_URL}/api/telegram/bots`, {
         withCredentials: true,

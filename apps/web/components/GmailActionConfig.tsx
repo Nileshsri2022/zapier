@@ -95,14 +95,8 @@ const GmailActionConfig = () => {
 
   const fetchGmailServers = async () => {
     try {
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
-
       const response = await axios.get(`${API_URL}/api/gmail/servers`, {
-        withCredentials: true,
+        withCredentials: true, // Cookie auth
       });
 
       setServers(response.data.gmailServers || []);
@@ -116,16 +110,11 @@ const GmailActionConfig = () => {
   const fetchGmailActions = async (serverId?: string) => {
     try {
       setIsLoading(true);
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
 
       const response = await axios.get(
         `${API_URL}/api/gmail/triggers${serverId ? `/${serverId}` : ''}`,
         {
-          withCredentials: true,
+          withCredentials: true, // Cookie auth
         }
       );
 
@@ -148,12 +137,6 @@ const GmailActionConfig = () => {
     }
 
     try {
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
-
       // Prepare metadata based on action type
       let metadata: any = {};
 

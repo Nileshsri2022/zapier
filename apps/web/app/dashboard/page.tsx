@@ -59,8 +59,8 @@ export default function Page() {
     setLoading(true);
     try {
       const response = await axios.get(`${API_URL}/api/zaps`, {
+        withCredentials: true, // Use httpOnly cookie for auth
         headers: {
-          Authorization: session.token,
           'Cache-Control': 'no-cache',
         },
       });
@@ -93,7 +93,7 @@ export default function Page() {
         await axios.patch(
           `${API_URL}/api/zaps/${zap.id}/rename`,
           { name: e.target.value },
-          { headers: { Authorization: session.token } }
+          { withCredentials: true }
         );
         toast.success('Zap renamed successfully!');
         fetchData();
@@ -111,7 +111,7 @@ export default function Page() {
       await axios.patch(
         `${API_URL}/api/zaps/${zap.id}/enable`,
         { isActive: !!e.target.checked },
-        { headers: { Authorization: session.token } }
+        { withCredentials: true }
       );
       fetchData();
     } catch {
@@ -123,7 +123,7 @@ export default function Page() {
     if (!session) return;
     try {
       await axios.delete(`${API_URL}/api/zaps/${zap.id}`, {
-        headers: { Authorization: session.token },
+        withCredentials: true,
       });
       toast.success(`Zap deleted successfully`);
       fetchData();

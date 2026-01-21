@@ -14,7 +14,7 @@ function MainSection({ children }: { children?: React.ReactNode }) {
       <Navbar
         dropdownVisible={dropdownVisible}
         setDropdownVisible={setDropdownVisible}
-        session={session.token as string}
+        isLoggedIn={session.isLoggedIn}
       />
       <div className="mt-14">{children}</div>
     </div>

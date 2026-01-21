@@ -64,13 +64,7 @@ const GmailTriggerConfig = () => {
 
   const fetchGmailServers = async () => {
     try {
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
-
-      const response = await axios.get('${API_URL}/api/gmail/servers', {
+      const response = await axios.get(`${API_URL}/api/gmail/servers`, {
         withCredentials: true,
       });
 
@@ -85,11 +79,6 @@ const GmailTriggerConfig = () => {
   const fetchGmailTriggers = async (serverId?: string) => {
     try {
       setIsLoading(true);
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
 
       const response = await axios.get(
         `${API_URL}/api/gmail/triggers${serverId ? `/${serverId}` : ''}`,
@@ -115,14 +104,8 @@ const GmailTriggerConfig = () => {
     }
 
     try {
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
-
       await axios.post(
-        '${API_URL}/api/gmail/triggers',
+        `${API_URL}/api/gmail/triggers`,
         {
           serverId: selectedServer,
           zapId: formData.zapId,
@@ -153,12 +136,6 @@ const GmailTriggerConfig = () => {
     }
 
     try {
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
-
       await axios.delete(`${API_URL}/api/gmail/triggers/${triggerId}`, {
         withCredentials: true,
       });

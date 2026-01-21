@@ -32,11 +32,6 @@ const WhatsAppServerConfig = () => {
   const fetchWhatsAppServers = async () => {
     try {
       setIsLoading(true);
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
 
       const response = await axios.get(`${API_URL}/api/whatsapp/servers`, {
         withCredentials: true,
@@ -63,12 +58,6 @@ const WhatsAppServerConfig = () => {
     }
 
     try {
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
-
       await axios.post(`${API_URL}/api/whatsapp/servers`, formData, {
         withCredentials: true,
       });
@@ -92,9 +81,6 @@ const WhatsAppServerConfig = () => {
 
   const testConnection = async (serverId: string) => {
     try {
-      // Cookie auth - no token needed
-      if (!token) return;
-
       await axios.post(
         `${API_URL}/api/whatsapp/servers/${serverId}/test`,
         {},
@@ -113,9 +99,6 @@ const WhatsAppServerConfig = () => {
     if (!confirm('Are you sure you want to delete this WhatsApp server?')) return;
 
     try {
-      // Cookie auth - no token needed
-      if (!token) return;
-
       await axios.delete(`${API_URL}/api/whatsapp/servers/${serverId}`, {
         withCredentials: true,
       });
@@ -129,9 +112,6 @@ const WhatsAppServerConfig = () => {
 
   const toggleStatus = async (serverId: string, isActive: boolean) => {
     try {
-      // Cookie auth - no token needed
-      if (!token) return;
-
       await axios.put(
         `${API_URL}/api/whatsapp/servers/${serverId}`,
         { isActive: !isActive },

@@ -45,9 +45,6 @@ const TelegramTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
 
   const fetchBots = async () => {
     try {
-      // Cookie auth - no token needed
-      if (!token) return;
-
       const response = await axios.get(`${API_URL}/api/telegram/bots`, {
         withCredentials: true,
       });
@@ -61,8 +58,6 @@ const TelegramTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
   const fetchTriggers = async () => {
     try {
       setIsLoading(true);
-      // Cookie auth - no token needed
-      if (!token) return;
 
       const url = zapId
         ? `${API_URL}/api/telegram/triggers?zapId=${zapId}`
@@ -87,9 +82,6 @@ const TelegramTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
     }
 
     try {
-      // Cookie auth - no token needed
-      if (!token) return;
-
       const response = await axios.post(
         `${API_URL}/api/telegram/triggers`,
         {
@@ -121,9 +113,6 @@ const TelegramTriggerConfig = ({ zapId, onTriggerCreated }: Props) => {
     if (!confirm('Delete this Telegram trigger?')) return;
 
     try {
-      // Cookie auth - no token needed
-      if (!token) return;
-
       await axios.delete(`${API_URL}/api/telegram/triggers/${triggerId}`, {
         withCredentials: true,
       });

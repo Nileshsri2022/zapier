@@ -8,11 +8,11 @@ import clsx from 'clsx';
 const Navbar = ({
   dropdownVisible,
   setDropdownVisible,
-  session,
+  isLoggedIn,
 }: {
   dropdownVisible: boolean;
   setDropdownVisible: Dispatch<SetStateAction<boolean>>;
-  session: string;
+  isLoggedIn: boolean;
 }) => {
   const router = useRouter();
   const pathname = usePathname();
@@ -30,8 +30,8 @@ const Navbar = ({
 
   if (['/login', '/signup'].includes(pathname)) return <></>;
 
-  // Use "/" as default for SSR, then switch to session-based href after mount
-  const logoHref = mounted && session ? '/dashboard' : '/';
+  // Use "/" as default for SSR, then switch to isLoggedIn-based href after mount
+  const logoHref = mounted && isLoggedIn ? '/dashboard' : '/';
 
   return (
     <nav className="fixed z-50 bg-base-100 w-full px-2 xs:px-3 sm:px-6 md:px-10 h-14 border-b border-gray-300 flex items-center justify-between transition-all overflow-y-visible">
@@ -39,7 +39,7 @@ const Navbar = ({
         Zap<span className="text-black font-bold">Mate</span>
       </Link>
 
-      {mounted && session ? (
+      {mounted && isLoggedIn ? (
         <div
           className={clsx(`flex flex-col items-end gap-2`, {
             'mt-[5.5rem]': dropdownVisible === true,

@@ -40,8 +40,6 @@ const WhatsAppActionConfig = ({ zapId, onActionConfigured }: Props) => {
   const fetchServers = async () => {
     try {
       setIsLoading(true);
-      // Cookie auth - no token needed
-      if (!token) return;
 
       const response = await axios.get(`${API_URL}/api/whatsapp/servers`, {
         withCredentials: true,

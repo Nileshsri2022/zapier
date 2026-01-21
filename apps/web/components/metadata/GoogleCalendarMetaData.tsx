@@ -31,9 +31,6 @@ const GoogleCalendarMetaData = ({
   useEffect(() => {
     const fetchServers = async () => {
       try {
-        // Cookie auth - no token needed
-        if (!token) return;
-
         const response = await axios.get(`${API_URL}/api/calendar/servers`, {
           withCredentials: true,
         });
@@ -63,9 +60,6 @@ const GoogleCalendarMetaData = ({
 
       setLoadingCalendars(true);
       try {
-        // Cookie auth - no token needed
-        if (!token) return;
-
         const response = await axios.get(
           `${API_URL}/api/calendar/calendars?serverId=${formData.serverId}`,
           { withCredentials: true }
@@ -85,11 +79,6 @@ const GoogleCalendarMetaData = ({
   const handleConnectGoogle = async () => {
     try {
       setConnecting(true);
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('Please log in first');
-        return;
-      }
 
       localStorage.setItem('calendar_oauth_pending', 'true');
 

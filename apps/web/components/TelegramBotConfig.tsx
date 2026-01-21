@@ -28,11 +28,6 @@ const TelegramBotConfig = () => {
   const fetchBots = async () => {
     try {
       setIsLoading(true);
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
 
       const response = await axios.get(`${API_URL}/api/telegram/bots`, {
         withCredentials: true,
@@ -55,12 +50,6 @@ const TelegramBotConfig = () => {
     }
 
     try {
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
-
       await axios.post(`${API_URL}/api/telegram/bots`, formData, {
         withCredentials: true,
       });
@@ -76,9 +65,6 @@ const TelegramBotConfig = () => {
 
   const testConnection = async (botId: string) => {
     try {
-      // Cookie auth - no token needed
-      if (!token) return;
-
       const response = await axios.post(
         `${API_URL}/api/telegram/bots/${botId}/test`,
         {},
@@ -97,9 +83,6 @@ const TelegramBotConfig = () => {
     if (!confirm('Are you sure you want to disconnect this bot?')) return;
 
     try {
-      // Cookie auth - no token needed
-      if (!token) return;
-
       await axios.delete(`${API_URL}/api/telegram/bots/${botId}`, {
         withCredentials: true,
       });
@@ -113,9 +96,6 @@ const TelegramBotConfig = () => {
 
   const toggleStatus = async (botId: string, isActive: boolean) => {
     try {
-      // Cookie auth - no token needed
-      if (!token) return;
-
       await axios.put(
         `${API_URL}/api/telegram/bots/${botId}`,
         { isActive: !isActive },

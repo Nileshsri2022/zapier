@@ -38,14 +38,8 @@ const GmailStatusMonitor = () => {
 
   const fetchGmailServers = async () => {
     try {
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
-
-      const response = await axios.get('${API_URL}/api/gmail/servers', {
-        withCredentials: true,
+      const response = await axios.get(`${API_URL}/api/gmail/servers`, {
+        withCredentials: true, // Cookie auth
       });
 
       setServers(response.data.gmailServers || []);
@@ -59,14 +53,9 @@ const GmailStatusMonitor = () => {
   const fetchServerStatus = async (serverId: string) => {
     try {
       setIsLoading(true);
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
 
       const response = await axios.get(`${API_URL}/api/gmail/servers/${serverId}/ratelimit`, {
-        withCredentials: true,
+        withCredentials: true, // Cookie auth
       });
 
       setRateLimitStatus(response.data.rateLimitStatus);
@@ -83,17 +72,11 @@ const GmailStatusMonitor = () => {
 
   const resetCircuitBreaker = async (serverId: string) => {
     try {
-      // Cookie auth - no token needed
-      if (!token) {
-        toast.error('No authentication token found');
-        return;
-      }
-
       await axios.post(
         `${API_URL}/api/gmail/servers/${serverId}/reset-circuit`,
         {},
         {
-          withCredentials: true,
+          withCredentials: true, // Cookie auth
         }
       );
 
