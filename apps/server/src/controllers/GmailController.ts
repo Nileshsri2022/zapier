@@ -4,8 +4,9 @@ import client from '@repo/db';
 import { GmailService } from '../services/GmailService';
 import { GoogleOAuthService, GMAIL_SCOPES } from '../services';
 
-// Get redirect URI for Gmail OAuth
-const getRedirectUri = () => `${process.env.FRONTEND_URL}/auth/gmail/callback`;
+// Get redirect URI for Gmail OAuth - use backend callback like Sheets/Calendar
+const getRedirectUri = () =>
+  process.env.GMAIL_REDIRECT_URI || `${process.env.API_URL}/api/gmail/auth/callback`;
 
 export const initiateGmailAuth = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -106,20 +107,13 @@ export const handleGmailCallback = async (req: Request, res: Response): Promise<
       },
     });
 
-    return res.status(200).json({
-      message: 'Gmail server configured successfully',
-      gmailServer: {
-        id: gmailServer.id,
-        name: gmailServer.name,
-        email: profile.data.emailAddress,
-      },
-    });
+    // Redirect to frontend with success flag (consistent with Sheets/Calendar)
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    return res.redirect(`${frontendUrl}/editor?gmail=connected`);
   } catch (error) {
     console.error('Error handling Gmail callback:', error);
-    return res.status(500).json({
-      message: 'Failed to complete Gmail authentication',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    return res.redirect(`${frontendUrl}/editor?gmail=error`);
   }
 };
 
