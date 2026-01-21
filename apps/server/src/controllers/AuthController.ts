@@ -106,10 +106,11 @@ export const signin = async (req: Request, res: Response): Promise<any> => {
   );
 
   // Set httpOnly cookie for secure authentication
+  // Note: sameSite: 'none' + secure: true required for cross-origin cookies
   res.cookie('auth_token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: true, // Required for sameSite: 'none'
+    sameSite: 'none', // Required for cross-origin (Vercel frontend + Render backend)
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     path: '/',
   });
@@ -181,11 +182,11 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<any> 
 };
 
 export const logout = async (req: Request, res: Response): Promise<any> => {
-  // Clear the auth cookie
+  // Clear the auth cookie (must match signin cookie settings)
   res.cookie('auth_token', '', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: true,
+    sameSite: 'none',
     maxAge: 0, // Expire immediately
     path: '/',
   });
