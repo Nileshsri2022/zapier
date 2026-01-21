@@ -5,9 +5,7 @@ import { GoogleOAuthService, CALENDAR_SCOPES } from '../services';
 
 // Get redirect URI from environment
 const getRedirectUri = () =>
-  process.env.GOOGLE_CALENDAR_REDIRECT_URI ||
-  process.env.GOOGLE_REDIRECT_URI?.replace('sheets', 'calendar') ||
-  '';
+  process.env.GOOGLE_CALENDAR_REDIRECT_URI || `${process.env.API_URL}/api/calendar/auth/callback`;
 
 /**
  * Initiate Google Calendar OAuth flow

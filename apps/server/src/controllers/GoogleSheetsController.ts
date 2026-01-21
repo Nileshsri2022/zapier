@@ -5,7 +5,8 @@ import { GoogleSheetsService } from '../services/GoogleSheetsService';
 import { GoogleOAuthService, SHEETS_SCOPES } from '../services';
 
 // Get redirect URI from environment
-const getRedirectUri = () => process.env.GOOGLE_REDIRECT_URI || '';
+const getRedirectUri = () =>
+  process.env.GOOGLE_REDIRECT_URI || `${process.env.API_URL}/api/sheets/auth/callback`;
 
 /**
  * Initiate Google OAuth flow
