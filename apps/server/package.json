@@ -21,7 +21,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@google-cloud/local-auth": "^3.0.1",
     "@repo/db": "*",
     "@repo/email": "*",
     "@repo/redis": "*",

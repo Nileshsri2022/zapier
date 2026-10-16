@@ -7,7 +7,11 @@ const envSchema = z.object({
   PORT: z.string().default('5000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
-  // Optional SMTP settings
+  // Optional SMTP settings - live config, not legacy residue: the Email action
+  // (ActionsController) sends through nodemailer using these. SMTP_PASS is the
+  // name the code reads; the docs used to call it SMTP_PASSWORD and
+  // ActionsController now accepts either. The worker sends via Resend instead
+  // and does not use this block.
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.string().optional(),
   SMTP_USER: z.string().optional(),

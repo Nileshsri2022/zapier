@@ -62,7 +62,8 @@ function verifyCronSecret(req: Request, res: Response, next: () => void) {
   const authHeader = req.headers.authorization;
   const cronSecret = process.env.CRON_SECRET;
 
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Fail closed: an unset secret must reject, not allow
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
@@ -84,8 +85,8 @@ app.post('/process', async (req: Request, res: Response): Promise<any> => {
     const authHeader = req.headers.authorization;
     const cronSecret = process.env.CRON_SECRET;
 
-    // Verify cron secret if configured
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // Fail closed: an unset secret must reject, not allow
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
@@ -155,7 +156,8 @@ app.post('/poll', async (req: Request, res: Response): Promise<any> => {
     const authHeader = req.headers.authorization;
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // Fail closed: an unset secret must reject, not allow (undefined === undefined bug)
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
@@ -188,7 +190,8 @@ app.post('/poll/:service', async (req: Request, res: Response): Promise<any> => 
     const authHeader = req.headers.authorization;
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // Fail closed: an unset secret must reject, not allow (undefined === undefined bug)
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
@@ -223,7 +226,8 @@ app.post('/poll-sheets', async (req: Request, res: Response): Promise<any> => {
     const authHeader = req.headers.authorization;
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // Fail closed: an unset secret must reject, not allow (undefined === undefined bug)
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 

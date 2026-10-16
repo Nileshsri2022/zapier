@@ -12,7 +12,8 @@ const router = Router();
 router.get('/process-schedules', async (req: Request, res: Response): Promise<any> => {
   // Verify cron secret
   const cronSecret = req.headers['x-cron-secret'];
-  if (cronSecret !== process.env.CRON_SECRET) {
+  // Fail closed: an unset CRON_SECRET must reject, not allow
+  if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
     console.log('⚠️ Unauthorized cron request');
     return res.status(401).json({ error: 'Unauthorized' });
   }

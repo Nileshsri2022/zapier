@@ -184,8 +184,8 @@ export const verifyGmailWebhookSignature = (headers: any, body: any): boolean =>
     // Gmail signs the message with HMAC-SHA256
     const secret = process.env.GMAIL_WEBHOOK_SECRET;
     if (!secret) {
-      console.warn('GMAIL_WEBHOOK_SECRET not configured, skipping signature verification');
-      return true; // Allow in development
+      console.error('GMAIL_WEBHOOK_SECRET not configured, rejecting notification');
+      return false; // Fail closed - never accept an unverified webhook
     }
 
     const expectedSignature = crypto

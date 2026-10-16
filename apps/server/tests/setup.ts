@@ -27,6 +27,18 @@ jest.mock('@repo/email', () => ({
   sendEmail: jest.fn().mockResolvedValue(true),
 }));
 
+// Mock nodemailer so the Email action never opens a real SMTP socket.
+// (It previously dialled smtp.gmail.com:587 from unit tests, leaving a
+// pending socket that kept Jest from exiting.)
+const mockTransport = {
+  sendMail: jest.fn().mockResolvedValue({ messageId: 'test-message-id' }),
+};
+jest.mock('nodemailer', () => ({
+  __esModule: true,
+  default: { createTransport: jest.fn(() => mockTransport) },
+  createTransport: jest.fn(() => mockTransport),
+}));
+
 // Mock the database client
 jest.mock('@repo/db', () => ({
   __esModule: true,
@@ -68,7 +80,16 @@ jest.mock('@repo/db', () => ({
     },
     zapRun: {
       findMany: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
+    },
+    scheduledTrigger: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     },
     zapRunOutbox: {
       findMany: jest.fn(),
@@ -129,6 +150,13 @@ jest.mock('@repo/db', () => ({
 
 // Global test timeout
 jest.setTimeout(10000);
+
+// Controllers log progress/errors via console; keep test output readable.
+beforeAll(() => {
+  jest.spyOn(console, 'log').mockImplementation(() => {});
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+});
 
 // Clean up after each test
 afterEach(() => {
