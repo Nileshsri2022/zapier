@@ -9,6 +9,40 @@
 
 ---
 
+## 0. Completion status — read this first
+
+Backlog state: **10 of 17 items in §F are done, 4 are partly done, 3 have not been started.** Each item below carries the commit that proves it, or the exact gap that remains. The same marks appear inline in §F, and §B/§D are annotated too.
+
+Legend — ✅ frozen, verified · 🟡 partly done, gap named · ⬜ not started.
+
+### ✅ Done (10)
+
+- [x] **1. Gmail webhook signature fails closed** — `a0f38ce` · 4 of the 12 security tests fail on pre-fix code
+- [x] **2. All cron/worker secret guards fail closed** — `a0f38ce` · server route + 5 processor guards + 1 worker guard
+- [x] **3. Webhook signatures mandatory, `'default-secret'` fallback deleted** — `a0f38ce` · *one deliberate deviation, explained in §6.1*
+- [x] **5. Failed Zap runs recorded instead of swallowed** — `66f931b` · 6 of 8 run-status tests fail on pre-fix code
+- [x] **6. CI runs both test suites; `--forceExit` removed** — `8b05882` · Jest now exits on its own in ~2.6s
+- [x] **8. Behavioural coverage for the duplicated Gmail trigger** — `66f931b` · resolved by *eliminating* the duplicate; the survivor has a failing-action test
+- [x] **10. 17 unreferenced modules and 5 unused deps deleted** — `5c55d53` · 2,442 lines; `@repo/logger` deleted rather than wired in
+- [x] **15. Prettier drift fixed, formatting-only commit** — `3645645` · 29 files, `prettier --check` passes repo-wide
+- [x] **16. SMTP block and Railway config justified instead of removed** — documented in `env.ts` and §F item 16; the audit's "leftover" premise was wrong for both
+- [x] **17. Note about the dead UI generation in `task.md`** — obsolete: the files are deleted, and no file in `artifacts/` references them (checked)
+
+### 🟡 Partly done (4)
+
+- [x] 🟡 **4. `SOLANA_PRIVATE_KEY` naming resolved and documented** — `0e42a38` · **gap:** the worker does *not* fail fast at boot; the guard sits at action level and returns an explicit failure instead (justified in §6.2 — the worker also serves Zaps with no Solana step)
+- [x] 🟡 **7. Execute the test-suite plan** — 20 new tests landed (12 security + 8 run-status) on the Zap/webhook paths · **gap:** the plan's Gmail/Actions-controller scope is still unwritten
+- [x] 🟡 **9. Worker smoke tests** — `0e42a38` · 5 `evaluateFilters` tests + 4 on the key resolver · **gap:** `replaceKeys`, the other function this item names, still has none
+- [x] 🟡 **11. Integration duplication collapsed** — `66f931b` · `processGmailTrigger` unified (−49 lines) · **gap:** the Sheets/Calendar OAuth-callback skeleton is still copy-pasted (31 identical lines)
+
+### ⬜ Not started (3)
+
+- [ ] **12. ⬜ **NOT STARTED** —** — `createZap` (192), `Modal.tsx` (624), `GoogleCalendarPoller` (476), `GmailService` (384)
+- [ ] **13. Replace ~30 `@ts-ignore`-to-pass-`req.id` with one Express augmentation**
+- [ ] **14. Type the integration request bodies with the zod schemas already in `packages/types`** — `any` is 350 now, but that came from deleting code, not from typing
+
+---
+
 ## 1. Answer up front
 
 **No — the project does not follow the guidelines repo-wide. It partially follows them, and the deviations are concentrated and fixable.**
@@ -329,7 +363,7 @@ Read the `Evidence` column as the *reason for any non-PASS verdict*; a PASS with
 
 ## 5. Appendix
 
-> **Note:** §F below is the prioritized fix list this audit produced. Items 1–7, 9, 10 and 15 have since been implemented — see §6 for the commit, the test that proves each fix, and the remaining items.
+> **Note:** §F below is the prioritized fix list this audit produced. It now carries a status mark per item (10 done, 4 partial, 3 not started) — see §0 for the roll-up and §6 for the commit and the test that proves each fix.
 
 ### A. Measurements (all reproduced by running the tools listed in §2)
 
@@ -352,7 +386,7 @@ Read the `Evidence` column as the *reason for any non-PASS verdict*; a PASS with
 
 ### B. Dead-code inventory (delete or justify)
 
-**Unreferenced modules (17)** — no importer, static or dynamic:
+**Unreferenced modules (17)** — no importer, static or dynamic — ✅ **all 17 deleted** in `5c55d53` (2,442 lines; the list is kept as the as-found record):
 
 ```
 apps/processor/src/googleSheetsPoller.ts                               176 lines  (superseded by pollers/GoogleSheetsPoller.ts)
@@ -374,7 +408,11 @@ packages/ui/src/{button,card,code}.tsx                                  54 lines
 
 **Dead exports inside otherwise-live files (selection):** `packages/kafka` → `TOPICS`, `createConsumer`, `createProducer`; `apps/worker/src/sendTelegram.ts` → `replyToMessage`, `sendTelegramDocument`, `sendTelegramPhoto`; `apps/worker/src/sendWhatsApp.ts` → `sendWhatsAppTemplateMessage`; `apps/worker/src/utils/retry.ts` → `isRetryableError` (notably: retry logic exists but the *retryability* check is never consulted, so non-retryable errors are retried); `apps/hooks/src/googleCalendarHandler.ts` → `setupCalendarWatch`, `stopCalendarWatch`; `packages/email/src/index.ts` → `sendEmailWithHtmlBody`; `apps/server/src/controllers/GmailWebhookController.ts` → `renewGmailWatch`.
 
-**Declared-but-unused dependencies:** `lodash` (`packages/email`), `@sentry/profiling-node` (`packages/sentry`), `@google-cloud/local-auth` (`apps/server`), plus `@repo/logger`/`@repo/ui` which nothing depends on at all.
+**Declared-but-unused dependencies:** ✅ **all removed** in `5c55d53` — `lodash` (`packages/email`), `@sentry/profiling-node` (`packages/sentry`), `@google-cloud/local-auth` (`apps/server`), plus `@repo/logger`/`@repo/ui`.
+
+⚠️ **One caveat on that deletion:** `bun.lock` still lists the three dependencies. It cannot be regenerated in this sandbox (no `bun` installed) — run `bun install` once before merging.
+
+**Dead exports (26 → 19):** ✅ the ones listed above were deleted with their modules; the 19 that survive are inside otherwise-live files and are listed in §6.8 item 5. The `utils/retry.ts` observation in this paragraph still stands and is worth acting on — `isRetryableError` is exported and never consulted, so non-retryable errors are retried.
 
 ### C. Duplication report (jscpd, ≥12 lines)
 
@@ -394,16 +432,16 @@ packages/ui/src/{button,card,code}.tsx                                  54 lines
 
 ### D. Configuration drift (Silent-assumption class)
 
-| Variable | Read in code | Documented in `.env.example` | Problem |
-|---|---|---|---|
-| `SOL_PRIVATE_KEY` / `SOLANA_PRIVATE_KEY` | code reads `SOL_PRIVATE_KEY` (`worker/src/index.ts:112`, `sendSolana.ts:15`) | docs say `SOLANA_PRIVATE_KEY` | **name mismatch → feature silently disabled** |
-| `GMAIL_WEBHOOK_SECRET` | read at `GmailWebhookController.ts:179` | present but commented out | unset ⇒ verification **returns true** |
-| `WEBHOOK_SECRET` | read at `TriggerController.ts:80` with literal fallback | present | fallback key `'default-secret'` in source |
-| `CRON_SECRET` | `CronRoutes.ts:15`, `processor/src/index.ts:61-224` | **not documented** | unset ⇒ guard comparison is `undefined === undefined` ⇒ **fails open** |
-| `API_URL`, `HOOKS_URL`, `GITHUB_WEBHOOK_SECRET`, `GMAIL_REDIRECT_URI`, `WHATSAPP_VERIFY_TOKEN`, `SENTRY_DSN`, `LOG_LEVEL`, `SERVICE_NAME`, `RELEASE_VERSION`, `EMAIL_RATE_LIMIT_PER_HOUR`, `EMAIL_RECIPIENT_COOLDOWN`, `CALENDAR_WEBHOOKS_ENABLED`, `KAFKA_SASL_MECHANISM` | yes | no | undocumented — a deployer cannot know they exist (this is the same class of bug as `learnings/01` §6 "no triggers available (DB not seeded)") |
-| `SMTP_PASSWORD` | code reads **`SMTP_PASS`** (`ActionsController.ts:45`) | `apps/worker/.env.example:19` says `SMTP_PASSWORD` | **name mismatch → the Email action cannot authenticate against a config built from the docs** (corrected below — see §6.3) |
-| `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` | code reads **`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`** in all three Google services | root `.env.example:6-7` says `GMAIL_CLIENT_*` | **stale root doc**: anyone configuring from it sets vars nothing reads. `apps/server/.env.example:19-20` has the correct names. |
-| `DATABASE_URL` | consumed by Prisma itself, not via `process.env` | yes | expected, not a finding — Prisma reads it from the environment directly |
+| Variable | Read in code | Documented in `.env.example` | Problem | Status |
+|---|---|---|---|---|
+| `SOL_PRIVATE_KEY` / `SOLANA_PRIVATE_KEY` | code reads `SOL_PRIVATE_KEY` (`worker/src/index.ts:112`, `sendSolana.ts:15`) | docs say `SOLANA_PRIVATE_KEY` | **name mismatch → feature silently disabled** | ✅ fixed `0e42a38` — both names accepted, documented name wins |
+| `GMAIL_WEBHOOK_SECRET` | read at `GmailWebhookController.ts:179` | present but commented out | unset ⇒ verification **returns true** | ✅ fixed `a0f38ce` — unset now returns false; added to the examples |
+| `WEBHOOK_SECRET` | read at `TriggerController.ts:80` with literal fallback | present | fallback key `'default-secret'` in source | ✅ fixed `a0f38ce` — fallback deleted; signatures mandatory when set |
+| `CRON_SECRET` | `CronRoutes.ts:15`, `processor/src/index.ts:61-224` | **not documented** | unset ⇒ guard comparison is `undefined === undefined` ⇒ **fails open** | ✅ fixed `a0f38ce` — unset now rejects; documented in all three examples |
+| `API_URL`, `HOOKS_URL`, `GITHUB_WEBHOOK_SECRET`, `GMAIL_REDIRECT_URI`, `WHATSAPP_VERIFY_TOKEN`, `SENTRY_DSN`, `LOG_LEVEL`, `SERVICE_NAME`, `RELEASE_VERSION`, `EMAIL_RATE_LIMIT_PER_HOUR`, `EMAIL_RECIPIENT_COOLDOWN`, `CALENDAR_WEBHOOKS_ENABLED`, `KAFKA_SASL_MECHANISM` | yes | no | undocumented — a deployer cannot know they exist (this is the same class of bug as `learnings/01` §6 "no triggers available (DB not seeded)") | 🟡 partly fixed `0e42a38` — the five vars that *broke features* are now documented, and `LOG_LEVEL`/`SERVICE_NAME` were added. A re-scan still finds **17 vars read in code but absent from the examples** (see §6.8 item 9) |
+| `SMTP_PASSWORD` | code reads **`SMTP_PASS`** (`ActionsController.ts:45`) | `apps/worker/.env.example:19` says `SMTP_PASSWORD` | **name mismatch → the Email action cannot authenticate against a config built from the docs** (corrected below — see §6.3) | ✅ fixed `0e42a38` — code accepts either name |
+| `GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` | code reads **`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`** in all three Google services | root `.env.example:6-7` says `GMAIL_CLIENT_*` | **stale root doc**: anyone configuring from it sets vars nothing reads. `apps/server/.env.example:19-20` has the correct names. | ✅ fixed `0e42a38` — root example corrected |
+| `DATABASE_URL` | consumed by Prisma itself, not via `process.env` | yes | expected, not a finding — Prisma reads it from the environment directly | ➖ no action |
 
 > **Correction (found during remediation):** the first version of this table listed `SMTP_PASSWORD` as *dead config left over from the pre-Resend design*. That was **wrong**: `ActionsController.ts:40-55` genuinely reads `SMTP_HOST/PORT/USER/PASS` for the nodemailer-based Email action. The real defect is a **name mismatch**, and it is worse than dead config — following the docs produces a silently non-functional action. Corrected in §6.3.
 
@@ -415,36 +453,38 @@ packages/ui/src/{button,card,code}.tsx                                  54 lines
 - **Operational verification:** a real `/health` endpoint with a DB probe (`apps/server/src/index.ts:66-79`), graceful shutdown with a forced-exit timeout (`:97-135`), `trust proxy` set correctly for `express-rate-limit` behind Render, and rate limiters on every public surface.
 - **Focused reads of dead code I did NOT delete** (per Principle 3, it gets mentioned, not removed — see §B for the full list).
 
-### F. Prioritized action list (mapped to principles)
+### F. Prioritized action list (mapped to principles) — ✅ status as of `3645645`
+
+Each item keeps its original instruction (so the reasoning behind it stays visible) followed by **→ now:** the outcome. Full detail in §6.
 
 **Fix now — correctness and security, each with the test that proves it fixed (P1 + P4):**
 
-1. `GmailWebhookController.ts:182` — change the missing-secret branch to `return false` (fail closed). *Verify:* a test asserting `verifyGmailWebhookSignature(headers, body) === false` when the secret is unset.
-2. `CronRoutes.ts:15` — reject when `CRON_SECRET` is unset: `if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET)`. Same pattern in `apps/processor/src/index.ts:61-224` and `apps/worker/src/index.ts:390`. *Verify:* a test per endpoint asserting 401 with no secret configured.
-3. `TriggerController.ts:26,79` — require the signature (don't treat absence as "unsigned is fine") and remove the `'default-secret'` fallback. *Verify:* tests for (a) missing header, (b) wrong signature, (c) correct signature.
-4. `SOL_PRIVATE_KEY` vs `SOLANA_PRIVATE_KEY` — pick one name, document it, and make the worker fail fast at boot rather than silently skipping the action.
-5. `ZapController.ts:296-297, 340-341` — don't swallow action failures; record per-action status on the `ZapRun` so "success" means something. *Verify:* a test where one action throws and the run is marked partial/failed.
+1. ✅ **DONE** (`a0f38ce`) — `GmailWebhookController.ts:182`: change the missing-secret branch to `return false` (fail closed). *Verify:* a test asserting `verifyGmailWebhookSignature(headers, body) === false` when the secret is unset. **→ now:** that exact test exists and fails on the pre-fix code, part of a 12-test security suite (§6.1).
+2. ✅ **DONE** (`a0f38ce`) — `CronRoutes.ts:15`: reject when `CRON_SECRET` is unset (`if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET)`), same pattern in `apps/processor/src/index.ts:61-224` and `apps/worker/src/index.ts:390`. *Verify:* a test per endpoint asserting 401 with no secret configured. **→ now:** all 7 guards fixed; the server route is asserted through the real handler.
+3. ✅ **DONE, with one deliberate deviation** (`a0f38ce`) — `TriggerController.ts:26,79`: require the signature (don't treat absence as "unsigned is fine") and remove the `'default-secret'` fallback. *Verify:* tests for (a) missing header, (b) wrong signature, (c) correct signature. **→ now:** the fallback is gone and signatures are mandatory **whenever a secret is configured** — enforcing them unconditionally would have broken the product's primary inbound-webhook trigger type. Rationale and tests in §6.1.
+4. 🟡 **PARTLY DONE** (`0e42a38`) — `SOL_PRIVATE_KEY` vs `SOLANA_PRIVATE_KEY`: pick one name, document it, and make the worker fail fast at boot rather than silently skipping the action. **→ now:** naming and documentation done (documented name wins, legacy still honoured, 4 tests). **Gap:** no boot-time failure — the guard sits at action level and returns an explicit `{ success: false, message: 'SOLANA_PRIVATE_KEY not configured' }` instead, because the worker also serves Zaps that contain no Solana step and a boot crash would take those down too. Reasoned in §6.2; open to a different call.
+5. ✅ **DONE** (`66f931b`) — `ZapController.ts:296-297, 340-341`: don't swallow action failures; record per-action status on the `ZapRun` so "success" means something. *Verify:* a test where one action throws and the run is marked partial/failed. **→ now:** status/errorMessage/completedAt recorded; 6 of the 8 run-status tests fail on pre-fix code. The runner still returns 200 on purpose — §6.3.
 
 **Then — the verification loop that makes the above repeatable (P4):**
 
-6. Add `jest` to `.github/workflows/deploy.yml`'s `test` job (one line — the suite currently runs nowhere) and drop `--forceExit` by closing the Upstash Redis handle (Jest hangs at exit today).
-7. Execute `artifacts/04-test-suite-plan.md` — it already prioritizes Zap/Trigger/Actions controller coverage; that's ~200 lines of tests against mocks that `tests/setup.ts` already provides.
-8. Add a small behavioural test layer for the two `processGmailTrigger` copies so divergent duplicates get caught instead of drifting further.
-9. Add smoke tests for the worker's `replaceKeys` / `evaluateFilters` (pure functions, no infra needed — cheapest coverage in the repo).
+6. ✅ **DONE** (`8b05882`) — add `jest` to `.github/workflows/deploy.yml`'s `test` job (the suite ran nowhere) and drop `--forceExit` by closing the Upstash Redis handle. **→ now:** both suites run in CI and `--forceExit` is gone — but the diagnosis in this item was wrong: the hang came from a module-level `setInterval` in `csrf.ts` plus a real SMTP socket opened by tests, not the Redis handle. §6.4.
+7. 🟡 **PARTLY DONE** — execute `artifacts/04-test-suite-plan.md`; it already prioritizes Zap/Trigger/Actions controller coverage (~200 lines of tests against mocks `tests/setup.ts` provides). **→ now:** 20 new tests landed on the Zap-trigger and webhook paths (12 security, 8 run-status). **Gap:** the plan's Gmail/Actions-controller scope is still unwritten — see §6.8 item 4.
+8. ✅ **DONE** (`66f931b`) — add a behavioural test layer for the two `processGmailTrigger` copies so divergent duplicates get caught instead of drifting further. **→ now:** resolved the better way — there is only **one** `processGmailTrigger` again, and it has a failing-action test. No duplicate left to test against.
+9. 🟡 **PARTLY DONE** (`0e42a38`) — add smoke tests for the worker's `replaceKeys` / `evaluateFilters` (pure functions, no infra needed — cheapest coverage in the repo). **→ now:** the worker has a test runner at all, with 5 `evaluateFilters` tests and 4 on the Solana key resolver. **Gap:** `replaceKeys` still has none (§6.8 item 7).
 
 **Then — simplify (P2), in this order of payoff:**
 
-10. Delete the 17 unreferenced modules (§B) and the 3 unused dependencies; either wire `@repo/logger` in or delete it (453 `console.*` calls suggest the intent was real).
-11. Collapse the integration duplication: extract the OAuth-callback skeleton shared by the Sheets/Calendar controllers, and unify `processGmailTrigger` into one implementation.
-12. Split the 11 units over 250 lines — start with `createZap` (extract per-trigger-type creation into ~5 functions) and `Modal.tsx` (extract the three wizard steps into components).
-13. Replace `@ts-ignore`-to-pass-`req.id` with a single declared augmentation of Express `Request`, then delete the ~30 suppressions that become unnecessary.
-14. Reduce `any` from 392: type the four integration-controller request bodies with the zod schemas already in `packages/types`.
+10. ✅ **DONE** (`5c55d53`) — delete the 17 unreferenced modules (§B) and the unused dependencies; either wire `@repo/logger` in or delete it (453 `console.*` calls suggest the intent was real). **→ now:** 17 modules and 5 packages' worth of deps removed — 2,442 lines. `@repo/logger` was **deleted**, not wired in; the `console.*` calls now say plainly that the logger was aspirational.
+11. 🟡 **PARTLY DONE** (`66f931b`) — collapse the integration duplication: extract the OAuth-callback skeleton shared by the Sheets/Calendar controllers, and unify `processGmailTrigger` into one implementation. **→ now:** the second half is done (one implementation, −49 lines). **Gap:** `GoogleCalendarController.ts:32-62` ↔ `GoogleSheetsController.ts:33-63` are a 31-line block of which **29 lines are byte-identical** (verified by `diff`; only the error message and the model name differ — which is exactly why a shared helper is worth it).
+12. ⬜ **NOT STARTED** — split the 11 units over 250 lines, starting with `createZap` (extract per-trigger-type creation into ~5 functions) and `Modal.tsx` (extract the three wizard steps into components). Largest now: `Modal.tsx` 624, `GoogleCalendarPoller.ts` 476, `GmailService.ts` 384, `createZap` 192.
+13. ⬜ **NOT STARTED** — replace `@ts-ignore`-to-pass-`req.id` with a single declared augmentation of Express `Request`, then delete the ~30 suppressions that become unnecessary.
+14. ⬜ **NOT STARTED** — reduce `any` from 392 by typing the four integration-controller request bodies with the zod schemas already in `packages/types`. `any` reads 350 today, but only because dead code was deleted — no typing work has been done.
 
 **Finally — hygiene (P3):**
 
-15. Run `npx prettier --write` on the 29 drifted files in a dedicated "formatting only" commit (never mixed with behaviour changes — that's the rule).
-16. Remove the leftover SMTP env block from `env.ts` and the Railway remnants, or document why they stay.
-17. Add a one-line note to `artifacts/task.md` acknowledging the dead UI generation, so the next reader doesn't wire it up by mistake.
+15. ✅ **DONE** (`3645645`) — run `npx prettier --write` on the 29 drifted files in a dedicated "formatting only" commit (never mixed with behaviour changes — that's the rule). **→ now:** `prettier --check` passes repo-wide. (The audit said 28 in one place and 29 in another; 29 was correct.)
+16. ✅ **DONE, by documenting rather than removing** — the leftover SMTP env block in `env.ts` and the Railway remnants. **→ now:** the premise was wrong on both counts, so removal would have been the mistake. `ActionsController` really does send through nodemailer with `SMTP_*` (that's why the fix in §6.2 is a name mismatch, not a deletion), and `apps/worker/railway.json` is the live deploy config referenced by `.github/workflows/deploy.yml`. Both now carry a comment saying why they stay.
+17. ✅ **OBSOLETE** — add a note to `artifacts/task.md` about the dead UI generation so the next reader doesn't wire it up by mistake. **→ now:** unnecessary — the 7 components are deleted, and a check of every file in `artifacts/` finds no reference to them or to any other deleted path.
 
 ### G. Method limits — read this before quoting the per-file verdicts
 
@@ -462,7 +502,7 @@ packages/ui/src/{button,card,code}.tsx                                  54 lines
 
 Work done against §F. Each entry: what changed, the commit, and the evidence that it works — for the behavioural changes, the *same test fails on the pre-fix code and passes after*. That check was done by stashing the source fix and re-running the suite, so "verified" here means reproduced, not asserted.
 
-### 6.1 Security: authentication that could not fail (P1, items 1–3)
+### 6.1 Security: authentication that could not fail — ✅ DONE (P1, items 1–3)
 
 | # | Finding | Fix | Commit |
 |---|---|---|---|
@@ -476,7 +516,7 @@ Work done against §F. Each entry: what changed, the commit, and the evidence th
 
 One pre-existing test asserted the old semantics (`triggers.test.ts` passed a bogus signature and expected 401 — it only passed because of the hardcoded fallback key); it now sets a real secret and tests the intended rule.
 
-### 6.2 Config names that silently disabled features (P1, item 4)
+### 6.2 Config names that silently disabled features — 🟡 naming done, boot-time fail-fast not done (P1, item 4)
 
 | Finding | Fix | Commit |
 |---|---|---|
@@ -488,7 +528,7 @@ Also documents what §6.1 made mandatory (`CRON_SECRET`, `GMAIL_WEBHOOK_SECRET`,
 
 **Evidence:** `apps/worker/tests/helpers.test.ts` — 4 tests covering the resolver (documented name, legacy name, precedence, absent). The worker had **no test runner at all** before this; it now has one.
 
-### 6.3 Honest run status (P1, item 5)
+### 6.3 Honest run status — ✅ DONE (P1, item 5)
 
 `processWebhookTrigger` and `processGmailTrigger` caught each action's error, logged it, then wrote a `ZapRun` with no status — so a Zap whose every step failed looked healthy in the history. `ZapRun` already had `status`, `errorMessage` and `completedAt` fields; nothing on this path used them.
 
@@ -498,7 +538,7 @@ While here, `GmailTriggersController` held a second, already-divergent copy of t
 
 **Evidence:** `tests/zaps/run-status.test.ts` — 8 tests; **6 fail pre-fix**, including one that asserts through `TriggerController.handleWebhook` that the HTTP response stays 200 while the run is recorded as failed.
 
-### 6.4 The verification loop (P4, items 6, 7, 9)
+### 6.4 The verification loop — ✅ CI and leaks done; the plan's full scope still open (P4, items 6, 7, 9)
 
 - **CI now runs both suites** (`8b05882`). Until this commit, the workflow installed, generated Prisma, linted and built — and never invoked Jest. The suite existed and verified nothing.
 - **`--forceExit` is gone, and it was hiding two real defects:**
@@ -507,13 +547,13 @@ While here, `GmailTriggersController` held a second, already-divergent copy of t
 - Jest exits on its own in ~2.6s; CI needs no flags.
 - Item 9 (cheap coverage for pure helpers) landed with the worker suite (§6.2 evidence).
 
-### 6.5 Simplicity: deleting the dead mass (P2, item 10)
+### 6.5 Simplicity: deleting the dead mass — ✅ DONE (P2, item 10)
 
 `5c55d53` removed **17 unreferenced modules and 3 unused dependencies — 2,442 lines** (28 files). Each was verified individually first (symbol grep + import graph): the superseded Telegram/WhatsApp/Calendar UI generation, the duplicate Google Sheets poller, the `packages/logger` and `packages/ui` packages (zero consumers — hence 453 `console.*` calls while pino sat unused), an 8-line `AuthProvider` placeholder, `lib/auth.ts` whose every export was dead, and three unused barrels/stubs.
 
 Verified: server 104/104 and worker 14/14 still pass; the web typecheck reports the *same* 3 pre-existing errors before and after; the processor typecheck is byte-identical with and without the deleted poller restored.
 
-### 6.6 Style drift (P3, item 15)
+### 6.6 Style drift — ✅ DONE (P3, item 15)
 
 `3645645` — 29 files reformatted to the repo's own Prettier config, **formatting only, in its own commit**. Mixing a whitespace pass into a behavioural fix makes the real change unreviewable, which is the failure mode the "surgical changes" rule warns about. `prettier --check` now passes repo-wide (was 29 failures).
 
@@ -536,15 +576,20 @@ Verified: server 104/104 and worker 14/14 still pass; the web typecheck reports 
 | `--forceExit` needed | yes | no |
 | Fail-open auth paths | 3 subsystems | **0** |
 
-### 6.8 Still open
+### 6.8 Still open — the live backlog
 
-Unchanged by this pass, in the order I'd pick them up:
+Tick these off in order; items 1–3 are the ones the audit graded worst.
 
-1. **`evaluateFilters` fails open on an unknown operator** (`apps/worker/src/evaluateFilters.ts:67` returns `true` with a warning). A typo'd operator means the filter silently passes everything — same class as the bugs in §6.1, but lower impact since the conditions are user-authored. Worth a decision: reject, or treat as "no filter".
-2. **Split the units over 250 lines** (§F item 12) — `createZap` (192 lines, five inline trigger-type branches), `Modal.tsx` (624), `GoogleCalendarPoller` (476), `GmailService` (384).
-3. **De-duplicate the integration controllers** (§F item 11) — the OAuth/server-CRUD skeleton is still copied across Gmail/Sheets/Calendar (`GoogleCalendarController.ts:32-62` ↔ `GoogleSheetsController.ts:33-63`, 31 identical lines).
-4. **Replace `@ts-ignore`-to-pass-`req.id`** with one declared Express augmentation (§F item 13) — ~30 suppressions become unnecessary; `no-explicit-any` is still 350.
-5. **The 19 remaining dead exports** (§6.7), e.g. `packages/kafka` → `TOPICS`/`createConsumer`/`createProducer`, `worker/src/sendTelegram.ts` → three unused senders.
-6. **`bun.lock`** needs `bun install` once (no bun in this sandbox) to reflect the three dependency removals.
-7. **Web has no tests at all**, and neither do `apps/hooks` / `apps/processor` — the largest remaining P4 gap.
-8. **Deferred refactors from `artifacts/task.md`**: Slack/Discord/generic-HTTP actions, email verification, password reset, Docker Compose for local dev.
+- [ ] **1. `evaluateFilters` fails open on an unknown operator** (`apps/worker/src/evaluateFilters.ts:67` returns `true` with a warning). A typo'd operator silently passes everything — same class as the bugs in §6.1, lower impact since the conditions are user-authored. Needs a product decision: reject the filter, or treat an unknown operator as "no filter". *Verify:* one test per unknown-operator case.
+- [ ] **2. Split the units over 250 lines** (§F item 12) — `Modal.tsx` 624, `GoogleCalendarPoller.ts` 476, `GmailService.ts` 384, `createZap` 192.
+- [ ] **3. De-duplicate the integration controllers** (§F item 11) — extract the OAuth-callback/server-CRUD skeleton shared by Gmail/Sheets/Calendar (`GoogleCalendarController.ts:32-62` ↔ `GoogleSheetsController.ts:33-63`, 31 identical lines).
+- [ ] **4. Finish the test-suite plan** (§F items 7 and 8) — the plan's Gmail/Sheets/Actions controller suites are unwritten; `apps/server/tests/zaps/run-status.test.ts` is the pattern to copy (real handler, mocked models).
+- [ ] **5. The 19 remaining dead exports** — `packages/kafka` → `TOPICS`/`createConsumer`/`createProducer`; `apps/worker/src/sendTelegram.ts` → `replyToMessage`/`sendTelegramDocument`/`sendTelegramPhoto`; `sendWhatsAppTemplateMessage`; `packages/email` → `sendEmailWithHtmlBody`; `GmailWebhookController` → `renewGmailWatch`; `apps/hooks` → `setupCalendarWatch`/`stopCalendarWatch`. Several are "the feature is stubbed, not wired" — decide wire-or-delete rather than leaving them.
+- [ ] **6. `isRetryableError` is exported but never consulted** — verified: the only references to `apps/worker/src/utils/retry.ts:87` are its own definition and the tests written in §6.2, so `withRetry` still retries errors its own classifier calls non-retryable. Use it in `withRetry` or delete it.
+- [ ] **7. Worker `replaceKeys` has no test** (§F item 9 gap) — pure function, no infra needed; the cheapest remaining coverage in the repo.
+- [ ] **8. `@ts-ignore`-to-pass-`req.id`** (§F item 13, 90 occurrences repo-wide) and **typing the integration request bodies** (§F item 14, `any` = 350).
+- [ ] **9. Infra env vars are still undocumented** — a re-scan finds 17 read in code but absent from the three `.env.example` files: `API_URL`, `HOOKS_URL`, `GITHUB_WEBHOOK_SECRET`, `GMAIL_REDIRECT_URI`, `GOOGLE_CALENDAR_WEBHOOK_URL`, `WHATSAPP_VERIFY_TOKEN`, `SENTRY_DSN`, `RELEASE_VERSION`, `EMAIL_RATE_LIMIT_PER_HOUR`, `EMAIL_RECIPIENT_COOLDOWN`, `CALENDAR_WEBHOOKS_ENABLED`, `KAFKA_SASL_MECHANISM`, `KAFKA_SSL_CA`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_HOOKS_URL`, plus the two legacy aliases `SMTP_PASS`/`SOL_PRIVATE_KEY` (named in comments rather than as keys). Note the audit's original count was 14 because its scan included test files.
+- [ ] **10. `bun.lock` is stale** — run `bun install` once (no `bun` in this sandbox) to drop the three removed dependencies from the lockfile.
+- [ ] **11. Web, `apps/hooks` and `apps/processor` have no tests at all** — the largest remaining P4 gap. For the web app, start with the components that were just deleted's replacements (`components/metadata/*`) and `evaluateFilters`-style pure logic in `lib/`.
+- [ ] **12. The run status is recorded but never shown** — `apps/web/components/ZapRunHistory.tsx` is mounted on the dashboard (`app/dashboard/page.tsx:478`) but does not read `status`/`errorMessage`/`completedAt`, so runs fixed in §6.3 still render as plain history. `artifacts/walkthrough1.md:195,226` also still calls the execution history UI a missing feature.
+- [ ] **13. Deferred refactors from `artifacts/task.md`** — Slack/Discord/generic-HTTP actions, email verification, password reset, Docker Compose for local dev.
