@@ -1,0 +1,73 @@
+---
+name: workflows-history
+description: Show run history for a specific durable workflow using the Zapier SDK experimental Code Workflows commands. Use when the user asks for run history, execution history, what happened with this Zap, or how a workflow fired.
+license: MIT
+metadata:
+  author: zapier
+  version: '1.3.0'
+  sdk_cli_min: '0.85.0'
+  sdk_cli_validated: '0.86.4'
+  refresh_source: 'zapier/agent-skills'
+---
+
+# Zapier Workflows History
+
+Use the public SDK CLI experimental command surface. Do not use `zapier-sdk-code-substrate`.
+
+## Compatibility Gate
+
+Before using this skill, run the `workflows-doctor` bundle compatibility check. If `workflows-doctor` is not installed or cannot be loaded, run `workflows-install` or install `workflows-doctor` from `zapier/agent-skills` before continuing. If `workflows-doctor` reports SDK/skill drift, follow its refresh instructions, stop this skill invocation, reload the agent workspace if needed, and ask the user to rerun the original request.
+
+## Identify The Workflow
+
+If the user provides a workflow ID, use it directly.
+
+If the user refers to the workflow by name or description, list workflows first and find the matching ID:
+
+```bash
+zapier-sdk --stability experimental list-workflows --json
+```
+
+If multiple workflows match, show the candidates and ask the user which one they mean.
+
+## Fetch Run History
+
+```bash
+zapier-sdk --stability experimental list-workflow-runs <workflow-id> --json
+```
+
+Parse the JSON output. Useful fields may include `id`, `status`, `started_at`, `finished_at`, `input`, and `output`.
+
+When the workflow ID is known, include the Zapier editor link:
+
+```text
+https://zapier.com/workflow/<workflow-id>
+```
+
+## Drill Into A Run
+
+If a single deployed workflow run failed or the user wants step-level detail:
+
+```bash
+zapier-sdk --stability experimental get-workflow-run <run-id> --json
+```
+
+Draft test runs started with `run-workflow-draft` are workflow runs too (`kind: "draft"`); inspect them with `get-workflow-run`.
+
+If a manual trigger response returns a trigger ID before a workflow run ID is available, bridge from trigger to run:
+
+```bash
+zapier-sdk --stability experimental get-trigger-run <trigger-id> --json
+```
+
+Summarize the failure, status, timing, input, output, and any step error details that appear in the response. Avoid dumping raw JSON unless the user asks for it.
+
+## Draft State
+
+Runs execute published versions — unpublished draft edits never show up in run history. If the user expects a recent change to be reflected in runs and it isn't, check for an open draft holding that change:
+
+```bash
+zapier-sdk --stability experimental list-workflow-drafts <workflow-id> --json
+```
+
+If an open draft exists, tell the user their change is unpublished (note `last_edited_at` and the editor link) rather than concluding the workflow is broken.
