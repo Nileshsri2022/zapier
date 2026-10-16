@@ -124,7 +124,7 @@ async function executeSolanaAction(metadata: any, triggerPayload: any) {
 }
 
 // Process all actions for a zap immediately
-async function processZapImmediately(zapId: string, triggerPayload: any) {
+async function processZapImmediately(zapId: string, triggerPayload: any, zapRunId?: string) {
   try {
     // Get zap with all actions
     const zap = await client.zap.findUnique({
@@ -139,6 +139,12 @@ async function processZapImmediately(zapId: string, triggerPayload: any) {
 
     if (!zap) {
       console.error(`Zap not found: ${zapId}`);
+      if (zapRunId) {
+        await client.zapRun.update({
+          where: { id: zapRunId },
+          data: { status: 'failed', errorMessage: 'Zap not found', completedAt: new Date() },
+        });
+      }
       return { success: false, error: 'Zap not found' };
     }
 
@@ -154,10 +160,23 @@ async function processZapImmediately(zapId: string, triggerPayload: any) {
       await executeAction(action, action.metadata, triggerPayload);
     }
 
+    if (zapRunId) {
+      await client.zapRun.update({
+        where: { id: zapRunId },
+        data: { status: 'completed', completedAt: new Date() },
+      });
+    }
+
     console.log(`✅ Zap completed: ${zap.name}`);
     return { success: true, actionsExecuted: zap.actions.length };
   } catch (error) {
     console.error('❌ Zap processing failed:', error);
+    if (zapRunId) {
+      await client.zapRun.update({
+        where: { id: zapRunId },
+        data: { status: 'failed', errorMessage: String(error), completedAt: new Date() },
+      });
+    }
     return { success: false, error: String(error) };
   }
 }
@@ -191,7 +210,7 @@ app.post('/hooks/:userId/:zapId', async (req: Request, res: Response) => {
     console.log(`📝 ZapRun created: ${zapRun.id}`);
 
     // Process immediately (non-blocking)
-    processZapImmediately(zapId as string, triggerPayload)
+    processZapImmediately(zapId as string, triggerPayload, zapRun.id)
       .then((result) => {
         console.log(`📊 Zap result:`, result);
       })
@@ -255,7 +274,7 @@ app.post('/api/webhooks/schedule', async (req: Request, res: Response) => {
     // Process immediately
     const triggerPayload = (zapRun.metadata as Record<string, any>) || {};
 
-    processZapImmediately(zapRun.zapId, triggerPayload)
+    processZapImmediately(zapRun.zapId, triggerPayload, zapRunId)
       .then((result) => {
         console.log(`📊 Schedule Zap result:`, result);
       })
