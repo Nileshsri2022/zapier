@@ -37,6 +37,12 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Run server tests
+        run: cd apps/server && bun run test
+
+      - name: Run worker tests
+        run: cd apps/worker && bun run test
+
       - name: Build packages
         run: bun run build
 

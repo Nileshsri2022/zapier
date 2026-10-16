@@ -27,6 +27,18 @@ jest.mock('@repo/email', () => ({
   sendEmail: jest.fn().mockResolvedValue(true),
 }));
 
+// Mock nodemailer so the Email action never opens a real SMTP socket.
+// (It previously dialled smtp.gmail.com:587 from unit tests, leaving a
+// pending socket that kept Jest from exiting.)
+const mockTransport = {
+  sendMail: jest.fn().mockResolvedValue({ messageId: 'test-message-id' }),
+};
+jest.mock('nodemailer', () => ({
+  __esModule: true,
+  default: { createTransport: jest.fn(() => mockTransport) },
+  createTransport: jest.fn(() => mockTransport),
+}));
+
 // Mock the database client
 jest.mock('@repo/db', () => ({
   __esModule: true,

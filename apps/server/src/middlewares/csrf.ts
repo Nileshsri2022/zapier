@@ -7,8 +7,10 @@ const csrfTokens = new Map<string, { token: string; expires: number }>();
 // Token expiration time (1 hour)
 const TOKEN_TTL = 60 * 60 * 1000;
 
-// Clean up expired tokens periodically
-setInterval(
+// Clean up expired tokens periodically.
+// .unref() so this background timer never keeps the event loop (and therefore
+// the process, and Jest) alive after shutdown.
+const cleanupTimer = setInterval(
   () => {
     const now = Date.now();
     for (const [key, value] of csrfTokens.entries()) {
@@ -19,6 +21,7 @@ setInterval(
   },
   5 * 60 * 1000
 ); // Every 5 minutes
+(cleanupTimer as NodeJS.Timeout).unref?.();
 
 /**
  * Generate a CSRF token for a session/user
