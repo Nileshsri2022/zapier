@@ -378,12 +378,38 @@ async function processMessage(message: any) {
   };
 }
 
+let isConsumerRunning = false;
+
+async function startConsumer() {
+  if (isConsumerRunning) return;
+  await initKafka();
+  isConsumerRunning = true;
+  await consumer.run({
+    autoCommit: false,
+    eachMessage: async ({ topic, partition, message }: any) => {
+      try {
+        await processMessage(message);
+        await consumer.commitOffsets([
+          {
+            topic,
+            partition,
+            offset: (parseInt(message.offset) + 1).toString(),
+          },
+        ]);
+      } catch (error) {
+        console.error('Message processing error:', error);
+      }
+    },
+  });
+  console.log('✅ Worker Kafka consumer started and running continuously');
+}
+
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', service: 'worker' });
+  res.json({ status: 'ok', service: 'worker', isConsumerRunning });
 });
 
-// Process messages - triggered by cron
+// Process messages - triggered by cron or manual ping
 app.post('/process', async (req: Request, res: Response): Promise<any> => {
   try {
     const authHeader = req.headers.authorization;
@@ -394,47 +420,13 @@ app.post('/process', async (req: Request, res: Response): Promise<any> => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    await initKafka();
-
-    let processedCount = 0;
-    const maxMessages = 20; // Process up to 20 messages per cron trigger
-    const results: any[] = [];
-
-    // Run consumer for a batch
-    await consumer.run({
-      autoCommit: false,
-      eachMessage: async ({ topic, partition, message }: any) => {
-        if (processedCount >= maxMessages) return;
-
-        try {
-          const result = await processMessage(message);
-          results.push(result);
-          processedCount++;
-
-          await consumer.commitOffsets([
-            {
-              topic,
-              partition,
-              offset: (parseInt(message.offset) + 1).toString(),
-            },
-          ]);
-        } catch (error) {
-          console.error('Message processing error:', error);
-          results.push({ success: false, error: String(error) });
-        }
-      },
-    });
-
-    // Wait a bit to allow message processing
-    await new Promise((resolve) => setTimeout(resolve, 5000));
-
-    // Pause consumer after batch
-    await consumer.pause([{ topic: TOPIC_NAME }]);
+    if (!isConsumerRunning) {
+      await startConsumer();
+    }
 
     return res.json({
-      message: 'Processing complete',
-      processed: processedCount,
-      results,
+      message: 'Worker is actively listening and processing events',
+      isRunning: isConsumerRunning,
     });
   } catch (error) {
     console.error('Worker error:', error);
@@ -453,6 +445,12 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Worker service running on port ${PORT}`);
+  try {
+    await startConsumer();
+  } catch (err) {
+    console.error('Failed to start consumer on boot:', err);
+    isConsumerRunning = false;
+  }
 });
