@@ -302,6 +302,22 @@ cd apps/hooks && npm run dev
 
 ## 🚀 Deployment
 
+### CI/CD Pipeline (GitHub Actions)
+
+All deploys run from [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). A push to `main` that passes **Lint & Test** fans out to five parallel deploy jobs — one per runtime, because ZapMate is five separate services:
+
+| Job                | Target                    |
+| ------------------ | ------------------------- |
+| `Deploy Web`       | Vercel (`apps/web`)       |
+| `Deploy Server`    | Render (`apps/server`)    |
+| `Deploy Hooks`     | Render (`apps/hooks`)     |
+| `Deploy Processor` | Render (`apps/processor`) |
+| `Deploy Worker`    | Render (`apps/worker`)    |
+
+On pull requests the deploy jobs report as `skipping` — only **Lint & Test** runs, since every deploy job is gated on `github.ref == 'refs/heads/main' && github.event_name == 'push'`.
+
+GitHub Actions is the **only** path to Vercel production. Vercel's own Git integration is disabled with `"git": { "deploymentEnabled": false }` in `vercel.json`; without it each push triggers a second, ungated Vercel build that races this pipeline for the production slot.
+
 ### Docker Deployment
 
 ```dockerfile
