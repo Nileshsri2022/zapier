@@ -4,10 +4,10 @@ description: Create a durable Zapier workflow from natural language using @zapie
 license: MIT
 metadata:
   author: zapier
-  version: "1.8.0"
-  sdk_cli_min: "0.85.0"
-  sdk_cli_validated: "0.86.4"
-  refresh_source: "zapier/agent-skills"
+  version: '1.8.0'
+  sdk_cli_min: '0.85.0'
+  sdk_cli_validated: '0.86.4'
+  refresh_source: 'zapier/agent-skills'
 ---
 
 # Zapier Workflows Create
@@ -238,7 +238,7 @@ Input may arrive as a JSON string:
 
 ```typescript
 function normalizeInput(rawInput: unknown): unknown {
-  if (typeof rawInput === "string") {
+  if (typeof rawInput === 'string') {
     return JSON.parse(rawInput);
   }
   return rawInput;
@@ -252,9 +252,9 @@ Every `defineDurable` call must resolve `run` to a function. Prefer the object f
 Default to module-level SDK and constants, a named durable, and a direct `runAction` body for each app step:
 
 ```typescript
-import { defineDurable } from "@zapier/zapier-durable";
-import { createZapierSdk } from "@zapier/zapier-sdk";
-import { z } from "zod";
+import { defineDurable } from '@zapier/zapier-durable';
+import { createZapierSdk } from '@zapier/zapier-sdk';
+import { z } from 'zod';
 
 const sdk = createZapierSdk();
 
@@ -263,44 +263,44 @@ const InputSchema = z.object({
   label: z.string().nullable().optional(),
 });
 
-const JIRA_APP_KEY = "JiraSoftwareCloudCLIAPI";
-const JIRA_CONNECTION = "jira_work";
-const SLACK_APP_KEY = "SlackCLIAPI";
-const SLACK_CONNECTION = "slack_work";
-const SLACK_CHANNEL = "C0123456";
+const JIRA_APP_KEY = 'JiraSoftwareCloudCLIAPI';
+const JIRA_CONNECTION = 'jira_work';
+const SLACK_APP_KEY = 'SlackCLIAPI';
+const SLACK_CONNECTION = 'slack_work';
+const SLACK_CHANNEL = 'C0123456';
 
 const workflow = defineDurable({
-  name: "notify-about-jira-issue",
+  name: 'notify-about-jira-issue',
   inputSchema: InputSchema,
   run: async (ctx, rawInput) => {
     const input = InputSchema.parse(normalizeInput(rawInput));
 
-    const issuePage = await ctx.step("find-jira-issue", async () =>
+    const issuePage = await ctx.step('find-jira-issue', async () =>
       sdk.runAction({
         appKey: JIRA_APP_KEY,
-        actionType: "search",
-        actionKey: "search_issues",
+        actionType: 'search',
+        actionKey: 'search_issues',
         connection: JIRA_CONNECTION,
         inputs: { query: input.ticketId },
-      }),
+      })
     );
 
     const issue = issuePage.data[0];
     if (!issue) {
-      return { skipped: true, reason: "issue-not-found" };
+      return { skipped: true, reason: 'issue-not-found' };
     }
 
-    const label = input.label ?? "Jira";
+    const label = input.label ?? 'Jira';
     const message = `${label} ${issue.key}: ${issue.summary}`;
 
-    const notification = await ctx.step("notify-slack-channel", async () =>
+    const notification = await ctx.step('notify-slack-channel', async () =>
       sdk.runAction({
         appKey: SLACK_APP_KEY,
-        actionType: "write",
-        actionKey: "send_channel_message",
+        actionType: 'write',
+        actionKey: 'send_channel_message',
         connection: SLACK_CONNECTION,
         inputs: { channel: SLACK_CHANNEL, text: message },
-      }),
+      })
     );
 
     return { notification };
@@ -319,20 +319,20 @@ The Zapier editor renders a `ctx.step` as an app-action step (with the app icon)
 Use `createZapierSdk()` with published aliases for outer connections, or schema-owned action-input references as described in "Map connections". There is no global Zapier client, no connection object on `ctx`, and no connection token in `process.env`.
 
 ```typescript
-await ctx.step("send-slack-message", async () =>
+await ctx.step('send-slack-message', async () =>
   sdk.runAction({
-    appKey: "SlackCLIAPI",
-    actionType: "write",
-    actionKey: "direct_message",
-    connection: "slack_work",
+    appKey: 'SlackCLIAPI',
+    actionType: 'write',
+    actionKey: 'direct_message',
+    connection: 'slack_work',
     inputs,
-  }),
+  })
 );
 
-const gitlabUser = await ctx.step("fetch-gitlab-user", async () => {
-  const response = await sdk.fetch("https://gitlab.com/api/v4/user", {
-    connection: "gitlab_work",
-    method: "GET",
+const gitlabUser = await ctx.step('fetch-gitlab-user', async () => {
+  const response = await sdk.fetch('https://gitlab.com/api/v4/user', {
+    connection: 'gitlab_work',
+    method: 'GET',
   });
   if (!response.ok) {
     throw new Error(`GitLab returned ${response.status}`);
@@ -352,12 +352,12 @@ Use an early return to filter out runs that don't meet a condition, and keep the
 
 ```typescript
 const tags = input.tags ?? [];
-const isActiveAndUrgent = input.status === "active" && tags.includes("urgent");
+const isActiveAndUrgent = input.status === 'active' && tags.includes('urgent');
 const isHighPriority = (input.priority ?? 0) > 8;
 const shouldRun = isActiveAndUrgent || isHighPriority;
 
 if (!shouldRun) {
-  return { skipped: true, reason: "filter-did-not-match" };
+  return { skipped: true, reason: 'filter-did-not-match' };
 }
 ```
 
@@ -366,39 +366,37 @@ if (!shouldRun) {
 Keep waits at workflow scope, not inside a step:
 
 ```typescript
-await ctx.wait("wait-before-followup", 3600);
+await ctx.wait('wait-before-followup', 3600);
 ```
 
 Journal replay-variant values once:
 
 ```typescript
-const createdAt = await ctx.step("capture-created-at", async () =>
-  new Date().toISOString(),
-);
+const createdAt = await ctx.step('capture-created-at', async () => new Date().toISOString());
 ```
 
 Use callbacks for human approval:
 
 ```typescript
 const [approvalPromise, callbackUrl] = await ctx.createCallback({
-  name: "wait-for-approval",
+  name: 'wait-for-approval',
   payloadSchema: z.object({ approved: z.boolean() }),
   timeoutSeconds: 86400,
 });
 
-await ctx.step("send-approval-request", async () =>
+await ctx.step('send-approval-request', async () =>
   sdk.runAction({
-    appKey: "ExampleCLIAPI",
-    actionType: "write",
-    actionKey: "send_message",
-    connection: "example_connection",
+    appKey: 'ExampleCLIAPI',
+    actionType: 'write',
+    actionKey: 'send_message',
+    connection: 'example_connection',
     inputs: { callbackUrl },
-  }),
+  })
 );
 
 const approval = await approvalPromise;
 if (!approval.approved) {
-  return { skipped: true, reason: "denied" };
+  return { skipped: true, reason: 'denied' };
 }
 ```
 
@@ -409,14 +407,14 @@ const results = await Promise.all(
   items.map((item, index) =>
     ctx.step(`process-item-${index}`, async () =>
       sdk.runAction({
-        appKey: "ExampleCLIAPI",
-        actionType: "write",
-        actionKey: "do_something",
-        connection: "example_connection",
+        appKey: 'ExampleCLIAPI',
+        actionType: 'write',
+        actionKey: 'do_something',
+        connection: 'example_connection',
         inputs: { item },
-      }),
-    ),
-  ),
+      })
+    )
+  )
 );
 ```
 
@@ -424,15 +422,15 @@ Use step retries for flaky external calls:
 
 ```typescript
 const result = await ctx.step({
-  name: "call-flaky-service",
+  name: 'call-flaky-service',
   maxAttempts: 3,
   retryDelaySeconds: 5,
   run: async () =>
     sdk.runAction({
-      appKey: "ExampleCLIAPI",
-      actionType: "write",
-      actionKey: "do_something",
-      connection: "example_connection",
+      appKey: 'ExampleCLIAPI',
+      actionType: 'write',
+      actionKey: 'do_something',
+      connection: 'example_connection',
       inputs: {},
     }),
 });

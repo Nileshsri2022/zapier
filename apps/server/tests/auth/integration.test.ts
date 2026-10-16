@@ -20,10 +20,7 @@ describe('Authentication - Integration Tests', () => {
         password: '$2b$10$hashedpassword',
       });
 
-      const signupResponse = await request(app)
-        .post('/api/auth/signup')
-        .send(testUser)
-        .expect(201);
+      const signupResponse = await request(app).post('/api/auth/signup').send(testUser).expect(201);
 
       expect(signupResponse.body).toHaveProperty('message', 'Signup successful');
       expect(signupResponse.body.data.user).toHaveProperty('id', 1);
@@ -63,10 +60,7 @@ describe('Authentication - Integration Tests', () => {
         password: '$2b$10$hashedpassword',
       });
 
-      await request(app)
-        .post('/api/auth/signup')
-        .send(testUser)
-        .expect(201);
+      await request(app).post('/api/auth/signup').send(testUser).expect(201);
 
       // Second signup attempt with same email
       (client.user.findUnique as jest.Mock).mockResolvedValue({
@@ -82,7 +76,10 @@ describe('Authentication - Integration Tests', () => {
         .expect(404);
 
       expect(duplicateResponse.body).toHaveProperty('message', 'Invalid request');
-      expect(duplicateResponse.body.error).toHaveProperty('email', 'User with this email already exists');
+      expect(duplicateResponse.body.error).toHaveProperty(
+        'email',
+        'User with this email already exists'
+      );
     });
   });
 
@@ -97,10 +94,7 @@ describe('Authentication - Integration Tests', () => {
         password: '$2b$10$hashedpassword',
       });
 
-      await request(app)
-        .post('/api/auth/signup')
-        .send(testUser)
-        .expect(201);
+      await request(app).post('/api/auth/signup').send(testUser).expect(201);
 
       // Try to sign in with wrong password
       (client.user.findUnique as jest.Mock).mockResolvedValue({
@@ -115,9 +109,7 @@ describe('Authentication - Integration Tests', () => {
         password: 'wrongpassword',
       };
 
-      const signinResponse = await request(app)
-        .post('/api/auth/signin')
-        .send(wrongPasswordData);
+      const signinResponse = await request(app).post('/api/auth/signin').send(wrongPasswordData);
 
       // Accept 422 or 200 depending on mock behavior
       expect([422, 200]).toContain(signinResponse.status);
@@ -151,8 +143,8 @@ describe('Authentication - Integration Tests', () => {
       const responses = await Promise.all(requests);
 
       // One should succeed, one should fail
-      const successCount = responses.filter(r => r.status === 201).length;
-      const failureCount = responses.filter(r => r.status === 404).length;
+      const successCount = responses.filter((r) => r.status === 201).length;
+      const failureCount = responses.filter((r) => r.status === 404).length;
 
       expect(successCount).toBe(1);
       expect(failureCount).toBe(1);

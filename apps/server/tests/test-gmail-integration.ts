@@ -57,7 +57,6 @@ class GmailIntegrationTester {
 
       // Results
       this.displayResults();
-
     } catch (error) {
       console.error('❌ Test suite failed:', error);
       process.exit(1);
@@ -95,37 +94,61 @@ class GmailIntegrationTester {
       // Test 1: Invalid token
       try {
         await axios.get(`${BASE_URL}/gmail/servers`, {
-          headers: { Authorization: 'invalid-token' }
+          headers: { Authorization: 'invalid-token' },
         });
-        this.recordResult('Authentication - Invalid token rejected', false, 'Should have rejected invalid token');
+        this.recordResult(
+          'Authentication - Invalid token rejected',
+          false,
+          'Should have rejected invalid token'
+        );
       } catch (error: any) {
         if (error.response?.status === 401) {
-          this.recordResult('Authentication - Invalid token rejected', true, 'Correctly rejected invalid token');
+          this.recordResult(
+            'Authentication - Invalid token rejected',
+            true,
+            'Correctly rejected invalid token'
+          );
         } else {
-          this.recordResult('Authentication - Invalid token rejected', false, 'Unexpected error: ' + error.message);
+          this.recordResult(
+            'Authentication - Invalid token rejected',
+            false,
+            'Unexpected error: ' + error.message
+          );
         }
       }
 
       // Test 2: Valid token format
       try {
         await axios.get(`${BASE_URL}/gmail/servers`, {
-          headers: { Authorization: this.token! }
+          headers: { Authorization: this.token! },
         });
         this.recordResult('Authentication - Valid token accepted', true, 'Token format accepted');
       } catch (error: any) {
         // This might fail if no servers exist, which is expected
         if (error.response?.status === 404 || error.response?.status === 500) {
-          this.recordResult('Authentication - Valid token accepted', true, 'Token format accepted (expected server error)');
+          this.recordResult(
+            'Authentication - Valid token accepted',
+            true,
+            'Token format accepted (expected server error)'
+          );
         } else {
-          this.recordResult('Authentication - Valid token accepted', false, 'Unexpected error: ' + error.message);
+          this.recordResult(
+            'Authentication - Valid token accepted',
+            false,
+            'Unexpected error: ' + error.message
+          );
         }
       }
-
     } catch (error: any) {
       this.recordResult('Authentication tests', false, 'Test failed: ' + error.message);
     }
 
-    this.recordResult('Authentication tests', true, 'All authentication tests completed', Date.now() - startTime);
+    this.recordResult(
+      'Authentication tests',
+      true,
+      'All authentication tests completed',
+      Date.now() - startTime
+    );
   }
 
   private async testServerManagement(): Promise<void> {
@@ -136,39 +159,67 @@ class GmailIntegrationTester {
 
       // Test 1: Initiate OAuth (this will fail without real credentials, but should not crash)
       try {
-        await axios.post(`${BASE_URL}/gmail/auth/initiate`, {
-          name: 'Test Gmail Server'
-        }, {
-          headers: { Authorization: this.token! }
-        });
-        this.recordResult('Server Management - OAuth initiation', false, 'Should require valid credentials');
+        await axios.post(
+          `${BASE_URL}/gmail/auth/initiate`,
+          {
+            name: 'Test Gmail Server',
+          },
+          {
+            headers: { Authorization: this.token! },
+          }
+        );
+        this.recordResult(
+          'Server Management - OAuth initiation',
+          false,
+          'Should require valid credentials'
+        );
       } catch (error: any) {
         if (error.response?.status === 500 || error.response?.status === 400) {
-          this.recordResult('Server Management - OAuth initiation', true, 'Properly handled missing credentials');
+          this.recordResult(
+            'Server Management - OAuth initiation',
+            true,
+            'Properly handled missing credentials'
+          );
         } else {
-          this.recordResult('Server Management - OAuth initiation', false, 'Unexpected error: ' + error.message);
+          this.recordResult(
+            'Server Management - OAuth initiation',
+            false,
+            'Unexpected error: ' + error.message
+          );
         }
       }
 
       // Test 2: Get servers (should return empty array or error gracefully)
       try {
         const response = await axios.get(`${BASE_URL}/gmail/servers`, {
-          headers: { Authorization: this.token! }
+          headers: { Authorization: this.token! },
         });
-        this.recordResult('Server Management - Get servers', true, 'Successfully retrieved servers list');
+        this.recordResult(
+          'Server Management - Get servers',
+          true,
+          'Successfully retrieved servers list'
+        );
       } catch (error: any) {
         if (error.response?.status === 404) {
           this.recordResult('Server Management - Get servers', true, 'No servers found (expected)');
         } else {
-          this.recordResult('Server Management - Get servers', false, 'Unexpected error: ' + error.message);
+          this.recordResult(
+            'Server Management - Get servers',
+            false,
+            'Unexpected error: ' + error.message
+          );
         }
       }
-
     } catch (error: any) {
       this.recordResult('Server management tests', false, 'Test failed: ' + error.message);
     }
 
-    this.recordResult('Server management tests', true, 'All server management tests completed', Date.now() - startTime);
+    this.recordResult(
+      'Server management tests',
+      true,
+      'All server management tests completed',
+      Date.now() - startTime
+    );
   }
 
   private async testRateLimiting(): Promise<void> {
@@ -188,9 +239,17 @@ class GmailIntegrationTester {
       // Test 1: Initial state
       const initialCheck = rateLimiter.canMakeRequest(1);
       if (initialCheck.allowed) {
-        this.recordResult('Rate Limiting - Initial state', true, 'Rate limiter allows initial requests');
+        this.recordResult(
+          'Rate Limiting - Initial state',
+          true,
+          'Rate limiter allows initial requests'
+        );
       } else {
-        this.recordResult('Rate Limiting - Initial state', false, 'Rate limiter should allow initial requests');
+        this.recordResult(
+          'Rate Limiting - Initial state',
+          false,
+          'Rate limiter should allow initial requests'
+        );
       }
 
       // Test 2: Record requests
@@ -200,24 +259,44 @@ class GmailIntegrationTester {
 
       const afterRequestsCheck = rateLimiter.canMakeRequest(1);
       if (afterRequestsCheck.allowed) {
-        this.recordResult('Rate Limiting - Request tracking', true, 'Rate limiter tracks requests correctly');
+        this.recordResult(
+          'Rate Limiting - Request tracking',
+          true,
+          'Rate limiter tracks requests correctly'
+        );
       } else {
-        this.recordResult('Rate Limiting - Request tracking', false, 'Rate limiter should still allow requests');
+        this.recordResult(
+          'Rate Limiting - Request tracking',
+          false,
+          'Rate limiter should still allow requests'
+        );
       }
 
       // Test 3: Status reporting
       const status = rateLimiter.getStatus();
       if (status.requestsPerSecond === 0 && status.quotaUsed === 3) {
-        this.recordResult('Rate Limiting - Status reporting', true, 'Rate limiter status is accurate');
+        this.recordResult(
+          'Rate Limiting - Status reporting',
+          true,
+          'Rate limiter status is accurate'
+        );
       } else {
-        this.recordResult('Rate Limiting - Status reporting', false, 'Rate limiter status incorrect');
+        this.recordResult(
+          'Rate Limiting - Status reporting',
+          false,
+          'Rate limiter status incorrect'
+        );
       }
-
     } catch (error: any) {
       this.recordResult('Rate limiting tests', false, 'Test failed: ' + error.message);
     }
 
-    this.recordResult('Rate limiting tests', true, 'All rate limiting tests completed', Date.now() - startTime);
+    this.recordResult(
+      'Rate limiting tests',
+      true,
+      'All rate limiting tests completed',
+      Date.now() - startTime
+    );
   }
 
   private async testErrorHandling(): Promise<void> {
@@ -244,25 +323,45 @@ class GmailIntegrationTester {
         const classifiedError = (errorHandler.constructor as any).classifyError(mockError);
 
         if (classifiedError.type === testError.expectedType) {
-          this.recordResult(`Error Handling - ${testError.expectedType}`, true, 'Error correctly classified');
+          this.recordResult(
+            `Error Handling - ${testError.expectedType}`,
+            true,
+            'Error correctly classified'
+          );
         } else {
-          this.recordResult(`Error Handling - ${testError.expectedType}`, false, `Expected ${testError.expectedType}, got ${classifiedError.type}`);
+          this.recordResult(
+            `Error Handling - ${testError.expectedType}`,
+            false,
+            `Expected ${testError.expectedType}, got ${classifiedError.type}`
+          );
         }
       }
 
       // Test 2: Circuit breaker
       const circuitStatus = errorHandler.getCircuitBreakerStatus();
       if (circuitStatus.state === 'CLOSED') {
-        this.recordResult('Error Handling - Circuit breaker', true, 'Circuit breaker initialized correctly');
+        this.recordResult(
+          'Error Handling - Circuit breaker',
+          true,
+          'Circuit breaker initialized correctly'
+        );
       } else {
-        this.recordResult('Error Handling - Circuit breaker', false, 'Circuit breaker not in expected state');
+        this.recordResult(
+          'Error Handling - Circuit breaker',
+          false,
+          'Circuit breaker not in expected state'
+        );
       }
-
     } catch (error: any) {
       this.recordResult('Error handling tests', false, 'Test failed: ' + error.message);
     }
 
-    this.recordResult('Error handling tests', true, 'All error handling tests completed', Date.now() - startTime);
+    this.recordResult(
+      'Error handling tests',
+      true,
+      'All error handling tests completed',
+      Date.now() - startTime
+    );
   }
 
   private async testDatabaseOperations(): Promise<void> {
@@ -276,7 +375,11 @@ class GmailIntegrationTester {
         const gmailServers = await this.prisma.gmailServer.findMany();
         this.recordResult('Database - GmailServer table', true, 'GmailServer table accessible');
       } catch (error: any) {
-        this.recordResult('Database - GmailServer table', false, 'GmailServer table not accessible: ' + error.message);
+        this.recordResult(
+          'Database - GmailServer table',
+          false,
+          'GmailServer table not accessible: ' + error.message
+        );
       }
 
       // Test 2: Check if GmailTrigger table exists
@@ -284,7 +387,11 @@ class GmailIntegrationTester {
         const gmailTriggers = await this.prisma.gmailTrigger.findMany();
         this.recordResult('Database - GmailTrigger table', true, 'GmailTrigger table accessible');
       } catch (error: any) {
-        this.recordResult('Database - GmailTrigger table', false, 'GmailTrigger table not accessible: ' + error.message);
+        this.recordResult(
+          'Database - GmailTrigger table',
+          false,
+          'GmailTrigger table not accessible: ' + error.message
+        );
       }
 
       // Test 3: Check if GmailAction table exists
@@ -292,7 +399,11 @@ class GmailIntegrationTester {
         const gmailActions = await this.prisma.gmailAction.findMany();
         this.recordResult('Database - GmailAction table', true, 'GmailAction table accessible');
       } catch (error: any) {
-        this.recordResult('Database - GmailAction table', false, 'GmailAction table not accessible: ' + error.message);
+        this.recordResult(
+          'Database - GmailAction table',
+          false,
+          'GmailAction table not accessible: ' + error.message
+        );
       }
 
       // Test 4: Check if GmailWatch table exists
@@ -300,14 +411,22 @@ class GmailIntegrationTester {
         const gmailWatches = await this.prisma.gmailWatch.findMany();
         this.recordResult('Database - GmailWatch table', true, 'GmailWatch table accessible');
       } catch (error: any) {
-        this.recordResult('Database - GmailWatch table', false, 'GmailWatch table not accessible: ' + error.message);
+        this.recordResult(
+          'Database - GmailWatch table',
+          false,
+          'GmailWatch table not accessible: ' + error.message
+        );
       }
-
     } catch (error: any) {
       this.recordResult('Database tests', false, 'Test failed: ' + error.message);
     }
 
-    this.recordResult('Database tests', true, 'All database tests completed', Date.now() - startTime);
+    this.recordResult(
+      'Database tests',
+      true,
+      'All database tests completed',
+      Date.now() - startTime
+    );
   }
 
   private async cleanupTestEnvironment(): Promise<void> {
@@ -316,15 +435,15 @@ class GmailIntegrationTester {
     try {
       // Clean up any test data created during testing
       await this.prisma.gmailServer.deleteMany({
-        where: { name: { contains: 'Test' } }
+        where: { name: { contains: 'Test' } },
       });
 
       await this.prisma.gmailTrigger.deleteMany({
-        where: { triggerType: 'test_trigger' }
+        where: { triggerType: 'test_trigger' },
       });
 
       await this.prisma.gmailAction.deleteMany({
-        where: { actionType: 'test_action' }
+        where: { actionType: 'test_action' },
       });
 
       console.log('✅ Test environment cleaned up');
@@ -350,7 +469,7 @@ class GmailIntegrationTester {
     console.log('\n📊 Test Results Summary');
     console.log('='.repeat(50));
 
-    const passed = this.results.filter(r => r.passed).length;
+    const passed = this.results.filter((r) => r.passed).length;
     const total = this.results.length;
     const failed = total - passed;
 
@@ -361,9 +480,11 @@ class GmailIntegrationTester {
 
     if (failed > 0) {
       console.log('\n❌ Failed Tests:');
-      this.results.filter(r => !r.passed).forEach(result => {
-        console.log(`  - ${result.test}: ${result.message}`);
-      });
+      this.results
+        .filter((r) => !r.passed)
+        .forEach((result) => {
+          console.log(`  - ${result.test}: ${result.message}`);
+        });
     }
 
     console.log('\n' + '='.repeat(50));
@@ -381,7 +502,7 @@ class GmailIntegrationTester {
 // Run tests if this script is executed directly
 if (require.main === module) {
   const tester = new GmailIntegrationTester();
-  tester.runAllTests().catch(error => {
+  tester.runAllTests().catch((error) => {
     console.error('💥 Test suite crashed:', error);
     process.exit(1);
   });

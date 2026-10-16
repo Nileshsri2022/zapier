@@ -4,10 +4,10 @@ description: Show run history for a specific durable workflow using the Zapier S
 license: MIT
 metadata:
   author: zapier
-  version: "1.3.0"
-  sdk_cli_min: "0.85.0"
-  sdk_cli_validated: "0.86.4"
-  refresh_source: "zapier/agent-skills"
+  version: '1.3.0'
+  sdk_cli_min: '0.85.0'
+  sdk_cli_validated: '0.86.4'
+  refresh_source: 'zapier/agent-skills'
 ---
 
 # Zapier Workflows History

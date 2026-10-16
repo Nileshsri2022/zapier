@@ -4,9 +4,9 @@ description: Configure a basic AI by Zapier step with runtime context, outputs, 
 license: MIT
 metadata:
   author: zapier
-  version: "0.3.0"
-  sdk_cli_min: "0.67.4"
-  refresh_source: "zapier/agent-skills"
+  version: '0.3.0'
+  sdk_cli_min: '0.67.4'
+  refresh_source: 'zapier/agent-skills'
 ---
 
 # AI by Zapier Workflow Steps
@@ -53,16 +53,16 @@ These types describe the decoded entries in AbZ's `inputs.tools` array, not MCP 
 
 ```typescript
 type ToolInput =
-  | { type: "guess" | "default" | "ignore" }
-  | { type: "locked"; value: string | string[] | Record<string, string> }
-  | { type: "guess-locked"; value: string[] };
+  | { type: 'guess' | 'default' | 'ignore' }
+  | { type: 'locked'; value: string | string[] | Record<string, string> }
+  | { type: 'guess-locked'; value: string[] };
 
 type IntegrationTool = {
-  type: "integration";
+  type: 'integration';
   id: string;
   selected_api: string;
   action_key: string;
-  action_type: "read" | "search" | "write";
+  action_type: 'read' | 'search' | 'write';
   display_name: string;
   description: string;
   app_needs_auth: boolean | null;
@@ -70,13 +70,13 @@ type IntegrationTool = {
   auth_id?: number | null;
   inputs?: Record<string, ToolInput> | null;
   input_labels?: Record<string, string | string[]> | null;
-  approval_policy?: "always_allow" | "require_approval" | "deny" | "auto";
+  approval_policy?: 'always_allow' | 'require_approval' | 'deny' | 'auto';
 };
 
 type BuiltinTool = {
-  type: "builtin";
+  type: 'builtin';
   id: string;
-  builtin_tool_name: "fail" | "web_search" | "web_scrape";
+  builtin_tool_name: 'fail' | 'web_search' | 'web_scrape';
 };
 
 type BasicTool = IntegrationTool | BuiltinTool;
@@ -92,13 +92,13 @@ type BasicTool = IntegrationTool | BuiltinTool;
 
 Discover the target action's fields and choices with the selected connection. Settle parent values before discovering dependent fields, and refresh affected discovery when a parent changes. Respect configured locks and restrictions. Store policies under the actual app field keys, not under MCP's `params` or `dynamic_properties` wrapper.
 
-| Intent | Entry in the integration tool's `inputs` |
-| --- | --- |
-| Determine a value from instructions/context at execution time | `{"type":"guess"}` |
-| Pin a fixed value | `{"type":"locked","value":"<actual value or choice ID>"}` |
-| Let the agent choose among discovered candidates | `{"type":"guess-locked","value":["<choice ID 1>","<choice ID 2>"]}` |
-| Leave normal field/default resolution in control | `{"type":"default"}` |
-| Intentionally exclude a field when omission is valid | `{"type":"ignore"}` |
+| Intent                                                        | Entry in the integration tool's `inputs`                            |
+| ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Determine a value from instructions/context at execution time | `{"type":"guess"}`                                                  |
+| Pin a fixed value                                             | `{"type":"locked","value":"<actual value or choice ID>"}`           |
+| Let the agent choose among discovered candidates              | `{"type":"guess-locked","value":["<choice ID 1>","<choice ID 2>"]}` |
+| Leave normal field/default resolution in control              | `{"type":"default"}`                                                |
+| Intentionally exclude a field when omission is valid          | `{"type":"ignore"}`                                                 |
 
 Do not use bare values such as `"channel": "C123"`. A fixed value belongs inside a `locked` entry. Scalar values use strings, including the selected action's numeric/boolean representations; dictionaries contain string values. Include `value` even when it is `""`. An omitted entry is unpinned, not ignored; `default` neither forces a particular default nor prevents runtime resolution.
 
@@ -139,9 +139,7 @@ These are decoded `get_completion` inputs: put them in `sdk.runAction(...).input
     "note": "The launch moved to Friday after final testing."
   },
   "includeWorkflowData": false,
-  "outputFields": [
-    { "name": "summary", "type": "text", "isRequired": true }
-  ]
+  "outputFields": [{ "name": "summary", "type": "text", "isRequired": true }]
 }
 ```
 
@@ -166,9 +164,7 @@ The Slack identifiers, connection UUID, and channel ID are illustrative. Replace
     "note": "Launch is blocked: the production health checks are failing."
   },
   "includeWorkflowData": false,
-  "outputFields": [
-    { "name": "outcome", "type": "text", "isRequired": true }
-  ],
+  "outputFields": [{ "name": "outcome", "type": "text", "isRequired": true }],
   "tools": [
     {
       "type": "integration",
@@ -206,9 +202,7 @@ When the user asks the step to search the public web or research/read public pag
     "topic": "Recent public announcements about the user's named company"
   },
   "includeWorkflowData": false,
-  "outputFields": [
-    { "name": "research", "type": "text", "isRequired": true }
-  ],
+  "outputFields": [{ "name": "research", "type": "text", "isRequired": true }],
   "tools": [
     { "type": "builtin", "id": "tool_web_search", "builtin_tool_name": "web_search" },
     { "type": "builtin", "id": "tool_web_scrape", "builtin_tool_name": "web_scrape" },

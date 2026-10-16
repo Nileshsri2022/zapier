@@ -4,10 +4,10 @@ description: Modify and republish an existing durable workflow using the Zapier 
 license: MIT
 metadata:
   author: zapier
-  version: "2.3.0"
-  sdk_cli_min: "0.85.0"  # first @zapier/zapier-sdk-cli with --stability (run-workflow-draft since 0.82.0)
-  sdk_cli_validated: "0.86.4"
-  refresh_source: "zapier/agent-skills"
+  version: '2.3.0'
+  sdk_cli_min: '0.85.0' # first @zapier/zapier-sdk-cli with --stability (run-workflow-draft since 0.82.0)
+  sdk_cli_validated: '0.86.4'
+  refresh_source: 'zapier/agent-skills'
 ---
 
 # Zapier Workflows Modify
@@ -43,7 +43,7 @@ The list returns open drafts, most recently edited first. An open draft always h
 - **An open draft exists:** work through it. It holds the user's in-progress edits and your change applies on top of it. If several are open, tell the user and confirm which to use.
 - **No open draft:** create one in Step 3.
 
-If the user's request already implies immediate publish ("fix it and ship it"), publish once the change is saved and tested. If they want to review first, work incrementally, or hand off to the editor, leave the draft open. When the intent is unclear, ask: *publish once the change is ready, or leave it as a draft to review/publish later?*
+If the user's request already implies immediate publish ("fix it and ship it"), publish once the change is saved and tested. If they want to review first, work incrementally, or hand off to the editor, leave the draft open. When the intent is unclear, ask: _publish once the change is ready, or leave it as a draft to review/publish later?_
 
 ## Step 3: Fetch The Current Source
 
@@ -77,7 +77,7 @@ If the two signals disagree — most importantly a saved `trigger` config but an
 
 The remaining checks in this step apply only when building on a **pre-existing** draft (skip them for a draft you just created — a fresh fork is identical to its base):
 
-**Check for unpublished draft changes.** Publishing the draft publishes *everything* in it, not just your edit — so you must know whether the draft already diverges from what's live. Fetch the draft's base version and compare:
+**Check for unpublished draft changes.** Publishing the draft publishes _everything_ in it, not just your edit — so you must know whether the draft already diverges from what's live. Fetch the draft's base version and compare:
 
 ```bash
 zapier-sdk --stability experimental get-workflow-version <workflow-id> <base_version_id from the draft> --json
@@ -158,7 +158,7 @@ zapier-sdk --stability experimental update-workflow-draft <workflow-id> <draft-i
 
 Omitted fields keep their stored draft values, so only pass `--trigger`, `--connections`, `--app-versions`, `--dependencies`, or `--zapier-durable-version` when the edit changes them. Passing `null` for `--trigger`, `--connections`, or `--app-versions` clears the stored value — never do that to "skip" a field.
 
-**Start-mode check:** the trigger lives in the stored draft and `publish-workflow-draft` takes no `--trigger` flag — it publishes whatever the draft holds. So a correct `trigger`-mode draft publish has *no* `--trigger` at publish time; that is expected, not a dropped trigger. First confirm, immediately before `publish-workflow-draft`, that the draft's stored `trigger` still matches the captured (or intended) start mode — a `trigger`-mode draft still carries its trigger, a `manual`-mode draft none (read it back with `get-workflow-draft` if unsure). Then declare the start mode at publish: a `manual`-mode workflow passes `--manual` on `publish-workflow-draft` (below); a `trigger`-mode workflow's draft already holds its trigger, so publish **without** `--manual`. Never combine a stored trigger with `--manual` — the platform contract rejects both together. Clearing the trigger with `--trigger null` on the `update-workflow-draft` above is exactly how a `trigger`-mode workflow silently becomes manual.
+**Start-mode check:** the trigger lives in the stored draft and `publish-workflow-draft` takes no `--trigger` flag — it publishes whatever the draft holds. So a correct `trigger`-mode draft publish has _no_ `--trigger` at publish time; that is expected, not a dropped trigger. First confirm, immediately before `publish-workflow-draft`, that the draft's stored `trigger` still matches the captured (or intended) start mode — a `trigger`-mode draft still carries its trigger, a `manual`-mode draft none (read it back with `get-workflow-draft` if unsure). Then declare the start mode at publish: a `manual`-mode workflow passes `--manual` on `publish-workflow-draft` (below); a `trigger`-mode workflow's draft already holds its trigger, so publish **without** `--manual`. Never combine a stored trigger with `--manual` — the platform contract rejects both together. Clearing the trigger with `--trigger null` on the `update-workflow-draft` above is exactly how a `trigger`-mode workflow silently becomes manual.
 
 **Test the saved revision** when Step 5 called for a test. Read the draft for its current `draft_revision` (the update response also returns it), then run that revision:
 

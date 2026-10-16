@@ -4,10 +4,10 @@ description: Diagnose Zapier Workflows skill and SDK CLI compatibility. Use when
 license: MIT
 metadata:
   author: zapier
-  version: "1.5.0"
-  sdk_cli_min: "0.85.0"  # first @zapier/zapier-sdk-cli with --stability (run-workflow-draft since 0.82.0)
-  sdk_cli_validated: "0.86.4"
-  refresh_source: "zapier/agent-skills"
+  version: '1.5.0'
+  sdk_cli_min: '0.85.0' # first @zapier/zapier-sdk-cli with --stability (run-workflow-draft since 0.82.0)
+  sdk_cli_validated: '0.86.4'
+  refresh_source: 'zapier/agent-skills'
 ---
 
 # Zapier Workflows Doctor

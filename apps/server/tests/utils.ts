@@ -38,7 +38,12 @@ export const mockUser = {
 };
 
 // Helper function to make authenticated requests
-export const makeAuthRequest = (app: express.Application, method: 'post' | 'get', endpoint: string, token?: string) => {
+export const makeAuthRequest = (
+  app: express.Application,
+  method: 'post' | 'get',
+  endpoint: string,
+  token?: string
+) => {
   const req = request(app)[method](endpoint);
   if (token) {
     req.set('Authorization', `Bearer ${token}`);

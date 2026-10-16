@@ -21,12 +21,14 @@ tests/
 ### Prerequisites
 
 1. **Install dependencies**:
+
    ```bash
    cd apps/server
    npm install
    ```
 
 2. **Set up test database**:
+
    ```bash
    # Run the SQL setup script
    psql -U postgres -f tests/test-database-setup.sql
@@ -68,23 +70,28 @@ npm run test:signin
 ### Signup Tests (`signup.test.ts`)
 
 #### ✅ Successful Signup
+
 - [x] Create new user with valid data
 - [x] Hash password before storing
 - [x] Send welcome email after signup
 
 #### ✅ Validation Errors
+
 - [x] Invalid email format
 - [x] Name too short
 - [x] Password too short
 - [x] Missing required fields
 
 #### ✅ Duplicate User Errors
+
 - [x] User already exists
 
 #### ✅ Database Errors
+
 - [x] Database create failure
 
 #### ✅ Edge Cases
+
 - [x] Empty request body
 - [x] Null values in request
 - [x] Extremely long input values
@@ -92,24 +99,29 @@ npm run test:signin
 ### Signin Tests (`signin.test.ts`)
 
 #### ✅ Successful Signin
+
 - [x] Sign in with correct credentials
 - [x] Generate JWT token with correct payload
 
 #### ✅ Validation Errors
+
 - [x] Invalid email format
 - [x] Password too short
 - [x] Missing required fields
 
 #### ✅ Authentication Errors
+
 - [x] User does not exist
 - [x] Incorrect password
 - [x] bcrypt comparison errors
 
 #### ✅ JWT Token Generation
+
 - [x] JWT signing errors
 - [x] Correct JWT secret usage
 
 #### ✅ Edge Cases
+
 - [x] Empty request body
 - [x] Null values in request
 - [x] Case-sensitive email matching
@@ -118,31 +130,38 @@ npm run test:signin
 ### Error Handling Tests (`error-handling.test.ts`)
 
 #### ✅ General Error Handling
+
 - [x] Malformed JSON in request body
 - [x] Unsupported HTTP methods
 - [x] Non-existent endpoints
 
 #### ✅ Input Sanitization
+
 - [x] HTML/script injection attempts
 - [x] SQL injection attempts
 - [x] Extremely large payloads
 
 #### ✅ Rate Limiting Simulation
+
 - [x] Rapid consecutive requests
 
 #### ✅ Network and Timeout Handling
+
 - [x] Slow requests handling
 
 #### ✅ Authentication Middleware
+
 - [x] Missing authorization header
 - [x] Invalid authorization header
 - [x] Malformed JWT token
 - [x] Expired JWT token
 
 #### ✅ Database Connection Issues
+
 - [x] Database connection failures
 
 #### ✅ Environment and Configuration Issues
+
 - [x] Missing JWT secret
 
 ## 🛠️ Test Configuration
@@ -158,11 +177,7 @@ module.exports = {
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/index.ts',
-    '!src/**/*.d.ts',
-  ],
+  collectCoverageFrom: ['src/**/*.ts', '!src/index.ts', '!src/**/*.d.ts'],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
@@ -212,6 +227,7 @@ psql -U postgres
 ### Test Data
 
 The test database includes:
+
 - Test users for authentication testing
 - Proper table structure matching the Prisma schema
 - Indexes and constraints for realistic testing
@@ -219,15 +235,18 @@ The test database includes:
 ## 🔧 Mocking Strategy
 
 ### Database Mocking
+
 - All database operations are mocked using Jest
 - No actual database calls are made during tests
 - Mock responses simulate real database behavior
 
 ### Email Service Mocking
+
 - Email sending is mocked to avoid actual email delivery
 - Mock verifies correct email parameters are passed
 
 ### JWT Mocking
+
 - JWT token generation is mocked for consistent testing
 - Mock allows verification of token payload and options
 
@@ -244,6 +263,7 @@ open coverage/lcov-report/index.html
 ```
 
 ### Coverage Goals
+
 - **Statements**: 90%+
 - **Branches**: 85%+
 - **Functions**: 95%+

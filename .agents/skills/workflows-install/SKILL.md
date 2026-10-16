@@ -4,10 +4,10 @@ description: Install the Zapier SDK CLI for Zapier Workflows Early Access and bo
 license: MIT
 metadata:
   author: zapier
-  version: "1.3.0"
-  sdk_cli_min: "0.85.0"
-  sdk_cli_validated: "0.86.4"
-  refresh_source: "zapier/agent-skills"
+  version: '1.3.0'
+  sdk_cli_min: '0.85.0'
+  sdk_cli_validated: '0.86.4'
+  refresh_source: 'zapier/agent-skills'
 ---
 
 # Zapier Workflows Early Access Install
@@ -67,11 +67,11 @@ git version 2.x.x
 
 Requirements:
 
-| Tool | Minimum version | Install if missing |
-|---|---|---|
-| Node | 18 | `brew install node` or use nvm |
-| npm | any current version | bundled with Node |
-| git | any | usually preinstalled on macOS; otherwise `brew install git` |
+| Tool | Minimum version     | Install if missing                                          |
+| ---- | ------------------- | ----------------------------------------------------------- |
+| Node | 18                  | `brew install node` or use nvm                              |
+| npm  | any current version | bundled with Node                                           |
+| git  | any                 | usually preinstalled on macOS; otherwise `brew install git` |
 
 If Node or npm is missing, explain that Node includes npm and the user needs a normal Node install before continuing. For macOS users, suggest either the Node LTS installer from `nodejs.org`, Homebrew (`brew install node`), or nvm if they already use it. Do not continue until `node --version` and `npm --version` work.
 
@@ -298,14 +298,14 @@ Next steps for the user:
 
 ## Troubleshooting
 
-| Symptom | Likely cause | Fix |
-|---|---|---|
-| `node --version` prints less than `v18` | Old Node | `brew upgrade node` or use nvm to install a current LTS |
-| `npm install -g` fails with permissions errors | Global npm prefix is not user-writable | Use nvm or Homebrew Node; avoid `sudo npm install -g` unless the user explicitly accepts that system-level change |
-| `zapier-sdk --stability experimental --help` lacks Code Workflows commands | Old CLI or wrong package installed | Install `@zapier/zapier-sdk-cli@latest`, then rerun `zapier-sdk --version` and the help command |
-| `zapier-sdk get-profile` says not logged in | User has not authenticated the CLI | Run `zapier-sdk login` in an interactive terminal, then retry |
-| `get-profile` succeeds but `list-workflows` returns an access, permission, allowlist, or JWT/security-scheme error | The Zapier account is authenticated but does not have Zapier Workflows EA access | Stop before installing companion skills. Tell the user Zapier Workflows is currently only available to members of our closed beta, include the authenticated email, and ask them to rerun `workflows-install` after allowlisting. |
-| `zapier-sdk login` does not open a browser | No default browser configured, or remote/SSH session | Run `zapier-sdk login --headless`, open the printed login link in any browser, and paste back the callback URL it asks for; or run from a local terminal |
-| `zapier-sdk login` hangs in a non-interactive shell | `login` is browser-interactive; cannot run unattended | Ask the user to run it manually in an actual terminal |
-| `npx skills add zapier/agent-skills --skill workflows-...` fails | Public skill source is unavailable, the skill has not been published yet, or network access failed | Confirm the `zapier/agent-skills` public repo and workflow skill path are available, then rerun the specific install command |
-| Skills do not auto-invoke after install | Agent workspace has not reloaded the skills directory | Reload workspace or restart your agent |
+| Symptom                                                                                                            | Likely cause                                                                                       | Fix                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node --version` prints less than `v18`                                                                            | Old Node                                                                                           | `brew upgrade node` or use nvm to install a current LTS                                                                                                                                                                           |
+| `npm install -g` fails with permissions errors                                                                     | Global npm prefix is not user-writable                                                             | Use nvm or Homebrew Node; avoid `sudo npm install -g` unless the user explicitly accepts that system-level change                                                                                                                 |
+| `zapier-sdk --stability experimental --help` lacks Code Workflows commands                                         | Old CLI or wrong package installed                                                                 | Install `@zapier/zapier-sdk-cli@latest`, then rerun `zapier-sdk --version` and the help command                                                                                                                                   |
+| `zapier-sdk get-profile` says not logged in                                                                        | User has not authenticated the CLI                                                                 | Run `zapier-sdk login` in an interactive terminal, then retry                                                                                                                                                                     |
+| `get-profile` succeeds but `list-workflows` returns an access, permission, allowlist, or JWT/security-scheme error | The Zapier account is authenticated but does not have Zapier Workflows EA access                   | Stop before installing companion skills. Tell the user Zapier Workflows is currently only available to members of our closed beta, include the authenticated email, and ask them to rerun `workflows-install` after allowlisting. |
+| `zapier-sdk login` does not open a browser                                                                         | No default browser configured, or remote/SSH session                                               | Run `zapier-sdk login --headless`, open the printed login link in any browser, and paste back the callback URL it asks for; or run from a local terminal                                                                          |
+| `zapier-sdk login` hangs in a non-interactive shell                                                                | `login` is browser-interactive; cannot run unattended                                              | Ask the user to run it manually in an actual terminal                                                                                                                                                                             |
+| `npx skills add zapier/agent-skills --skill workflows-...` fails                                                   | Public skill source is unavailable, the skill has not been published yet, or network access failed | Confirm the `zapier/agent-skills` public repo and workflow skill path are available, then rerun the specific install command                                                                                                      |
+| Skills do not auto-invoke after install                                                                            | Agent workspace has not reloaded the skills directory                                              | Reload workspace or restart your agent                                                                                                                                                                                            |

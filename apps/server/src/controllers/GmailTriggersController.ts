@@ -29,7 +29,12 @@ const shouldTrigger = async (gmailTrigger: any, emailData: any): Promise<boolean
     // Check trigger type
     switch (triggerType) {
       case 'new_email':
-        return isNewEmailTrigger(emailData, { watchedLabels, senderFilter, subjectFilter, metadata });
+        return isNewEmailTrigger(emailData, {
+          watchedLabels,
+          senderFilter,
+          subjectFilter,
+          metadata,
+        });
       case 'labeled':
         return isLabeledTrigger(emailData, metadata);
       case 'starred':
@@ -60,7 +65,9 @@ const isNewEmailTrigger = (emailData: any, filters: any): boolean => {
   }
 
   if (filters.subjectFilter) {
-    const subjectMatch = emailData.subject?.toLowerCase().includes(filters.subjectFilter.toLowerCase());
+    const subjectMatch = emailData.subject
+      ?.toLowerCase()
+      .includes(filters.subjectFilter.toLowerCase());
     if (!subjectMatch) return false;
   }
 
@@ -135,7 +142,8 @@ export const createGmailTrigger = async (req: Request, res: Response): Promise<a
   try {
     // @ts-ignore
     const userId = req.id;
-    const { serverId, zapId, triggerType, watchedLabels, senderFilter, subjectFilter, metadata } = req.body;
+    const { serverId, zapId, triggerType, watchedLabels, senderFilter, subjectFilter, metadata } =
+      req.body;
 
     // Validate required fields
     if (!serverId || !zapId || !triggerType) {

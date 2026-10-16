@@ -16,10 +16,10 @@ export class GmailRateLimiter {
 
   constructor(config: Partial<RateLimitConfig> = {}) {
     this.config = {
-      maxRequestsPerSecond: 10,    // Conservative limit
-      maxRequestsPerMinute: 100,   // Conservative limit
-      maxRequestsPerHour: 1000,    // Conservative limit
-      quotaLimit: 250,             // Gmail's per-user quota limit
+      maxRequestsPerSecond: 10, // Conservative limit
+      maxRequestsPerMinute: 100, // Conservative limit
+      maxRequestsPerHour: 1000, // Conservative limit
+      quotaLimit: 250, // Gmail's per-user quota limit
       ...config,
     };
   }
@@ -74,7 +74,7 @@ export class GmailRateLimiter {
    * Get number of requests in a time window
    */
   private getRequestsInWindow(since: number): number {
-    return this.requests.filter(req => req.timestamp >= since).length;
+    return this.requests.filter((req) => req.timestamp >= since).length;
   }
 
   /**
@@ -88,7 +88,7 @@ export class GmailRateLimiter {
    * Clean up old request records
    */
   private cleanupOldRequests(olderThan: number): void {
-    this.requests = this.requests.filter(req => req.timestamp >= olderThan);
+    this.requests = this.requests.filter((req) => req.timestamp >= olderThan);
   }
 
   /**
