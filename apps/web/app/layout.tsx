@@ -1,6 +1,14 @@
 import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
+/* Style files (spec: code/styles separation) — order matters: tokens → base → helpers → components */
+import '../styles/tokens.css';
+import '../styles/base.css';
+import '../styles/utilities.css';
+import '../styles/components/button.css';
+import '../styles/components/form-input.css';
+import '../styles/components/spinner.css';
+import '../styles/components/tooltip.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Analytics } from '@vercel/analytics/react';
@@ -57,7 +65,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180x180.png" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased w-screen h-screen bg-base-100`}
+        className={`${geistSans.variable} ${geistMono.variable}`}
       >
         {children}
         <PWAInstaller />

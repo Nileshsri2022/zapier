@@ -1,0 +1,14 @@
+/**
+ * Spinner styles — color mapping via the `data-color` hook (spec D4).
+ * Animation/ring base lives in components/ui/spinner.tsx (vendor layer).
+ */
+
+.spinner[data-color='primary'] {
+  color: hsl(var(--brand-primary));
+}
+
+.spinner[data-color='white'] {
+  color: hsl(0 0% 100%);
+}
+
+/* any other/unknown color falls back to currentColor (matches legacy clsx behaviour) */

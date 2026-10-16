@@ -1,0 +1,15 @@
+/**
+ * FormInput styles — semantic `.form-input` (spec §7).
+ * Field chrome itself comes from shadcn/ui Input (tokens: --input, --background).
+ */
+
+.form-input {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* legacy: label was font-semibold */
+.form-input label {
+  font-weight: 600;
+}

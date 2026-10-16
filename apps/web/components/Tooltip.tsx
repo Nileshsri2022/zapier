@@ -1,14 +1,29 @@
+'use client';
 import React, { type ReactNode } from 'react';
+import {
+  Tooltip as UITooltip,
+  TooltipArrow,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
+/**
+ * First-party Tooltip — LOGIC ONLY (spec G2).
+ * Radix/shadcn owns behaviour & structure; the white-card look from the legacy
+ * tooltip lives in styles/components/tooltip.css via the `.tooltip-content` hook.
+ */
 const Tooltip = ({ children, tooltipText }: { children: ReactNode; tooltipText: string }) => {
   return (
-    <div className="relative group">
-      {children}
-      <div className="absolute bottom-full left-1/2 transform translate-y-1 -translate-x-1/2 mb-3 border border-gray-500 bg-white text-gray-500 text-sm rounded py-1 px-2 w-max max-w-[500px] sm:max-w-[300px] md:max-w-[400px] lg:max-w-[500px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 break-words">
-        {tooltipText}
-        <div className="absolute top-full left-1/2 transform -translate-y-[5px] -translate-x-1/2 w-3 h-3 bg-white rotate-45 border-b border-r border-gray-500"></div>
-      </div>
-    </div>
+    <TooltipProvider delayDuration={150}>
+      <UITooltip>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
+        <TooltipContent className="tooltip-content" sideOffset={6}>
+          {tooltipText}
+          <TooltipArrow className="tooltip-arrow" />
+        </TooltipContent>
+      </UITooltip>
+    </TooltipProvider>
   );
 };
 

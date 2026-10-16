@@ -1,0 +1,53 @@
+/**
+ * Design tokens — SINGLE source of truth for colors, shadows, radii.
+ *
+ * Consumed by:
+ *  - tailwind.config.ts        (hsl(var(--x)) aliases)
+ *  - components/ui/* (shadcn)  (bg-primary, text-muted-foreground, …)
+ *  - styles/base.css, styles/components/*.css
+ *
+ * RULE (spec §7.6): raw color values may ONLY appear in this file.
+ */
+
+:root {
+  /* ---- Brand palette (converted from the legacy tailwind.config.ts hexes) ---- */
+  --brand-primary: 18 100% 50%; /* #FF4F00 — legacy primary-500 */
+  --brand-primary-strong: 18 100% 45%; /* legacy primary-600 (was UNDEFINED → spec bug fix) */
+  --brand-primary-hover: 19 100% 40%; /* #CC3F00 — legacy primary-700 */
+  --brand-secondary: 246 75% 63%; /* #695BE8 — legacy secondary-500 */
+  --brand-secondary-hover: 248 51% 49%; /* #503EBD — legacy secondary-700 */
+  --brand-base: 40 100% 99%; /* #FFFDF9 — legacy base-100 */
+  --brand-base-muted: 48 33% 94%; /* #F5F3EB — legacy base-200 */
+  --brand-link-bg: 249 64% 98%; /* #F7F6FD — legacy link-bg */
+  --overlay: 0 0% 0% / 0.2; /* legacy modal-bg rgba(0,0,0,.2) */
+  --shadow-3xl: 0px 5px 10px 7px rgb(0 0 0 / 0.1); /* legacy boxShadow['3xl'] */
+  --canvas-dot: 0 0% 0%; /* dotted canvas dot color */
+
+  /* ---- Scrollbar ---- */
+  --scrollbar-track: 0 0% 95%;
+  --scrollbar-thumb: 0 0% 53%;
+  --scrollbar-thumb-hover: 0 0% 33%;
+
+  /* ---- shadcn/ui theme (spec D9) ---- */
+  --background: 40 100% 99%;
+  --foreground: 20 20% 8%;
+  --card: 40 100% 99%;
+  --card-foreground: 20 20% 8%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 20 20% 8%;
+  --primary: 18 100% 50%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 246 75% 63%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 48 33% 94%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 48 33% 94%;
+  --accent-foreground: 20 20% 8%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 218 11% 65%; /* legacy border-gray-400 (app-wide) */
+  --input: 218 11% 65%; /* legacy field border gray-400 */
+  --ring: 18 100% 50%;
+  --radius: 0.5rem;
+  --link-bg: 249 64% 98%;
+}
