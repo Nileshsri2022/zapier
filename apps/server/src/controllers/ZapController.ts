@@ -412,10 +412,26 @@ export const deleteZapWithId = async (req: Request, res: Response): Promise<any>
         where: { zapId },
       });
 
-      // Delete trigger
-      await tx.trigger.delete({
-        where: { zapId },
-      });
+      // Delete WhatsApp trigger if exists
+      await (tx as any).whatsAppTrigger?.deleteMany?.({ where: { zapId } });
+
+      // Delete Telegram trigger if exists
+      await (tx as any).telegramTrigger?.deleteMany?.({ where: { zapId } });
+
+      // Delete Google Calendar trigger if exists
+      await (tx as any).googleCalendarTrigger?.deleteMany?.({ where: { zapId } });
+
+      // Delete scheduled trigger if exists
+      await (tx as any).scheduledTrigger?.deleteMany?.({ where: { zapId } });
+
+      // Delete trigger (ignore if missing)
+      try {
+        await tx.trigger.delete({
+          where: { zapId },
+        });
+      } catch (e) {
+        // Trigger may not exist; continue
+      }
 
       // Delete actions
       await tx.action.deleteMany({
