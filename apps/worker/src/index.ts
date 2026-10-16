@@ -4,7 +4,7 @@ import client from '@repo/db';
 import dotenv from 'dotenv';
 import { sendEmailWithTextBody, sendZapFailureNotification } from '@repo/email';
 import { withRetry, RetryResult } from './utils/retry';
-import { sendSol } from './sendSolana';
+import { sendSol, getSolanaPrivateKey } from './sendSolana';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
 
 dotenv.config();
@@ -108,10 +108,10 @@ async function executeActionWithRetry(
         const resolvedAddress = replaceKeys(address, zapRunMetadata);
         const resolvedAmount = replaceKeys(amount, zapRunMetadata);
 
-        // Check if SOL_PRIVATE_KEY is configured
-        if (!process.env.SOL_PRIVATE_KEY) {
-          console.warn('⚠️ SOL_PRIVATE_KEY not configured - skipping Solana transfer');
-          return { success: false, message: 'SOL_PRIVATE_KEY not configured' };
+        // Check if a Solana key is configured (documented name, then legacy)
+        if (!getSolanaPrivateKey()) {
+          console.warn('⚠️ SOLANA_PRIVATE_KEY not configured - skipping Solana transfer');
+          return { success: false, message: 'SOLANA_PRIVATE_KEY not configured' };
         }
 
         console.log(`Sending ${resolvedAmount} SOL to ${resolvedAddress}...`);

@@ -42,7 +42,9 @@ const executeEmailAction = async (metadata: any, triggerPayload: any) => {
             secure: false,
             auth: {
                 user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS
+                // SMTP_PASSWORD is the documented name; SMTP_PASS is the older
+                // one. Accept both so docs and code cannot drift apart again.
+                pass: process.env.SMTP_PASSWORD || process.env.SMTP_PASS
             }
         });
 
