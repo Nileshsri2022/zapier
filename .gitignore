@@ -14,8 +14,7 @@ node_modules
 
 # Testing
 coverage
-learnings/
-artifacts/
+
 *.tsbuildinfo
 
 # Turbo
@@ -51,3 +50,7 @@ pnpm-debug.log*
 # OS files
 Thumbs.db
 ehthumbs.db
+
+
+learnings/*
+artifacts/*
