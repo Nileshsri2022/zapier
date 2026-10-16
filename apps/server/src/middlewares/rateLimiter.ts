@@ -9,6 +9,7 @@ export const apiLimiter = rateLimit({
   max: 100, // Limit each IP to 100 requests per window
   standardHeaders: true, // Return rate limit info in RateLimit-* headers
   legacyHeaders: false, // Disable X-RateLimit-* headers
+  skip: () => process.env.NODE_ENV === 'test',
   message: {
     success: false,
     message: 'Too many requests, please try again later.',
@@ -25,6 +26,7 @@ export const authLimiter = rateLimit({
   max: 5, // Limit each IP to 5 login attempts per window
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
   message: {
     success: false,
     message: 'Too many login attempts, please try again after 15 minutes.',
@@ -42,6 +44,7 @@ export const webhookLimiter = rateLimit({
   max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
   message: {
     success: false,
     message: 'Too many webhook requests.',
