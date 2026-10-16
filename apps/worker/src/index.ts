@@ -44,7 +44,7 @@ async function initKafka() {
   if (!consumer) {
     consumer = kafka.consumer({ groupId: 'worker' });
     await consumer.connect();
-    await consumer.subscribe({ topic: TOPIC_NAME, fromBeginning: false });
+    await consumer.subscribe({ topic: TOPIC_NAME, fromBeginning: true });
     console.log('Kafka consumer connected');
   }
   if (!producer) {
@@ -128,7 +128,7 @@ async function executeActionWithRetry(
         };
       }
 
-      if (actionType === 'WhatsApp') {
+      if (actionType.startsWith('WhatsApp')) {
         const { to, message, phoneNumberId, accessToken } = metadata;
         const resolvedTo = replaceKeys(to, zapRunMetadata);
         const resolvedMessage = replaceKeys(message, zapRunMetadata);
@@ -155,7 +155,7 @@ async function executeActionWithRetry(
         };
       }
 
-      if (actionType === 'Telegram') {
+      if (actionType.startsWith('Telegram')) {
         const { chatId, message, botToken } = metadata;
         const resolvedChatId = replaceKeys(chatId, zapRunMetadata);
         const resolvedMessage = replaceKeys(message, zapRunMetadata);
