@@ -8,8 +8,7 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@sentry/node": "^8.0.0",
-    "@sentry/profiling-node": "^8.0.0"
+    "@sentry/node": "^8.0.0"
   },
   "devDependencies": {
     "@repo/typescript-config": "*",
