@@ -103,7 +103,10 @@ const handleNewEmailNotification = async (data: GmailNotificationData): Promise<
 /**
  * Handle label notifications
  */
-const handleLabelNotification = async (data: GmailNotificationData, action: 'added' | 'removed'): Promise<void> => {
+const handleLabelNotification = async (
+  data: GmailNotificationData,
+  action: 'added' | 'removed'
+): Promise<void> => {
   if (!data.messageId || !data.labelIds) {
     console.warn('Label notification missing required data');
     return;
@@ -125,7 +128,10 @@ const handleLabelNotification = async (data: GmailNotificationData, action: 'add
 /**
  * Handle star notifications
  */
-const handleStarNotification = async (data: GmailNotificationData, starred: boolean): Promise<void> => {
+const handleStarNotification = async (
+  data: GmailNotificationData,
+  starred: boolean
+): Promise<void> => {
   if (!data.messageId) {
     console.warn('Star notification missing messageId');
     return;

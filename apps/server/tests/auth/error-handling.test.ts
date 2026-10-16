@@ -16,18 +16,13 @@ describe('Authentication - Error Handling', () => {
     });
 
     it('should handle unsupported HTTP methods', async () => {
-      const response = await request(app)
-        .put('/api/auth/signup')
-        .send({})
-        .expect(404); // Route not found
+      const response = await request(app).put('/api/auth/signup').send({}).expect(404); // Route not found
 
       expect(response.body).toBeDefined();
     });
 
     it('should handle requests to non-existent endpoints', async () => {
-      const response = await request(app)
-        .get('/api/auth/nonexistent')
-        .expect(403); // Express returns 403 for routes without handlers
+      const response = await request(app).get('/api/auth/nonexistent').expect(403); // Express returns 403 for routes without handlers
 
       expect(response.body).toBeDefined();
     });
@@ -41,10 +36,7 @@ describe('Authentication - Error Handling', () => {
         password: 'password123<script>',
       };
 
-      const response = await request(app)
-        .post('/api/auth/signup')
-        .send(maliciousUser)
-        .expect(422); // Should fail validation
+      const response = await request(app).post('/api/auth/signup').send(maliciousUser).expect(422); // Should fail validation
 
       expect(response.body).toHaveProperty('message', 'Invalid credentials');
     });
@@ -56,10 +48,7 @@ describe('Authentication - Error Handling', () => {
         password: "password'; --",
       };
 
-      const response = await request(app)
-        .post('/api/auth/signup')
-        .send(maliciousUser)
-        .expect(422); // Should fail validation
+      const response = await request(app).post('/api/auth/signup').send(maliciousUser).expect(422); // Should fail validation
 
       expect(response.body).toHaveProperty('message', 'Invalid credentials');
     });
@@ -72,10 +61,7 @@ describe('Authentication - Error Handling', () => {
         password: largePayload,
       };
 
-      const response = await request(app)
-        .post('/api/auth/signup')
-        .send(largeUser)
-        .expect(413); // Payload too large
+      const response = await request(app).post('/api/auth/signup').send(largeUser).expect(413); // Payload too large
 
       expect(response.status).toBeGreaterThanOrEqual(400);
     });
@@ -83,20 +69,20 @@ describe('Authentication - Error Handling', () => {
 
   describe('Rate Limiting Simulation', () => {
     it('should handle rapid consecutive requests', async () => {
-      const requests = Array(10).fill(null).map(() =>
-        request(app)
-          .post('/api/auth/signup')
-          .send({
+      const requests = Array(10)
+        .fill(null)
+        .map(() =>
+          request(app).post('/api/auth/signup').send({
             name: 'Test User',
             email: 'test@example.com',
             password: 'testpassword123',
           })
-      );
+        );
 
       const responses = await Promise.all(requests);
 
       // At least some requests should fail due to validation or rate limiting
-      const failureCount = responses.filter(r => r.status >= 400).length;
+      const failureCount = responses.filter((r) => r.status >= 400).length;
       expect(failureCount).toBeGreaterThan(0);
     });
   });
@@ -125,9 +111,7 @@ describe('Authentication - Error Handling', () => {
 
   describe('Authentication Middleware', () => {
     it('should handle requests without authorization header', async () => {
-      const response = await request(app)
-        .get('/api/auth/123')
-        .expect(403); // Express returns 403 for protected routes without auth
+      const response = await request(app).get('/api/auth/123').expect(403); // Express returns 403 for protected routes without auth
 
       expect(response.body).toBeDefined();
     });
@@ -169,13 +153,11 @@ describe('Authentication - Error Handling', () => {
       // This test would require mocking the database connection to fail
       // For now, we'll test the general error handling structure
 
-      const response = await request(app)
-        .post('/api/auth/signup')
-        .send({
-          name: 'Test User',
-          email: 'test@example.com',
-          password: 'testpassword123',
-        });
+      const response = await request(app).post('/api/auth/signup').send({
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'testpassword123',
+      });
 
       // The response should be either success or a proper error
       expect([200, 201, 400, 422, 500]).toContain(response.status);
@@ -187,12 +169,10 @@ describe('Authentication - Error Handling', () => {
       const originalSecret = process.env.JWT_SECRET;
       delete process.env.JWT_SECRET;
 
-      const response = await request(app)
-        .post('/api/auth/signin')
-        .send({
-          email: 'test@example.com',
-          password: 'testpassword123',
-        });
+      const response = await request(app).post('/api/auth/signin').send({
+        email: 'test@example.com',
+        password: 'testpassword123',
+      });
 
       // Restore the secret
       process.env.JWT_SECRET = originalSecret;

@@ -22,10 +22,7 @@ describe('Authentication - Signup', () => {
           password: 'hashedpassword',
         });
 
-        const response = await request(app)
-          .post('/api/auth/signup')
-          .send(testUser)
-          .expect(201);
+        const response = await request(app).post('/api/auth/signup').send(testUser).expect(201);
 
         expect(response.body).toHaveProperty('message', 'Signup successful');
         expect(response.body).toHaveProperty('data');
@@ -40,9 +37,7 @@ describe('Authentication - Signup', () => {
         (client.user.findUnique as jest.Mock).mockResolvedValue(null);
         (client.user.create as jest.Mock).mockResolvedValue(mockUser);
 
-        await request(app)
-          .post('/api/auth/signup')
-          .send(testUser);
+        await request(app).post('/api/auth/signup').send(testUser);
 
         // Verify that create was called with hashed password
         expect(client.user.create).toHaveBeenCalledWith({
@@ -58,9 +53,7 @@ describe('Authentication - Signup', () => {
         (client.user.findUnique as jest.Mock).mockResolvedValue(null);
         (client.user.create as jest.Mock).mockResolvedValue(mockUser);
 
-        await request(app)
-          .post('/api/auth/signup')
-          .send(testUser);
+        await request(app).post('/api/auth/signup').send(testUser);
 
         // Verify email was sent
         const { sendEmail } = require('@repo/email');
@@ -126,10 +119,7 @@ describe('Authentication - Signup', () => {
         // Mock existing user
         (client.user.findUnique as jest.Mock).mockResolvedValue(existingUser);
 
-        const response = await request(app)
-          .post('/api/auth/signup')
-          .send(existingUser)
-          .expect(404);
+        const response = await request(app).post('/api/auth/signup').send(existingUser).expect(404);
 
         expect(response.body).toHaveProperty('message', 'Invalid request');
         expect(response.body).toHaveProperty('error');
@@ -139,10 +129,7 @@ describe('Authentication - Signup', () => {
 
     describe('Edge Cases', () => {
       it('should handle empty request body', async () => {
-        const response = await request(app)
-          .post('/api/auth/signup')
-          .send({})
-          .expect(422);
+        const response = await request(app).post('/api/auth/signup').send({}).expect(422);
 
         expect(response.body).toHaveProperty('message', 'Invalid credentials');
       });
@@ -165,9 +152,7 @@ describe('Authentication - Signup', () => {
           password: 'a'.repeat(1000),
         };
 
-        const response = await request(app)
-          .post('/api/auth/signup')
-          .send(longInputUser);
+        const response = await request(app).post('/api/auth/signup').send(longInputUser);
 
         // Should fail validation or succeed - either is valid behavior
         expect([422, 201, 500, 404]).toContain(response.status);

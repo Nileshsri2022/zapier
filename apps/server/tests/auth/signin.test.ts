@@ -29,10 +29,7 @@ describe('Authentication - Signin', () => {
           password: testUser.password,
         };
 
-        const response = await request(app)
-          .post('/api/auth/signin')
-          .send(signinData)
-          .expect(200);
+        const response = await request(app).post('/api/auth/signin').send(signinData).expect(200);
 
         expect(response.body).toHaveProperty('message', 'Signin successful');
         expect(response.body).toHaveProperty('data');
@@ -52,9 +49,7 @@ describe('Authentication - Signin', () => {
           password: testUser.password,
         };
 
-        await request(app)
-          .post('/api/auth/signin')
-          .send(signinData);
+        await request(app).post('/api/auth/signin').send(signinData);
 
         // Verify JWT was signed with user id
         expect(jwt.sign).toHaveBeenCalled();
@@ -117,10 +112,7 @@ describe('Authentication - Signin', () => {
           password: testUser.password,
         };
 
-        const response = await request(app)
-          .post('/api/auth/signin')
-          .send(signinData)
-          .expect(422);
+        const response = await request(app).post('/api/auth/signin').send(signinData).expect(422);
 
         expect(response.body).toHaveProperty('message', 'User does not exist');
         expect(response.body).toHaveProperty('error', 'User does not exist');
@@ -138,10 +130,7 @@ describe('Authentication - Signin', () => {
           password: 'wrongpassword',
         };
 
-        const response = await request(app)
-          .post('/api/auth/signin')
-          .send(signinData)
-          .expect(422);
+        const response = await request(app).post('/api/auth/signin').send(signinData).expect(422);
 
         expect(response.body).toHaveProperty('message', 'Invalid credentials');
         expect(response.body).toHaveProperty('error');
@@ -150,10 +139,7 @@ describe('Authentication - Signin', () => {
 
     describe('Edge Cases', () => {
       it('should handle empty request body', async () => {
-        const response = await request(app)
-          .post('/api/auth/signin')
-          .send({})
-          .expect(422);
+        const response = await request(app).post('/api/auth/signin').send({}).expect(422);
 
         expect(response.body).toHaveProperty('message', 'Invalid credentials');
       });
@@ -166,10 +152,7 @@ describe('Authentication - Signin', () => {
           password: testUser.password,
         };
 
-        const response = await request(app)
-          .post('/api/auth/signin')
-          .send(signinData)
-          .expect(422);
+        const response = await request(app).post('/api/auth/signin').send(signinData).expect(422);
 
         expect(response.body).toHaveProperty('message', 'User does not exist');
       });

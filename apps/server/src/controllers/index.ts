@@ -1,7 +1,4 @@
-import * as AuthController from "./AuthController";
-import * as ZapController from "./ZapController";
+import * as AuthController from './AuthController';
+import * as ZapController from './ZapController';
 
-export {
-    AuthController,
-    ZapController
-}
+export { AuthController, ZapController };

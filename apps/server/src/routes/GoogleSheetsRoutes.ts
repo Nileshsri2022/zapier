@@ -1,18 +1,18 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middlewares';
 import {
-    initiateAuth,
-    handleCallback,
-    getServers,
-    deleteServer,
-    listSpreadsheets,
-    getSheetNames,
+  initiateAuth,
+  handleCallback,
+  getServers,
+  deleteServer,
+  listSpreadsheets,
+  getSheetNames,
 } from '../controllers/GoogleSheetsController';
 import {
-    createTrigger,
-    getTriggers,
-    updateTrigger,
-    deleteTrigger,
+  createTrigger,
+  getTriggers,
+  updateTrigger,
+  deleteTrigger,
 } from '../controllers/GoogleSheetsTriggersController';
 
 const router = Router();
@@ -37,7 +37,7 @@ router.delete('/triggers/:triggerId', authMiddleware, deleteTrigger);
 
 // Health check
 router.get('/health', (req, res) => {
-    res.json({ status: 'ok', service: 'google-sheets' });
+  res.json({ status: 'ok', service: 'google-sheets' });
 });
 
 export default router;

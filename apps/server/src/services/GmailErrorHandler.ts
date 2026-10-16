@@ -148,7 +148,10 @@ export class GmailErrorHandler {
   /**
    * Calculate retry delay with exponential backoff
    */
-  static calculateRetryDelay(attempt: number, config: RetryConfig = this.DEFAULT_RETRY_CONFIG): number {
+  static calculateRetryDelay(
+    attempt: number,
+    config: RetryConfig = this.DEFAULT_RETRY_CONFIG
+  ): number {
     const delay = Math.min(
       config.baseDelay * Math.pow(config.backoffMultiplier, attempt),
       config.maxDelay
@@ -202,7 +205,9 @@ export class GmailErrorHandler {
           ? gmailError.retryAfter * 1000
           : GmailErrorHandler.calculateRetryDelay(attempt, config);
 
-        console.warn(`Gmail API error (attempt ${attempt + 1}/${config.maxRetries + 1}): ${gmailError.message}. Retrying in ${delay}ms...`);
+        console.warn(
+          `Gmail API error (attempt ${attempt + 1}/${config.maxRetries + 1}): ${gmailError.message}. Retrying in ${delay}ms...`
+        );
 
         await this.delay(delay);
       }
@@ -273,7 +278,7 @@ export class GmailErrorHandler {
    * Delay execution
    */
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**

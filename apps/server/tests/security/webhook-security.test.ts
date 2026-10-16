@@ -8,10 +8,7 @@ import {
   handleGmailWebhook,
   verifyGmailWebhookSignature,
 } from '../../src/controllers/GmailWebhookController';
-import {
-  handleWebhook,
-  verifyWebhookSignature,
-} from '../../src/controllers/TriggerController';
+import { handleWebhook, verifyWebhookSignature } from '../../src/controllers/TriggerController';
 
 /**
  * Regression tests for the fail-open security findings in
@@ -103,7 +100,9 @@ describe('Security - TriggerController webhook signature', () => {
     await handleWebhook(signedRequest('webhook-secret'), res);
 
     expect(status).toHaveBeenCalledWith(401);
-    expect(json).toHaveBeenCalledWith(expect.objectContaining({ message: 'Webhook signature required' }));
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Webhook signature required' })
+    );
   });
 
   it('rejects an invalid signature when WEBHOOK_SECRET is configured', async () => {

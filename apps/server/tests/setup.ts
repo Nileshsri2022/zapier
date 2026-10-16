@@ -128,21 +128,23 @@ jest.mock('@repo/db', () => ({
       update: jest.fn(),
       delete: jest.fn(),
     },
-    $transaction: jest.fn((callback: any) => callback({
-      user: {
-        findUnique: jest.fn(),
-        create: jest.fn(),
-      },
-      zap: {
-        create: jest.fn(),
-      },
-      trigger: {
-        create: jest.fn(),
-      },
-      action: {
-        create: jest.fn(),
-      },
-    })),
+    $transaction: jest.fn((callback: any) =>
+      callback({
+        user: {
+          findUnique: jest.fn(),
+          create: jest.fn(),
+        },
+        zap: {
+          create: jest.fn(),
+        },
+        trigger: {
+          create: jest.fn(),
+        },
+        action: {
+          create: jest.fn(),
+        },
+      })
+    ),
   },
 }));
 

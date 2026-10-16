@@ -2,7 +2,11 @@ import { Request, Response } from 'express';
 import client from '@repo/db';
 import { GmailService } from '../services/GmailService';
 
-export const executeGmailAction = async (actionType: string, metadata: any, triggerPayload: any) => {
+export const executeGmailAction = async (
+  actionType: string,
+  metadata: any,
+  triggerPayload: any
+) => {
   // This would be called from the main ActionsController
   // For now, we'll implement the core logic here
 
@@ -140,11 +144,14 @@ const executeGmailMarkReadAction = async (metadata: any, triggerPayload: any) =>
     }
 
     const processedMessageId = replacePlaceholders(messageId, triggerPayload);
-    const processedIsRead = isRead !== undefined ? replacePlaceholders(String(isRead), triggerPayload) === 'true' : true;
+    const processedIsRead =
+      isRead !== undefined ? replacePlaceholders(String(isRead), triggerPayload) === 'true' : true;
 
     await gmailService.markAsRead(processedMessageId, processedIsRead);
 
-    console.log(`Gmail message marked as ${processedIsRead ? 'read' : 'unread'}: ${processedMessageId}`);
+    console.log(
+      `Gmail message marked as ${processedIsRead ? 'read' : 'unread'}: ${processedMessageId}`
+    );
     return { messageId: processedMessageId, success: true };
   } catch (error) {
     console.error('Gmail mark read action failed:', error);

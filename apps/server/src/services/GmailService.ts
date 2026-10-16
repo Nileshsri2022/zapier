@@ -41,10 +41,7 @@ export class GmailService {
 
   constructor(config: GmailConfig) {
     // @ts-ignore - OAuth2Client version conflict between googleapis and google-auth-library
-    this.oauth2Client = new google.auth.OAuth2(
-      config.clientId,
-      config.clientSecret
-    );
+    this.oauth2Client = new google.auth.OAuth2(config.clientId, config.clientSecret);
 
     // Set credentials
     this.oauth2Client.setCredentials({
@@ -68,7 +65,8 @@ export class GmailService {
     const now = new Date();
     const expiryTime = this.oauth2Client.credentials.expiry_date;
 
-    if (!expiryTime || now.getTime() >= expiryTime - 60000) { // Refresh 1 minute before expiry
+    if (!expiryTime || now.getTime() >= expiryTime - 60000) {
+      // Refresh 1 minute before expiry
       const { credentials } = await this.oauth2Client.refreshAccessToken();
       this.oauth2Client.setCredentials(credentials);
 
@@ -102,7 +100,8 @@ export class GmailService {
         userId: 'me',
         requestBody: {
           labelIds,
-          topicName: process.env.GMAIL_PUBSUB_TOPIC || 'projects/your-project/topics/gmail-notifications',
+          topicName:
+            process.env.GMAIL_PUBSUB_TOPIC || 'projects/your-project/topics/gmail-notifications',
         },
       });
 
@@ -179,14 +178,17 @@ export class GmailService {
       });
 
       const headers = response.data.payload?.headers || [];
-      const getHeader = (name: string) => headers.find((h: any) => h.name?.toLowerCase() === name.toLowerCase())?.value || '';
+      const getHeader = (name: string) =>
+        headers.find((h: any) => h.name?.toLowerCase() === name.toLowerCase())?.value || '';
 
       return {
         id: response.data.id || '',
         threadId: response.data.threadId || '',
         snippet: response.data.snippet || '',
         from: getHeader('From'),
-        to: getHeader('To').split(',').map((email: string) => email.trim()),
+        to: getHeader('To')
+          .split(',')
+          .map((email: string) => email.trim()),
         subject: getHeader('Subject'),
         date: new Date(getHeader('Date')),
         labels: response.data.labelIds || [],
@@ -202,7 +204,13 @@ export class GmailService {
   /**
    * Send email
    */
-  async sendEmail(to: string[], subject: string, body: string, cc?: string[], bcc?: string[]): Promise<string> {
+  async sendEmail(
+    to: string[],
+    subject: string,
+    body: string,
+    cc?: string[],
+    bcc?: string[]
+  ): Promise<string> {
     return this.errorHandler.executeWithRetry(async () => {
       // Check rate limit before making request
       const rateLimitCheck = this.rateLimiter.canMakeRequest(100); // Sending emails costs more quota
@@ -219,9 +227,14 @@ export class GmailService {
         `Subject: ${subject}`,
         '',
         body,
-      ].filter(line => line).join('\r\n');
+      ]
+        .filter((line) => line)
+        .join('\r\n');
 
-      const encodedEmail = Buffer.from(email).toString('base64').replace(/\+/g, '-').replace(/\//g, '_');
+      const encodedEmail = Buffer.from(email)
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_');
 
       const response = await this.gmail.users.messages.send({
         userId: 'me',
@@ -249,7 +262,9 @@ export class GmailService {
     }
 
     const to = replyAll ? [...originalEmail.to, originalEmail.from] : [originalEmail.from];
-    const subject = originalEmail.subject.startsWith('Re: ') ? originalEmail.subject : `Re: ${originalEmail.subject}`;
+    const subject = originalEmail.subject.startsWith('Re: ')
+      ? originalEmail.subject
+      : `Re: ${originalEmail.subject}`;
 
     return await this.sendEmail(to, subject, body);
   }
@@ -333,7 +348,10 @@ export class GmailService {
   /**
    * Create label
    */
-  async createLabel(name: string, color?: { backgroundColor?: string; textColor?: string }): Promise<string> {
+  async createLabel(
+    name: string,
+    color?: { backgroundColor?: string; textColor?: string }
+  ): Promise<string> {
     await this.ensureValidToken();
 
     const response = await this.gmail.users.labels.create({
@@ -414,6 +432,6 @@ export class GmailService {
    * Delay execution helper
    */
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
