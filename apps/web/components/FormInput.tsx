@@ -1,5 +1,12 @@
 import React from 'react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
+/**
+ * First-party FormInput — LOGIC ONLY (spec G2).
+ * Structure comes from shadcn/ui Input + Label; the look lives in
+ * styles/components/form-input.css (semantic `.form-input` class).
+ */
 const FormInput = ({
   label,
   name,
@@ -7,7 +14,6 @@ const FormInput = ({
   placeholder,
   value,
   type,
-  className,
 }: {
   label: string;
   name: string;
@@ -15,20 +21,16 @@ const FormInput = ({
   placeholder?: string;
   value?: string;
   type?: string;
-  className?: string;
 }) => {
   return (
-    <div className={`flex flex-col gap-2 ${className || ''}`}>
-      <label htmlFor={name} className="font-semibold">
-        {label}
-      </label>
-      <input
+    <div className="form-input">
+      <Label htmlFor={name}>{label}</Label>
+      <Input
         id={name}
         name={name}
         type={type || (label === 'Password' ? 'password' : 'text')}
         placeholder={placeholder}
         value={value}
-        className="border border-gray-400 rounded-sm px-3 py-2 bg-base-100 text-black"
         onChange={onChange}
       />
     </div>

@@ -1,0 +1,21 @@
+/**
+ * Tooltip styles — restores the legacy white-card tooltip (spec G4)
+ * via the `.tooltip-content` / `.tooltip-arrow` hooks passed from
+ * components/Tooltip.tsx. Base positioning/animation: vendor ui/tooltip.tsx.
+ */
+
+.tooltip-content {
+  background-color: hsl(0 0% 100%);
+  border: 1px solid hsl(220 9% 46%); /* legacy border-gray-500 */
+  border-radius: 0.25rem;
+  color: hsl(220 9% 46%); /* legacy text-gray-500 */
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  max-width: min(500px, 90vw);
+  padding: 0.25rem 0.5rem;
+  word-break: break-word;
+}
+
+.tooltip-arrow {
+  fill: hsl(0 0% 100%); /* legacy white arrow */
+}

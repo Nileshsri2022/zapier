@@ -1,22 +1,13 @@
-import clsx from 'clsx';
 import React from 'react';
+import { Spinner as UISpinner } from '@/components/ui/spinner';
 
+/**
+ * First-party Spinner — LOGIC ONLY (spec G2/D4).
+ * The ring animation lives in the vendor component; the color mapping is a
+ * `data-color` hook styled by styles/components/spinner.css (token-based).
+ */
 const Spinner = ({ color }: { color: string }) => {
-  return (
-    <div
-      className={clsx(
-        `animate-spin inline-block size-6 border-[3px] border-current border-t-transparent  rounded-full`,
-        {
-          'text-primary-500 dark:text-primary-500': color === 'primary',
-          'text-white dark:text-white': color === 'white',
-        }
-      )}
-      role="status"
-      aria-label="loading"
-    >
-      <span className="sr-only">Loading...</span>
-    </div>
-  );
+  return <UISpinner className="spinner" data-color={color} />;
 };
 
 export default Spinner;

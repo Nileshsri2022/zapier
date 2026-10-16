@@ -1,36 +1,70 @@
 import type { Config } from 'tailwindcss';
+import tailwindcssAnimate from 'tailwindcss-animate';
 
-export default {
-  content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
-  ],
+/**
+ * Slim Tailwind config (spec §8 — "simple Tailwind, best practices"):
+ *  - DEFAULT breakpoints (custom xs/sm/md/lg screens removed → D5)
+ *  - all colors alias CSS variables from styles/tokens.css (→ D9, no hex here)
+ *  - no dead entries (backgroundImage.canvas dropped; keyframes kept only
+ *    while legacy `animate-*` utilities still exist — removed in P6)
+ */
+const config: Config = {
+  content: ['./app/**/*.{js,ts,jsx,tsx,mdx}', './components/**/*.{js,ts,jsx,tsx,mdx}'],
   theme: {
-    screens: {
-      xs: '320px',
-      sm: '375px',
-      md: '640px',
-      lg: '768px',
-      xl: '1024px',
-      '2xl': '1280px',
-    },
     extend: {
       colors: {
-        'primary-500': '#FF4F00',
-        'primary-700': '#CC3F00',
-        'base-100': '#FFFDF9',
-        'base-200': '#F5F3EB',
-        'secondary-500': '#695BE8',
-        'secondary-700': '#503EBD',
-        'modal-bg': 'rgb(0, 0, 0, 0.2)',
-        'link-bg': '#F7F6FD',
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        // Legacy brand aliases — token-backed; removed in P6 once the strip
+        // phase has eliminated their usage from first-party TSX.
+        'primary-500': 'hsl(var(--brand-primary))',
+        'primary-600': 'hsl(var(--brand-primary-strong))', // fixes previously-undefined bg-primary-600
+        'primary-700': 'hsl(var(--brand-primary-hover))',
+        'secondary-500': 'hsl(var(--brand-secondary))',
+        'secondary-700': 'hsl(var(--brand-secondary-hover))',
+        'base-100': 'hsl(var(--brand-base))',
+        'base-200': 'hsl(var(--brand-base-muted))',
+        'modal-bg': 'hsl(var(--overlay))',
+        'link-bg': 'hsl(var(--brand-link-bg))',
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
       },
       boxShadow: {
-        '3xl': '0px 5px 10px 7px rgb(0, 0, 0, 0.1)',
-      },
-      backgroundImage: {
-        canvas: 'radial-gradient(black 1px, transparent 0)',
+        '3xl': 'var(--shadow-3xl)',
       },
       keyframes: {
         wiggle: {
@@ -43,7 +77,7 @@ export default {
         },
         slide_in: {
           '0%': { opacity: '0', transform: 'translate3d(-50%, 0%, 0)' },
-          '100%': { opacity: '1', transform: 'translate3d(0%, 0%, 0)' },
+          '100%': { opacity: '1', transform: 'translate3d(0, 0, 0)' },
         },
       },
       animation: {
@@ -53,5 +87,7 @@ export default {
       },
     },
   },
-  plugins: [],
-} satisfies Config;
+  plugins: [tailwindcssAnimate],
+};
+
+export default config;

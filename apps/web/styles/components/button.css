@@ -1,0 +1,63 @@
+/**
+ * Button styles — legacy look restored through data-variant / data-size hooks.
+ * Base appearance comes from components/ui/button.tsx (vendor layer, spec D2).
+ * Written with design tokens only (spec §7.6).
+ */
+
+/* primary (legacy: rounded-full, font-semibold, hover → primary-700 + shadow-3xl) */
+button[data-variant='primary'] {
+  border-radius: 9999px;
+  font-weight: 600;
+}
+button[data-variant='primary']:hover {
+  background-color: hsl(var(--brand-primary-hover));
+  box-shadow: var(--shadow-3xl);
+}
+
+/* secondary (legacy: rounded-sm, font-semibold, hover → secondary-700) — most used (19×) */
+button[data-variant='secondary'] {
+  border-radius: 0.25rem;
+  font-weight: 600;
+}
+button[data-variant='secondary']:hover {
+  background-color: hsl(var(--brand-secondary-hover));
+}
+
+/* link (legacy: subtle cream button, font-light — NOT an underlined text link) */
+button[data-variant='link'] {
+  background-color: hsl(var(--brand-base));
+  border-radius: 0.25rem;
+  color: hsl(var(--foreground));
+  font-weight: 300;
+  text-decoration: none;
+}
+button[data-variant='link']:hover {
+  background-color: hsl(var(--brand-base-muted));
+  color: hsl(var(--foreground));
+  text-decoration: none;
+}
+
+/* outline (legacy: cream bg, black border, hover border-2) */
+button[data-variant='outline'] {
+  background-color: hsl(var(--brand-base));
+  border-color: hsl(var(--foreground));
+  border-radius: 9999px;
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+button[data-variant='outline']:hover {
+  background-color: hsl(var(--brand-base));
+  border-color: hsl(var(--foreground));
+  color: hsl(var(--foreground));
+}
+
+/* sizes (legacy: lg = fixed 272px CTA width, sm = compact padding) */
+button[data-size='lg'] {
+  width: 272px;
+  max-width: 100%;
+}
+button[data-size='sm'] {
+  height: auto;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+}

@@ -1,0 +1,35 @@
+/**
+ * Shared helpers — the ONLY place `@apply` is allowed besides nothing in TSX
+ * (spec §8 rule 5: ≤10 helpers, each used ≥3 times, plain properties preferred).
+ *
+ * NOTE: Tailwind v3 only accepts `@layer utilities` in the same file as the
+ * `@tailwind utilities` directive, so these helpers are plain rules here.
+ * Import order (after globals.css) keeps them winning ties over utilities.
+ *
+ * First-party components reference semantic classes, never Tailwind utilities.
+ */
+
+/* Horizontal + vertical centering */
+.u-center {
+  @apply flex items-center justify-center;
+}
+
+/* Vertical stack with standard rhythm */
+.u-stack {
+  @apply flex flex-col gap-4;
+}
+
+/* Horizontal row, vertically centered */
+.u-row {
+  @apply flex items-center gap-2;
+}
+
+/* Single-line ellipsis truncation */
+.u-truncate {
+  @apply truncate;
+}
+
+/* Visually hidden but screen-reader accessible */
+.u-sr-only {
+  @apply sr-only;
+}
