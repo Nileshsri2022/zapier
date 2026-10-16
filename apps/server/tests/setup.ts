@@ -68,7 +68,16 @@ jest.mock('@repo/db', () => ({
     },
     zapRun: {
       findMany: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
+    },
+    scheduledTrigger: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     },
     zapRunOutbox: {
       findMany: jest.fn(),

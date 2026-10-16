@@ -389,8 +389,8 @@ app.post('/process', async (req: Request, res: Response): Promise<any> => {
     const authHeader = req.headers.authorization;
     const cronSecret = process.env.CRON_SECRET;
 
-    // Verify cron secret if configured
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // Fail closed: an unset secret must reject, not allow
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 

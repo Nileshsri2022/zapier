@@ -22,8 +22,12 @@ export const handleWebhook = async (req: Request, res: Response): Promise<any> =
             return res.status(400).json({ message: "Zap ID is required" });
         }
 
-        // Verify webhook signature if provided
-        if (signature) {
+        // When WEBHOOK_SECRET is configured, signatures are mandatory:
+        // an absent signature must not silently bypass verification.
+        if (process.env.WEBHOOK_SECRET) {
+            if (!signature) {
+                return res.status(401).json({ message: "Webhook signature required" });
+            }
             const isValidSignature = verifyWebhookSignature(JSON.stringify(payload), signature);
             if (!isValidSignature) {
                 return res.status(401).json({ message: "Invalid webhook signature" });
@@ -75,8 +79,15 @@ export const verifyWebhookSignature = (payload: string, signature: string): bool
     try {
         // In a real implementation, you'd use a proper webhook secret
         // For now, we'll do a basic verification
+        const secret = process.env.WEBHOOK_SECRET;
+        if (!secret) {
+            // No secret configured: nothing to verify against. Callers are
+            // authenticated by the unguessable zapId in the URL (capability URL).
+            return false;
+        }
+
         const expectedSignature = crypto
-            .createHmac('sha256', process.env.WEBHOOK_SECRET || 'default-secret')
+            .createHmac('sha256', secret)
             .update(payload)
             .digest('hex');
 

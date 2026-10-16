@@ -93,21 +93,30 @@ describe('TriggerController - Handle Webhook', () => {
             );
         });
 
-        it('should return 401 for invalid webhook signature', async () => {
+        it('should return 401 for invalid webhook signature when a secret is configured', async () => {
+            // Signatures are only enforceable against a configured secret.
+            // (Previously this passed by comparing against a hardcoded
+            // 'default-secret' key in the source - see the audit report.)
+            process.env.WEBHOOK_SECRET = 'test-webhook-secret';
+
             mockRequest = {
                 params: { zapId: 'zap-123' },
                 body: { event: 'test' },
                 headers: { 'x-webhook-signature': 'invalid-signature' }
             };
 
-            await TriggerController.handleWebhook(mockRequest as Request, mockResponse as Response);
+            try {
+                await TriggerController.handleWebhook(mockRequest as Request, mockResponse as Response);
 
-            expect(statusMock).toHaveBeenCalledWith(401);
-            expect(jsonMock).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    message: 'Invalid webhook signature'
-                })
-            );
+                expect(statusMock).toHaveBeenCalledWith(401);
+                expect(jsonMock).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        message: 'Invalid webhook signature'
+                    })
+                );
+            } finally {
+                delete process.env.WEBHOOK_SECRET;
+            }
         });
     });
 });
