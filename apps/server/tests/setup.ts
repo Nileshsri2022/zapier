@@ -137,6 +137,13 @@ jest.mock('@repo/db', () => ({
 // Global test timeout
 jest.setTimeout(10000);
 
+// Controllers log progress/errors via console; keep test output readable.
+beforeAll(() => {
+  jest.spyOn(console, 'log').mockImplementation(() => {});
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+});
+
 // Clean up after each test
 afterEach(() => {
   jest.clearAllMocks();

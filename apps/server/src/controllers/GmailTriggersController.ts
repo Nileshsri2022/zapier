@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import client from '@repo/db';
 import { GmailService } from '../services/GmailService';
+import { processGmailTrigger as runZapActions } from './ZapController';
 
 export const processGmailTrigger = async (serverId: string, emailData: any) => {
   try {
@@ -12,8 +13,8 @@ export const processGmailTrigger = async (serverId: string, emailData: any) => {
 
     for (const gmailTrigger of gmailTriggers) {
       if (await shouldTrigger(gmailTrigger, emailData)) {
-        // Process the zap
-        await processGmailZap(gmailTrigger.zap.id, emailData);
+        // Process the zap (single implementation lives in ZapController)
+        await runZapActions(gmailTrigger.zap.id, emailData);
       }
     }
   } catch (error) {
@@ -82,53 +83,6 @@ const isMovedTrigger = (emailData: any, metadata: any): boolean => {
   // Check if email was moved to specific folder
   const targetFolder = metadata?.targetFolder;
   return emailData.labels?.includes(targetFolder);
-};
-
-const processGmailZap = async (zapId: string, emailData: any) => {
-  try {
-    // Get zap with actions
-    const zap = await client.zap.findUnique({
-      where: { id: zapId },
-      include: {
-        actions: {
-          include: { action: true },
-          orderBy: { sortingOrder: 'asc' },
-        },
-      },
-    });
-
-    if (!zap || !zap.isActive) {
-      console.log(`Zap ${zapId} not found or inactive`);
-      return;
-    }
-
-    console.log(`Processing Gmail trigger for zap ${zapId} with ${zap.actions.length} actions`);
-
-    // Execute each action in order
-    for (const zapAction of zap.actions) {
-      try {
-        // Import the executeAction function from ActionsController
-        const { executeAction } = await import('./ActionsController.js');
-        await executeAction(zapAction.action.type, zapAction.metadata, emailData);
-        console.log(`Executed action ${zapAction.action.type} successfully`);
-      } catch (error) {
-        console.error(`Failed to execute action ${zapAction.action.type}:`, error);
-      }
-    }
-
-    // Log the Gmail trigger execution
-    await client.zapRun.create({
-      data: {
-        zapId: zap.id,
-        metadata: emailData,
-      },
-    });
-
-    console.log(`Gmail trigger processed successfully for zap ${zapId}`);
-  } catch (error) {
-    console.error(`Error processing Gmail zap ${zapId}:`, error);
-    throw error;
-  }
 };
 
 export const createGmailTrigger = async (req: Request, res: Response): Promise<any> => {
