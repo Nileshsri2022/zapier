@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "skills": {
+    "workflows-ai-by-zapier": {
+      "source": "zapier/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/workflows/ai-by-zapier/SKILL.md",
+      "computedHash": "ad7910897a69d7a223c8e962f718a95455dadd811ef727d6ab1a03bbab268b29"
+    },
+    "workflows-create": {
+      "source": "zapier/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/workflows/create/SKILL.md",
+      "computedHash": "b8b29ffb8149df1e6122d064f626cc222c0d90338367363618bd6d3b8bf4046d"
+    },
+    "workflows-doctor": {
+      "source": "zapier/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/workflows/doctor/SKILL.md",
+      "computedHash": "5f2184bddfa3caee45af2359f604dfaa79b31a2a76016da046839fcbdd26a6bf"
+    },
+    "workflows-history": {
+      "source": "zapier/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/workflows/history/SKILL.md",
+      "computedHash": "c56d776d80143a239b3ed3ee94c18a1888740a294ce472ad12dd2b651554b356"
+    },
+    "workflows-install": {
+      "source": "zapier/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/workflows/install/SKILL.md",
+      "computedHash": "443407cbe7f29867ca3ce1bf889f0d63ca9601db5ac8339800c1e7ed6c314e56"
+    },
+    "workflows-list": {
+      "source": "zapier/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/workflows/list/SKILL.md",
+      "computedHash": "c7f8dc965c2d391ac01ff8d672f254e36f1d45323fcf02d2402b512352fe7081"
+    },
+    "workflows-modify": {
+      "source": "zapier/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/workflows/modify/SKILL.md",
+      "computedHash": "09bf83cbc479e698947b5a8602f997c394dd4c4288e02b196f3046c8d3cffc8a"
+    }
+  }
+}
