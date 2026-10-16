@@ -1,5 +1,11 @@
 # ZapMate CI/CD Pipeline
-# Deploys: Web → Vercel, Server/Hooks → Render, Processor/Worker → Railway
+# Deploys: Web → Vercel, Server/Hooks/Processor/Worker → Render
+#
+# NOTE: deploy-web is the ONLY path to Vercel production. Vercel's own Git
+# integration is switched off via "git.deploymentEnabled": false in
+# vercel.json — without that, every push creates a second, ungated Vercel
+# deployment that races this job for the production slot.
+# See learnings/02-deployment-architecture.md for the per-service topology.
 
 name: Deploy ZapMate
 
