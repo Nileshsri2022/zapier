@@ -1,0 +1,58 @@
+# GitNexus ignore (gitignore-style)
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+.next
+out
+build
+dist
+.turbo
+.vercel
+
+# Lock files
+package-lock.json
+bun.lock
+yarn.lock
+pnpm-lock.yaml
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# IDE / OS
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+
+# Coverage / build info
+coverage
+*.tsbuildinfo
+
+# Generated / artifacts
+artifacts
+learnings
+
+# Skills (large markdown, not source)
+.agents
+.kilo
+
+# Reports / docs not code
+reports
+
+# Prisma generated / migrations noise (keep schema? schema useful; ignore generated)
+packages/db/node_modules
+
+# Test setup
+**/tests/setup.ts
