@@ -10,14 +10,6 @@ async function seedDatabase() {
           image: 'https://img.icons8.com/ios-filled/50/webhook.png',
         },
         {
-          type: 'Email',
-          image: 'https://img.icons8.com/ios-filled/50/email.png',
-        },
-        {
-          type: 'Solana',
-          image: 'https://cryptologos.cc/logos/solana-sol-logo.png?v=029',
-        },
-        {
           type: 'Gmail New Email',
           image: 'https://img.icons8.com/ios-filled/50/email.png',
         },
@@ -164,6 +156,23 @@ async function seedDatabase() {
       ],
       skipDuplicates: true,
     });
+
+    // Legacy cleanup: 'Email' and 'Solana' were originally seeded as triggers,
+    // but they were only ever implemented as actions (sending email via Resend,
+    // sending SOL via web3). No inbound SMTP server or Solana block-listener
+    // exists to fire them, so remove them from the trigger catalog — unless an
+    // existing Zap still references them via a Trigger row.
+    const removedLegacyTriggers = await client.availableTriggers.deleteMany({
+      where: {
+        type: { in: ['Email', 'Solana'] },
+        trigger: { none: {} },
+      },
+    });
+    if (removedLegacyTriggers.count > 0) {
+      console.log(
+        `Removed ${removedLegacyTriggers.count} legacy trigger entr(ies): Email, Solana (implemented as actions only)`
+      );
+    }
 
     console.log('Database seeded successfully!');
     console.log(`Created ${triggers.count} triggers and ${actions.count} actions`);
