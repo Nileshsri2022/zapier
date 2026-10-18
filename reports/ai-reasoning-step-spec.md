@@ -483,4 +483,4 @@ No changes: Prisma schema/migrations, `apps/hooks`, `apps/processor`, Kafka topi
 - [ ] P3 — Server validation + `/ai/models` + `/ai/test` + tests
 - [ ] P4 — Editor form + test panel
 - [ ] P5 — Gated e2e + docs
-- [ ] PG — Gmail → outbox prerequisite (separate PR) — unlocks the email-summarization headline
+- [ ] PG — Gmail → outbox prerequisite (separate PR) — unlocks the email-summarization headline · 📋 spec authored: `reports/gmail-worker-routing-spec.md` (implementation pending)
