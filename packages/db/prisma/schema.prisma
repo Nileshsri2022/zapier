@@ -132,18 +132,27 @@ model ZapRunOutbox {
 
 // Gmail MCP Server Configuration
 model GmailServer {
-  id           String    @id @default(uuid())
-  name         String
-  clientId     String // OAuth Client ID
-  clientSecret String // Encrypted
-  refreshToken String // Encrypted
-  accessToken  String // Encrypted, expires frequently
-  tokenExpiry  DateTime?
-  isActive     Boolean   @default(true)
-  userId       Int
-  user         User      @relation(fields: [userId], references: [id])
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            String    @id @default(uuid())
+  name          String
+  // Connected mailbox address, from users.getProfile at OAuth time.
+  // Gmail push notifications identify the mailbox only by emailAddress,
+  // so dispatch resolves servers through this column (gmail routing
+  // spec D3/B3). Nullable: rows predating the column are backfilled by
+  // apps/server/src/scripts/backfillGmailServerEmail.ts.
+  email         String?
+  // Gmail history cursor: id of the last fully processed history delta.
+  // Advanced only after a delta's ZapRuns are durably enqueued (spec D5).
+  lastHistoryId String?
+  clientId      String // OAuth Client ID
+  clientSecret  String // Encrypted
+  refreshToken  String // Encrypted
+  accessToken   String // Encrypted, expires frequently
+  tokenExpiry   DateTime?
+  isActive      Boolean   @default(true)
+  userId        Int
+  user          User      @relation(fields: [userId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Relations
   gmailTriggers GmailTrigger[]
@@ -153,6 +162,7 @@ model GmailServer {
   // Indexes
   @@index([userId])
   @@index([isActive])
+  @@index([email])
 }
 
 // Gmail-specific triggers

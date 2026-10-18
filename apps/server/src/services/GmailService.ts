@@ -202,6 +202,97 @@ export class GmailService {
   }
 
   /**
+   * Get the plain-text body of an email by ID.
+   *
+   * Added for Gmail-trigger hydration (reports/gmail-worker-routing-spec.md
+   * D4): trigger payloads need actual email content, not just headers.
+   * Returns null on any Gmail API failure, mirroring getEmailMetadata.
+   */
+  async getEmailContent(messageId: string): Promise<{ body: string; truncated: boolean } | null> {
+    await this.ensureValidToken();
+
+    try {
+      const response = await this.gmail.users.messages.get({
+        userId: 'me',
+        id: messageId,
+        format: 'full',
+      });
+
+      return extractEmailBody(response.data.payload);
+    } catch (error) {
+      console.error('Error fetching email content:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Connected mailbox identity (address + current history id).
+   * Used at OAuth time and by the GmailServer.email backfill
+   * (reports/gmail-worker-routing-spec.md D3).
+   */
+  async getProfileEmail(): Promise<{ email: string; historyId: string } | null> {
+    await this.ensureValidToken();
+
+    try {
+      const response = await this.gmail.users.getProfile({ userId: 'me' });
+      return {
+        email: response.data.emailAddress || '',
+        historyId: response.data.historyId || '',
+      };
+    } catch (error) {
+      console.error('Error fetching Gmail profile:', error);
+      return null;
+    }
+  }
+
+  /**
+   * History delta since a stored cursor — how real Gmail watch
+   * notifications ({ emailAddress, historyId } only) are turned into
+   * concrete message events (spec B2). Returns the raw history records.
+   *
+   * Returns null when Gmail reports the start history id as too old
+   * (HTTP 404) — the caller resets the cursor instead of retrying a
+   * delta that can never be listed. Other errors throw so the push
+   * provider redelivers and the delta is retried.
+   */
+  async listHistory(startHistoryId: string): Promise<any[] | null> {
+    await this.ensureValidToken();
+
+    try {
+      const records: any[] = [];
+      let pageToken: string | undefined;
+
+      // Bounded pagination: a single mailbox delta beyond 5 pages is an
+      // anomaly (e.g. bulk import); remaining records surface on the
+      // next notification because the cursor only advances per batch.
+      for (let page = 0; page < 5; page++) {
+        const response = await this.gmail.users.history.list({
+          userId: 'me',
+          startHistoryId,
+          historyTypes: ['messageAdded', 'labelAdded', 'labelRemoved'],
+          maxResults: 100,
+          pageToken,
+        });
+
+        records.push(...(response.data.history || []));
+        pageToken = response.data.nextPageToken || undefined;
+        if (!pageToken) break;
+      }
+
+      return records;
+    } catch (error: any) {
+      const status = error?.code ?? error?.response?.status;
+      if (status === 404) {
+        console.warn(
+          `Gmail history cursor ${startHistoryId} is too old (404) — caller will reset it`
+        );
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Send email
    */
   async sendEmail(
@@ -434,4 +525,69 @@ export class GmailService {
   private delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
+}
+
+/** Max chars of email body stored in a Gmail ZapRun payload (see D4 in
+ * reports/gmail-worker-routing-spec.md; aligned with the AI step's input cap). */
+export const GMAIL_BODY_MAX_CHARS = 20_000;
+
+function decodeBase64Url(data: string): string {
+  const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+  return Buffer.from(padded, 'base64').toString('utf-8');
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n+/g, '\n\n')
+    .trim();
+}
+
+/** Collect decoded bodies from a Gmail payload tree, partitioned by mime type. */
+function collectBodies(part: any, out: { plain: string[]; html: string[] }): void {
+  if (!part || typeof part !== 'object') return;
+
+  const data = part.body?.data;
+  if (typeof data === 'string' && data.length > 0 && !part.filename) {
+    // Parts with a filename are attachments — never inlined into the payload.
+    if (part.mimeType === 'text/plain') out.plain.push(decodeBase64Url(data));
+    else if (part.mimeType === 'text/html') out.html.push(decodeBase64Url(data));
+  }
+
+  if (Array.isArray(part.parts)) {
+    for (const child of part.parts) collectBodies(child, out);
+  }
+}
+
+/**
+ * Extract a plain-text body from a Gmail `users.messages.get` payload
+ * (`format: 'full'`). Prefers text/plain parts; falls back to stripped
+ * text/html. Pure and synchronous so it is unit-testable without the
+ * Gmail API. Applies the GMAIL_BODY_MAX_CHARS cap.
+ */
+export function extractEmailBody(payload: any): { body: string; truncated: boolean } {
+  const found = { plain: [] as string[], html: [] as string[] };
+  collectBodies(payload, found);
+
+  const raw =
+    found.plain.length > 0
+      ? found.plain.join('\n').trim()
+      : found.html.length > 0
+        ? stripHtml(found.html.join('\n'))
+        : '';
+
+  if (raw.length > GMAIL_BODY_MAX_CHARS) {
+    return { body: raw.slice(0, GMAIL_BODY_MAX_CHARS), truncated: true };
+  }
+  return { body: raw, truncated: false };
 }
