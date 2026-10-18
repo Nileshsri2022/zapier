@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import Button from './Button';
 import ZapCell from './ZapCell';
 import { TSelectedAction, TSelectedTrigger } from '@repo/types';
@@ -18,10 +19,23 @@ const emptyAction = {
   actionMetaData: {},
 };
 
+const parseSafeZapId = (rawId?: string | null): string => {
+  if (!rawId) return '';
+  const trimmed = rawId.trim();
+  if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return trimmed.slice(1, -1);
+    }
+  }
+  return trimmed;
+};
+
 const PublishZap = ({ zapId }: { zapId?: string }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [loading, setLoading] = useState<boolean>();
+  const [loading, setLoading] = useState<boolean>(false);
   const [selectedTrigger, setSelectedTrigger] = useState<TSelectedTrigger>();
   const [selectedActions, setSelectedActions] = useState<TSelectedAction[]>([emptyAction]);
   const [modalVisibilityFor, setModalVisibilityFor] = useState<number>(0);
@@ -126,31 +140,32 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
   }, [searchParams, router]);
 
   useEffect(() => {
-    if (zapId !== '') {
+    const targetZapId = parseSafeZapId(zapId);
+    if (targetZapId) {
       const fetchZapDetails = async () => {
         try {
-          const parsedZapId = JSON.parse(zapId as string);
-          setZapIdString(parsedZapId);
+          setZapIdString(targetZapId);
           const {
             data: { zap },
-          } = await axios.get(`${API_URL}/api/zaps/${parsedZapId}`, {
+          } = await axios.get(`${API_URL}/api/zaps/${targetZapId}`, {
             withCredentials: true, // Use httpOnly cookie for auth
           });
           setSelectedTrigger({
-            availableTriggerId: zap.trigger.trigger.id,
-            triggerType: zap.trigger.trigger.type,
+            availableTriggerId: zap.trigger?.trigger?.id,
+            triggerType: zap.trigger?.trigger?.type,
           });
           setSelectedActions(
-            zap.actions.map((a: any) => ({
-              availableActionId: a.action.id,
-              actionType: a.action.type,
-            }))
+            zap.actions?.map((a: any) => ({
+              availableActionId: a.action?.id,
+              actionType: a.action?.type,
+            })) || [emptyAction]
           );
           // Load filter conditions
           if (zap.filterConditions) {
             setFilterConditions(zap.filterConditions);
           }
         } catch (error) {
+          console.error('Fetch zap error:', error);
           toast.error('Could not fetch zap details!');
           router.push('/dashboard');
         }
@@ -158,14 +173,20 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
 
       fetchZapDetails();
     }
-  }, []);
+  }, [zapId, router]);
 
   const handlePublish = async () => {
-    setLoading(true);
-    if (!selectedTrigger) {
-      toast.error('Invalid trigger selection!');
+    if (!selectedTrigger?.availableTriggerId) {
+      toast.error('Please configure a trigger event before publishing.');
       return;
     }
+    const hasIncompleteAction = selectedActions.some((action) => !action.availableActionId);
+    if (hasIncompleteAction) {
+      toast.error('Please select an event for each action step before publishing.');
+      return;
+    }
+
+    setLoading(true);
     const createZapData = {
       availableTriggerId: selectedTrigger.availableTriggerId,
       triggerMetaData: selectedTrigger.triggerMetaData || {},
@@ -176,24 +197,30 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
     };
 
     try {
-      if (!zapId) {
+      const targetZapId = zapIdString || parseSafeZapId(zapId);
+      if (!targetZapId) {
         await axios.post(`${API_URL}/api/zaps`, createZapData, {
           withCredentials: true, // Use httpOnly cookie for auth
         });
+        toast.success('Zap published successfully!');
       } else {
-        const zapIdString = JSON.parse(zapId as string);
-        await axios.put(`${API_URL}/api/zaps/${zapIdString}`, createZapData, {
+        await axios.put(`${API_URL}/api/zaps/${targetZapId}`, createZapData, {
           withCredentials: true, // Use httpOnly cookie for auth
         });
+        toast.success('Zap saved successfully!');
       }
       router.push('/dashboard');
     } catch (error: any) {
-      console.log(error);
-      toast.error(error);
-    }
-    setTimeout(() => {
+      console.error('Publish error:', error);
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'Failed to save zap. Please verify your configuration.';
+      toast.error(errorMessage);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const handleTriggerOrActionSelection = (selectedItem: any) => {
@@ -238,28 +265,51 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
 
   return (
     <>
-      <div className="w-full fixed flex justify-between px-10 py-2 bg-[#2d2e2e]">
-        <div />
-        <Button variant="secondary" onClick={handlePublish}>
+      {/* Editor Sub-Header Toolbar */}
+      <div className="sticky top-14 z-30 w-full flex items-center justify-between px-4 sm:px-10 py-2.5 bg-card/90 backdrop-blur border-b border-border shadow-xs">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="size-6 mr-2"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="size-4"
           >
             <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"
+              fillRule="evenodd"
+              d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z"
+              clipRule="evenodd"
             />
           </svg>
-          <p className="mr-1">{zapId !== '' ? 'Save' : 'Publish'}</p>
-          {loading && <Spinner color="white" />}
+          Back to Zaps
+        </Link>
+        <Button variant="primary" onClick={handlePublish} disabled={loading}>
+          {loading ? (
+            <Spinner color="white" />
+          ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="size-5 mr-1.5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"
+              />
+            </svg>
+          )}
+          <span>{zapIdString || parseSafeZapId(zapId) ? 'Save Zap' : 'Publish Zap'}</span>
         </Button>
       </div>
-      <div className="mt-32 flex flex-col items-center gap-4">
+
+      {/* Editor Canvas Steps */}
+      <div className="py-8 flex flex-col items-center gap-4">
         <div className="relative">
           <ZapCell
             index={1}
@@ -267,7 +317,7 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
             onClick={() => handleCellClick(1)}
           />
           {sheetsConnected && (
-            <div className="absolute -top-2 -right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+            <div className="absolute -top-2 -right-2 bg-success text-success-foreground text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">
               ✓ Connected
             </div>
           )}
@@ -294,16 +344,20 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
           </div>
         ))}
       </div>
-      <div className="mt-8 flex justify-center">
+
+      {/* Add Step Button */}
+      <div className="pb-16 flex justify-center">
         <button
+          type="button"
           onClick={() => setSelectedActions((a) => [...a, emptyAction])}
-          className="bg-secondary-500 shadow-md hover:bg-secondary-700 hover:shadow-lg transition-all p-2 rounded-full"
+          className="group flex items-center justify-center size-10 rounded-full bg-primary-500 hover:bg-primary-600 text-white shadow-card hover:shadow-lift transition-all focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+          aria-label="Add action step"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
-            fill="#FFFFFF"
-            className="size-6"
+            fill="currentColor"
+            className="size-5 group-hover:rotate-90 transition-transform duration-200"
           >
             <path
               fillRule="evenodd"

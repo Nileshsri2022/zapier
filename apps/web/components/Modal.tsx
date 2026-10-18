@@ -309,10 +309,10 @@ const Modal = ({
 
   // ============ STEP 1: App Selector ============
   const renderStep1 = () => (
-    <div className="flex min-h-[400px]">
+    <div className="flex min-h-[380px] max-h-[65vh]">
       {/* Left Sidebar - Hidden on very small screens */}
-      <div className="hidden sm:block w-40 border-r border-gray-200 p-3 bg-gray-50">
-        <div className="flex items-center gap-2 p-2 rounded bg-amber-100 text-amber-800 font-medium text-sm">
+      <div className="hidden sm:block w-36 border-r border-border p-3 bg-muted/30">
+        <div className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-primary-500/10 text-primary-500 font-medium text-sm">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
@@ -330,19 +330,19 @@ const Modal = ({
       </div>
 
       {/* Right Panel - App List */}
-      <div className="flex-1 p-4 overflow-y-auto">
+      <div className="flex-1 p-3 sm:p-4 overflow-y-auto">
         {getAvailableApps().length === 0 ? (
-          <div className="text-center text-gray-500 py-4">Loading apps...</div>
+          <div className="text-center text-muted-foreground py-6 text-sm">Loading apps...</div>
         ) : (
           <div className="flex flex-col gap-1">
             {getAvailableApps().map((app) => (
               <div
                 key={app.id}
                 onClick={() => handleAppSelect(app)}
-                className="flex items-center gap-3 p-3 cursor-pointer rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex items-center gap-3 p-2.5 cursor-pointer rounded-lg hover:bg-muted/70 transition-colors"
               >
-                <img className="h-6 w-6" alt={app.name} src={app.icon} />
-                <span className="font-medium">{app.name}</span>
+                <img className="h-6 w-6 object-contain" alt={app.name} src={app.icon} />
+                <span className="font-medium text-sm sm:text-base text-foreground">{app.name}</span>
               </div>
             ))}
           </div>
@@ -362,18 +362,21 @@ const Modal = ({
       selectedApp?.id === 'whatsapp';
 
     return (
-      <div className="p-4 min-h-[400px]">
+      <div className="p-4 sm:p-5 min-h-[380px] max-h-[70vh] overflow-y-auto">
         {/* App Selection */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">App *</label>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+            App
+          </label>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg flex-1">
-              <img className="h-5 w-5" alt={selectedApp?.name} src={selectedApp?.icon} />
-              <span>{selectedApp?.name}</span>
+            <div className="flex items-center gap-2.5 px-3 py-2 bg-muted/40 border border-border rounded-lg flex-1">
+              <img className="h-5 w-5 object-contain" alt={selectedApp?.name} src={selectedApp?.icon} />
+              <span className="font-medium text-sm text-foreground">{selectedApp?.name}</span>
             </div>
             <button
+              type="button"
               onClick={() => setStep(1)}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+              className="px-3.5 py-2 bg-muted hover:bg-muted/80 text-foreground border border-border rounded-lg transition-colors text-xs font-medium"
             >
               Change
             </button>
@@ -382,13 +385,13 @@ const Modal = ({
 
         {/* Event Dropdown */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            {isVisible === 1 ? 'Trigger event' : 'Action event'} *
+          <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+            {isVisible === 1 ? 'Trigger Event' : 'Action Event'}
           </label>
           <select
             value={selectedEvent}
             onChange={(e) => handleEventChange(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            className="w-full p-2.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
           >
             <option value="">Choose an event</option>
             {events.map((event) => (
@@ -402,19 +405,19 @@ const Modal = ({
         {/* Account Section (for OAuth apps and bots) */}
         {needsAccount && (
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
               {selectedApp?.id === 'telegram' || selectedApp?.id === 'whatsapp'
-                ? 'Bot/Account *'
-                : 'Account *'}
+                ? 'Bot Account'
+                : 'Connected Account'}
             </label>
             {loadingServers ? (
-              <div className="text-gray-500 py-2">Loading accounts...</div>
+              <div className="text-muted-foreground py-2 text-sm">Loading accounts...</div>
             ) : connectedServers.length > 0 && !showBotForm ? (
               <div className="space-y-2">
                 <select
                   value={selectedServerId}
                   onChange={(e) => setSelectedServerId(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full p-2.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
                 >
                   {connectedServers.map((server) => (
                     <option key={server.id} value={server.id}>
@@ -428,8 +431,9 @@ const Modal = ({
                 </select>
                 {(selectedApp?.id === 'telegram' || selectedApp?.id === 'whatsapp') && (
                   <button
+                    type="button"
                     onClick={() => setShowBotForm(true)}
-                    className="text-sm text-purple-600 hover:text-purple-800"
+                    className="text-xs font-medium text-primary-500 hover:text-primary-600 transition-colors"
                   >
                     + Add another {selectedApp.name}
                   </button>
@@ -446,7 +450,7 @@ const Modal = ({
                       }
                       value={botName}
                       onChange={(e) => setBotName(e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      className="w-full p-2.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
                     />
                     <input
                       type="password"
@@ -457,26 +461,28 @@ const Modal = ({
                       }
                       value={botToken}
                       onChange={(e) => setBotToken(e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      className="w-full p-2.5 bg-background border border-border rounded-lg text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
                     />
                     <div className="flex gap-2">
                       <button
+                        type="button"
                         onClick={connectBot}
                         disabled={connectingBot}
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium disabled:opacity-50"
+                        className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors text-sm font-medium disabled:opacity-50"
                       >
                         {connectingBot ? 'Connecting...' : `Connect ${selectedApp.name}`}
                       </button>
                       {connectedServers.length > 0 && (
                         <button
+                          type="button"
                           onClick={() => setShowBotForm(false)}
-                          className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
+                          className="px-4 py-2 text-muted-foreground hover:text-foreground text-sm"
                         >
                           Cancel
                         </button>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {selectedApp.id === 'telegram'
                         ? 'Get your token from @BotFather in Telegram. The webhook will be configured automatically.'
                         : 'Get your token from Meta Developer Portal.'}
@@ -486,12 +492,13 @@ const Modal = ({
               </div>
             ) : (
               <div className="flex items-center gap-3">
-                <div className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-gray-500">
+                <div className="flex-1 px-3 py-2 border border-border rounded-lg text-muted-foreground text-sm bg-muted/20">
                   Connect {selectedApp?.name}
                 </div>
                 <button
+                  type="button"
                   onClick={handleSignIn}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                  className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors text-sm font-medium shadow-sm"
                 >
                   Sign in
                 </button>
@@ -503,14 +510,15 @@ const Modal = ({
         {/* Continue / Status Bar */}
         <div className="mt-6">
           {!canContinue() ? (
-            <div className="bg-blue-50 border border-blue-200 text-blue-700 text-center py-3 rounded-lg text-sm">
-              To continue, choose an event
-              {needsAccount && connectedServers.length === 0 ? ' and connect your account' : ''}
+            <div className="bg-muted/80 border border-border text-muted-foreground text-center py-2.5 px-3 rounded-lg text-xs font-medium">
+              Choose an event
+              {needsAccount && connectedServers.length === 0 ? ' and connect your account' : ''} to continue
             </div>
           ) : (
             <button
+              type="button"
               onClick={handleContinue}
-              className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              className="w-full py-2.5 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors font-medium text-sm shadow-sm"
             >
               Continue
             </button>
@@ -525,10 +533,11 @@ const Modal = ({
     if (isVisible === 1) {
       // Trigger metadata forms
       return (
-        <div className="p-4">
+        <div className="p-4 sm:p-5 max-h-[70vh] overflow-y-auto">
           <button
+            type="button"
             onClick={() => setStep(2)}
-            className="flex items-center gap-1 text-purple-600 hover:text-purple-800 mb-4 text-sm"
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground mb-4 text-xs font-medium transition-colors"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -542,7 +551,7 @@ const Modal = ({
                 clipRule="evenodd"
               />
             </svg>
-            Back
+            Back to event selection
           </button>
           {selectedItem?.type === 'Webhook' ? (
             <WebhookMetaData handleClick={handleSaveMetaData} />
@@ -569,17 +578,18 @@ const Modal = ({
           ) : selectedItem?.type?.startsWith('GitHub') ? (
             <GitHubMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} />
           ) : (
-            <div className="text-center text-gray-500 py-4">No configuration needed</div>
+            <div className="text-center text-muted-foreground py-4 text-sm">No configuration needed</div>
           )}
         </div>
       );
     } else {
       // Action metadata forms
       return (
-        <div className="p-4">
+        <div className="p-4 sm:p-5 max-h-[70vh] overflow-y-auto">
           <button
+            type="button"
             onClick={() => setStep(2)}
-            className="flex items-center gap-1 text-purple-600 hover:text-purple-800 mb-4 text-sm"
+            className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground mb-4 text-xs font-medium transition-colors"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -593,7 +603,7 @@ const Modal = ({
                 clipRule="evenodd"
               />
             </svg>
-            Back
+            Back to action selection
           </button>
           {selectedItem?.type === 'Email' ? (
             <EmailMetaData handleClick={handleSaveMetaData} />
@@ -602,7 +612,7 @@ const Modal = ({
           ) : selectedItem?.type?.includes('Gmail') ? (
             <GmailMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} />
           ) : (
-            <div className="text-center text-gray-500 py-4">No configuration needed</div>
+            <div className="text-center text-muted-foreground py-4 text-sm">No configuration needed</div>
           )}
         </div>
       );
@@ -610,33 +620,47 @@ const Modal = ({
   };
 
   return (
-    <div className="absolute justify-center items-center bg-modal-bg h-screen w-screen top-0 left-0 flex transition-all">
-      <div className="bg-white w-screen h-screen xs:w-[95vw] xs:h-auto xs:max-h-[95vh] xs:rounded-lg sm:w-[90vw] md:w-[40rem] min-h-96 shadow-xl animate-zoom_in overflow-hidden overflow-y-auto">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 pt-16 sm:p-6 overflow-y-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          setIsVisible(0);
+          resetModal();
+        }
+      }}
+    >
+      <div className="bg-card border border-border text-foreground w-full max-w-xl max-h-[85vh] rounded-xl shadow-lift flex flex-col overflow-hidden my-auto animate-zoom_in">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
-          <h3 className="font-semibold text-lg">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/40">
+          <h3 className="font-semibold text-base sm:text-lg text-foreground tracking-tight">
             {step === 1
               ? `Select ${isVisible === 1 ? 'Trigger' : 'Action'}`
               : step === 2
-                ? `${isVisible === 1 ? '1. Select the event' : 'Configure action'}`
-                : 'Configure'}
+                ? `${isVisible === 1 ? '1. Select Event' : 'Configure Action'}`
+                : 'Configure Settings'}
           </h3>
-          <svg
+          <button
+            type="button"
             onClick={() => {
               setIsVisible(0);
               resetModal();
             }}
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="#000000"
-            className="size-6 cursor-pointer hover:bg-gray-200 rounded p-1"
+            className="size-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label="Close dialog"
           >
-            <path
-              fillRule="evenodd"
-              d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z"
-              clipRule="evenodd"
-            />
-          </svg>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="size-4"
+            >
+              <path
+                fillRule="evenodd"
+                d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
         </div>
 
         {/* Content */}

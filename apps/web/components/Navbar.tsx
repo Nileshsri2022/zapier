@@ -24,6 +24,23 @@ const Navbar = ({
     setMounted(true);
   }, []);
 
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  // Close profile dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setDropdownVisible(false);
+      }
+    };
+    if (dropdownVisible) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [dropdownVisible, setDropdownVisible]);
+
   // Close mobile menu on route change
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -35,7 +52,7 @@ const Navbar = ({
   const logoHref = mounted && isLoggedIn ? '/dashboard' : '/';
 
   return (
-    <nav className="fixed z-50 bg-base-100/90 backdrop-blur w-full px-2 xs:px-3 sm:px-6 md:px-10 h-14 border-b border-border flex items-center justify-between transition-all overflow-y-visible">
+    <nav className="fixed z-50 bg-base-100/90 backdrop-blur w-full px-2 xs:px-3 sm:px-6 md:px-10 h-14 border-b border-border flex items-center justify-between transition-all">
       <Link href={logoHref} className="flex items-center gap-2 font-bold text-lg xs:text-xl sm:text-2xl tracking-tight" aria-label="ZapMate home">
         <span className="grid size-8 place-items-center rounded-lg bg-primary-500 text-white shadow-card" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-5"><path fillRule="evenodd" d="M14.615 1.595a.75.75 0 0 1 .359.852L12.982 9.75h7.268a.75.75 0 0 1 .548 1.262l-10.5 11.25a.75.75 0 0 1-1.272-.71l1.992-7.302H3.75a.75.75 0 0 1-.548-1.262l10.5-11.25a.75.75 0 0 1 .913-.143Z" clipRule="evenodd" /></svg>
@@ -44,19 +61,19 @@ const Navbar = ({
       </Link>
 
       {mounted && isLoggedIn ? (
-        <div
-          className={clsx(`flex flex-col items-end gap-2`, {
-            'mt-[5.5rem]': dropdownVisible === true,
-          })}
-        >
-          <div
-            className="flex justify-center items-center cursor-pointer w-10 h-10 rounded-full bg-primary-500 hover:bg-primary-700 hover:shadow-2xl transition-all"
-            onClick={() => setDropdownVisible(!dropdownVisible)} aria-expanded={dropdownVisible} aria-haspopup="menu" aria-label="Account menu"
+        <div ref={menuRef} className="relative flex items-center">
+          <button
+            type="button"
+            className="flex justify-center items-center cursor-pointer w-9 h-9 rounded-full bg-primary-500 hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500/30 transition-all text-white shadow-sm"
+            onClick={() => setDropdownVisible(!dropdownVisible)}
+            aria-expanded={dropdownVisible}
+            aria-haspopup="menu"
+            aria-label="Account menu"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
-              fill="#FFFFFF"
+              fill="currentColor"
               className="size-5"
             >
               <path
@@ -65,13 +82,28 @@ const Navbar = ({
                 clipRule="evenodd"
               />
             </svg>
-          </div>
+          </button>
           {dropdownVisible && (
-            <div className="bg-white z-50 w-40 h-20 p-2 border border-gray-300 rounded-sm flex flex-col gap-2 transition-all">
-              <button type="button"
-                className="border-b text-left text-gray-500 cursor-pointer hover:bg-base-200 px-1 text-nm border-gray-300"
+            <div className="absolute right-0 top-12 z-50 w-44 p-1.5 bg-card border border-border rounded-lg shadow-lift flex flex-col gap-0.5 animate-slide_in">
+              <button
+                type="button"
+                className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted rounded-md transition-colors font-medium flex items-center gap-2"
+                onClick={() => {
+                  setDropdownVisible(false);
+                  router.push('/profile');
+                }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-4 text-muted-foreground">
+                  <path d="M10 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3.465 14.493a1.23 1.23 0 0 0 .41 1.412A9.957 9.957 0 0 0 10 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 0 0-13.074.003Z" />
+                </svg>
+                My Profile
+              </button>
+              <div className="h-px bg-border my-1" />
+              <button
+                type="button"
+                className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-md transition-colors font-medium flex items-center gap-2"
                 onClick={async () => {
-                  // Call logout API to clear httpOnly cookie
+                  setDropdownVisible(false);
                   try {
                     await fetch(`${API_URL}/api/auth/logout`, {
                       method: 'POST',
@@ -80,21 +112,15 @@ const Navbar = ({
                   } catch (e) {
                     console.error('Logout error:', e);
                   }
-                  // Clear local user data
                   localStorage.removeItem('user');
                   router.push('/login');
                 }}
               >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="size-4">
+                  <path fillRule="evenodd" d="M3 4.25A2.25 2.25 0 0 1 5.25 2h5.5A2.25 2.25 0 0 1 13 4.25v2a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75v-2a.75.75 0 0 1 1.5 0v2A2.25 2.25 0 0 1 10.75 18h-5.5A2.25 2.25 0 0 1 3 15.75V4.25Z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M19 10a.75.75 0 0 0-.75-.75H8.704l2.47-2.47a.75.75 0 1 0-1.06-1.06l-3.75 3.75a.75.75 0 0 0 0 1.06l3.75 3.75a.75.75 0 1 0 1.06-1.06L8.704 10.75h9.546A.75.75 0 0 0 19 10Z" clipRule="evenodd" />
+                </svg>
                 Logout
-              </button>
-              <button type="button"
-                className="border-b text-left text-gray-500 cursor-pointer hover:bg-base-200 px-1 text-nm border-gray-300"
-                onClick={() => {
-                  setDropdownVisible(false);
-                  router.push('/profile');
-                }}
-              >
-                My Profile
               </button>
             </div>
           )}

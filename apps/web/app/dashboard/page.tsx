@@ -155,12 +155,12 @@ export default function Page() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={handleCreateClick}>
+            <Button variant="primary" onClick={handleCreateClick}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
                 fill="#FFFFFF"
-                className="size-6"
+                className="size-5"
               >
                 <path
                   fillRule="evenodd"
@@ -168,7 +168,7 @@ export default function Page() {
                   clipRule="evenodd"
                 />
               </svg>
-              <span className="mx-2 my-1">Create</span>
+              <span className="mx-1 font-medium">Create</span>
             </Button>
           </div>
         </div>
@@ -190,7 +190,6 @@ export default function Page() {
               data?.zaps?.map((zap: TZap, index) => {
                 // @ts-ignore
                 const url = `${HOOKS_URL}/hooks/${session?.user?.id}/${zap.id}`;
-                const parsedData = JSON.stringify(zap.id);
 
                 return (
                   <tr key={zap.id} className="border-b border-gray-200">
@@ -207,8 +206,8 @@ export default function Page() {
                         />
                       ) : (
                         <Link
-                          className="hover:underline underline-offset-2 text-secondary-700"
-                          href={{ pathname: '/editor', query: { zapId: parsedData } }}
+                          className="font-medium hover:underline underline-offset-2 text-foreground hover:text-primary-500 transition-colors"
+                          href={{ pathname: '/editor', query: { zapId: zap.id } }}
                         >
                           {zap.name}
                         </Link>
@@ -378,7 +377,6 @@ export default function Page() {
             data?.zaps?.map((zap: TZap, index) => {
               // @ts-ignore
               const url = `${HOOKS_URL}/hooks/${session?.user?.id}/${zap.id}`;
-              const parsedData = JSON.stringify(zap.id);
 
               return (
                 <div
@@ -388,8 +386,8 @@ export default function Page() {
                   {/* Header: Name + Toggle */}
                   <div className="flex justify-between items-center mb-2">
                     <Link
-                      className="font-medium text-secondary-700 hover:underline text-sm xs:text-base truncate max-w-[60%]"
-                      href={{ pathname: '/editor', query: { zapId: parsedData } }}
+                      className="font-medium text-foreground hover:text-primary-500 hover:underline text-sm xs:text-base truncate max-w-[60%] transition-colors"
+                      href={{ pathname: '/editor', query: { zapId: zap.id } }}
                     >
                       {zap.name}
                     </Link>
