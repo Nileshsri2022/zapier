@@ -54,12 +54,12 @@ export const SignupForm = () => {
 
   return (
     <div className="auth-card">
-      <form className="flex flex-col gap-2">
+      <form className="auth-form" onSubmit={handleSubmit}>
         <FormInput label="Name" name="signup_name" onChange={handleChange} />
         <FormInput label="Email" name="signup_email" onChange={handleChange} />
         <FormInput label="Password" name="signup_pw" onChange={handleChange} />
         <p>By signing up, you agree to ZapMate's terms of service and privacy policy.</p>
-        <div className="flex flex-col gap-2 items-center self-center">
+        <div className="auth-form__actions">
           <Button variant="primary" size="lg" onClick={handleSubmit}>
             <span className="mr-2">Get started for free</span>{' '}
             {loading && <Spinner color="white" />}
@@ -127,11 +127,11 @@ export const LoginForm = () => {
 
   return (
     <div className="auth-card">
-      <form className="flex flex-col gap-2">
+      <form className="auth-form" onSubmit={handleSubmit}>
         <FormInput label="Email" name="login_email" onChange={handleChange} />
         <FormInput label="Password" name="login_pw" onChange={handleChange} />
         <p>By signing up, you agree to ZapMate's terms of service and privacy policy.</p>
-        <div className="flex flex-col gap-2 items-center self-center">
+        <div className="auth-form__actions">
           <Button variant="primary" size="lg" onClick={handleSubmit}>
             <span className="mr-2">Continue</span> {loading && <Spinner color="white" />}
           </Button>

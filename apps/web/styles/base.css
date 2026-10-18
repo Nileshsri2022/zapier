@@ -16,8 +16,8 @@ body {
   /* Previously inline Tailwind on <body>: `antialiased w-screen h-screen bg-base-100` (spec G2) */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  min-height: 100dvh;
   background: hsl(var(--brand-base));
   /* Geist was loaded in layout.tsx but never applied — wire it up (design pass) */
   color: hsl(var(--foreground));
@@ -35,7 +35,7 @@ body {
 :focus-visible {
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 
 /* One orchestrated reveal, used only by the landing hero */
@@ -79,12 +79,14 @@ body {
 }
 
 /* ---- Extra small device support (320px+) ---- */
-/* Minimum touch target size */
+/* Minimum touch target size (WCAG 2.5.5) */
 button,
 input,
 select,
-textarea {
-  min-height: 44px;
+textarea,
+[role="button"] {
+  min-height: var(--touch-target-min);
+  box-sizing: border-box;
 }
 
 /* Readable text on tiny screens.
@@ -97,20 +99,20 @@ textarea {
   }
 
   h1 {
-    font-size: 1.5rem;
+    font-size: var(--text-2xl);
   }
   h2 {
-    font-size: 1.25rem;
+    font-size: var(--text-xl);
   }
   h3 {
-    font-size: 1.1rem;
+    font-size: var(--text-lg);
   }
 
   .container,
   main,
   section {
-    padding-left: 8px;
-    padding-right: 8px;
+    padding-left: var(--space-xs);
+    padding-right: var(--space-xs);
   }
 }
 
@@ -137,4 +139,24 @@ textarea {
   body {
     scrollbar-width: none;
   }
+}
+
+/* ---- App Main Shell (spec G2) ---- */
+.main-shell {
+  width: 100%;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.main-content {
+  padding-top: 3.5rem;
+}
+
+.editor-view {
+  min-height: calc(100dvh - 3.5rem);
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }

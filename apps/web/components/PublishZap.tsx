@@ -266,16 +266,14 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
   return (
     <>
       {/* Editor Sub-Header Toolbar */}
-      <div className="sticky top-14 z-30 w-full flex items-center justify-between px-4 sm:px-10 py-2.5 bg-card/90 backdrop-blur border-b border-border shadow-xs">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
+      <div className="editor-toolbar">
+        <Link href="/dashboard" className="editor-back-link">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
             fill="currentColor"
-            className="size-4"
+            width="16"
+            height="16"
           >
             <path
               fillRule="evenodd"
@@ -295,7 +293,9 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
               viewBox="0 0 24 24"
               strokeWidth={1.5}
               stroke="currentColor"
-              className="size-5 mr-1.5"
+              width="20"
+              height="20"
+              style={{ marginRight: '0.375rem' }}
             >
               <path
                 strokeLinecap="round"
@@ -309,15 +309,15 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
       </div>
 
       {/* Editor Canvas Steps */}
-      <div className="py-8 flex flex-col items-center gap-4">
-        <div className="relative">
+      <div className="editor-canvas">
+        <div className="editor-step-wrap">
           <ZapCell
             index={1}
             name={selectedTrigger ? selectedTrigger.triggerType : 'Trigger'}
             onClick={() => handleCellClick(1)}
           />
           {sheetsConnected && (
-            <div className="absolute -top-2 -right-2 bg-success text-success-foreground text-xs font-bold px-2 py-0.5 rounded-full shadow-sm">
+            <div className="editor-connected-badge">
               ✓ Connected
             </div>
           )}
@@ -325,7 +325,7 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
 
         {/* Filter Builder - shown when editing existing Zap */}
         {zapIdString && (
-          <div className="w-full max-w-md">
+          <div className="editor-filter-wrap">
             <FilterBuilder
               zapId={zapIdString}
               initialConditions={filterConditions}
@@ -334,7 +334,7 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
           </div>
         )}
         {selectedActions?.map((action, index) => (
-          <div key={index}>
+          <div key={index} className="editor-step-wrap">
             <ZapCell
               index={index + 2}
               name={action.actionType ? action.actionType : 'Action'}
@@ -346,18 +346,18 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
       </div>
 
       {/* Add Step Button */}
-      <div className="pb-16 flex justify-center">
+      <div className="editor-add-step-row">
         <button
           type="button"
           onClick={() => setSelectedActions((a) => [...a, emptyAction])}
-          className="group flex items-center justify-center size-10 rounded-full bg-primary-500 hover:bg-primary-600 text-white shadow-card hover:shadow-lift transition-all focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+          className="editor-add-btn"
           aria-label="Add action step"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="currentColor"
-            className="size-5 group-hover:rotate-90 transition-transform duration-200"
+            className="editor-add-btn__icon"
           >
             <path
               fillRule="evenodd"

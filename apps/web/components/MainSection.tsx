@@ -3,12 +3,17 @@ import React, { useState } from 'react';
 import Navbar from './Navbar';
 import { getSessionDetails } from '@/helper';
 
+/**
+ * First-party MainSection — LOGIC ONLY (spec G2).
+ * Styles live in styles/base.css (.main-shell, .main-content).
+ */
 function MainSection({ children }: { children?: React.ReactNode }) {
   const session = getSessionDetails();
   const [dropdownVisible, setDropdownVisible] = useState<boolean>(false);
+
   return (
     <div
-      className="w-full h-full overflow-x-hidden z-10"
+      className="main-shell"
       onClick={() => dropdownVisible && setDropdownVisible(false)}
     >
       <Navbar
@@ -16,7 +21,7 @@ function MainSection({ children }: { children?: React.ReactNode }) {
         setDropdownVisible={setDropdownVisible}
         isLoggedIn={session.isLoggedIn}
       />
-      <div className="mt-14">{children}</div>
+      <div className="main-content">{children}</div>
     </div>
   );
 }

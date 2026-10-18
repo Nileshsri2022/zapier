@@ -1,0 +1,463 @@
+/**
+ * Modal styles — semantic classes, token-backed (spec §7).
+ * Responsive dialog layout with safe-area offset, fluid scroll,
+ * auto-fill app grid, and minimum 44px touch targets.
+ */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  padding: var(--space-sm);
+  padding-top: max(4rem, env(safe-area-inset-top));
+  overflow-y: auto;
+}
+
+@media (min-width: 640px) {
+  .modal-overlay {
+    padding: var(--space-md);
+    padding-top: max(4.5rem, env(safe-area-inset-top));
+  }
+}
+
+.modal-dialog {
+  width: 100%;
+  max-width: 42rem;
+  max-height: min(85dvh, 680px);
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lift);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: auto;
+  animation: zoom_in 0.25s var(--ease-standard);
+}
+
+/* Header */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem var(--space-md);
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.4);
+  gap: var(--space-sm);
+}
+
+.modal-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.modal-title {
+  font-size: var(--text-base);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: hsl(var(--foreground));
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .modal-title {
+    font-size: var(--text-lg);
+  }
+}
+
+/* Step progression indicators */
+.modal-steps-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: var(--text-xs);
+}
+
+.modal-step-chip {
+  color: hsl(var(--muted-foreground));
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.modal-step-chip.is-active {
+  color: hsl(var(--brand-primary));
+  font-weight: 600;
+}
+
+.modal-step-chip.is-complete {
+  color: hsl(var(--success));
+  font-weight: 600;
+}
+
+.modal-step-divider {
+  color: hsl(var(--muted-foreground) / 0.5);
+  font-size: 0.65rem;
+}
+
+/* Close button - 44px min tap area */
+.modal-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--touch-target-min);
+  min-height: var(--touch-target-min);
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.modal-close-btn:hover {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+.modal-close-btn:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Step 1: App Selector Layout */
+.modal-step1 {
+  display: flex;
+  min-height: 380px;
+  max-height: calc(85dvh - 5rem);
+  flex: 1;
+  overflow: hidden;
+}
+
+.modal-sidebar {
+  display: none;
+  width: 9rem;
+  border-right: 1px solid hsl(var(--border));
+  padding: var(--space-sm);
+  background: hsl(var(--muted) / 0.25);
+}
+
+@media (min-width: 640px) {
+  .modal-sidebar {
+    display: block;
+  }
+}
+
+.modal-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--radius-md);
+  background-color: hsl(var(--brand-primary) / 0.1);
+  color: hsl(var(--brand-primary));
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.modal-app-panel {
+  flex: 1;
+  padding: var(--space-md);
+  overflow-y: auto;
+}
+
+/* Responsive intrinsic auto-fit app card grid */
+.modal-app-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(125px, 100%), 1fr));
+  gap: 0.75rem;
+}
+
+.modal-app-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 0.75rem;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border) / 0.6);
+  min-height: 84px;
+  width: 100%;
+  text-align: center;
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.modal-app-item:hover {
+  background-color: hsl(var(--brand-primary) / 0.05);
+  border-color: hsl(var(--brand-primary));
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.modal-app-item:focus-visible {
+  outline: 2px solid hsl(var(--brand-primary));
+  outline-offset: 2px;
+}
+
+.modal-app-icon {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.modal-app-name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+/* Step 2: Config Form */
+.modal-step2 {
+  padding: var(--space-md);
+  min-height: 380px;
+  max-height: calc(85dvh - 5rem);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.modal-field-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--muted-foreground));
+}
+
+.modal-selected-app {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.modal-app-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  min-height: var(--touch-target-min);
+  background: hsl(var(--muted) / 0.4);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-md);
+  flex: 1;
+}
+
+.modal-change-btn {
+  padding: 0.5rem 0.875rem;
+  min-height: var(--touch-target-min);
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.modal-change-btn:hover {
+  background-color: hsl(var(--muted) / 0.8);
+}
+
+.modal-change-btn:focus-visible {
+  outline: 2px solid hsl(var(--brand-primary));
+  outline-offset: 2px;
+}
+
+.modal-select {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  min-height: var(--touch-target-min);
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-md);
+  color: hsl(var(--foreground));
+  font-size: var(--text-sm);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.modal-select:focus {
+  border-color: hsl(var(--brand-primary));
+  box-shadow: 0 0 0 2px hsl(var(--brand-primary) / 0.2);
+}
+
+.modal-input {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  min-height: var(--touch-target-min);
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-md);
+  color: hsl(var(--foreground));
+  font-size: var(--text-sm);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.modal-input:focus {
+  border-color: hsl(var(--brand-primary));
+  box-shadow: 0 0 0 2px hsl(var(--brand-primary) / 0.2);
+}
+
+.modal-btn-primary {
+  padding: 0.5rem 1rem;
+  min-height: var(--touch-target-min);
+  background-color: hsl(var(--brand-primary));
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.modal-btn-primary:hover:not(:disabled) {
+  background-color: hsl(var(--brand-primary-hover));
+}
+
+.modal-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal-btn-primary:focus-visible {
+  outline: 2px solid hsl(var(--brand-primary));
+  outline-offset: 2px;
+}
+
+.modal-btn-secondary {
+  padding: 0.5rem 1rem;
+  min-height: var(--touch-target-min);
+  background-color: transparent;
+  color: hsl(var(--muted-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.modal-btn-secondary:hover {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+
+.modal-btn-secondary:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+.modal-notice {
+  background: hsl(var(--muted) / 0.7);
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.modal-btn-continue {
+  width: 100%;
+  padding: 0.75rem;
+  min-height: var(--touch-target-min);
+  background-color: hsl(var(--brand-primary));
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), box-shadow var(--transition-fast);
+  box-shadow: var(--shadow-card);
+}
+
+.modal-btn-continue:hover {
+  background-color: hsl(var(--brand-primary-hover));
+  box-shadow: var(--shadow-lift);
+}
+
+.modal-btn-continue:focus-visible {
+  outline: 2px solid hsl(var(--brand-primary));
+  outline-offset: 2px;
+}
+
+.modal-help-text {
+  font-size: var(--text-xs);
+  color: hsl(var(--muted-foreground));
+  line-height: 1.4;
+  margin: 0;
+}
+
+.modal-link-btn {
+  background: none;
+  border: none;
+  padding: 0.25rem 0;
+  min-height: 32px;
+  color: hsl(var(--brand-primary));
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+
+.modal-link-btn:hover {
+  text-decoration: underline;
+}
+
+/* Step 3: Metadata panel */
+.modal-step3 {
+  padding: var(--space-md);
+  max-height: calc(85dvh - 5rem);
+  overflow-y: auto;
+}
+
+.modal-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  padding: 0.5rem 0;
+  min-height: var(--touch-target-min);
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+  transition: color var(--transition-fast);
+}
+
+.modal-back-btn:hover {
+  color: hsl(var(--foreground));
+}
+
+.modal-back-btn:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}

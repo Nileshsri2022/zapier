@@ -10,7 +10,7 @@ function EditorContent() {
 
   return (
     <MainSection>
-      <div className="min-h-[92vh] relative canvas w-full flex flex-col">
+      <div className="editor-view canvas">
         <PublishZap zapId={zapId ?? ''} />
       </div>
     </MainSection>

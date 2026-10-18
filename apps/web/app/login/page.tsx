@@ -5,7 +5,7 @@ import React from 'react';
 const page = () => {
   return (
     <div className="auth-shell">
-      <h1 className="p-4 absolute text-2xl font-bold translate-y-[-4px] hover:text-primary-500 transition-all">
+      <h1 className="auth-brand">
         <Link href={'/'}>ZapMate</Link>
       </h1>
       <div className="auth-aside">

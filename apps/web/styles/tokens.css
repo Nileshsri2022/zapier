@@ -52,10 +52,52 @@
   --link-bg: 249 64% 98%;
 }
 
-/* ---- frontend-design pass (2026-10-18) ---- */
+/* ---- frontend-design & responsive-design tokens ---- */
 :root {
   --success: 152 69% 31%;
   --success-foreground: 0 0% 100%;
-  --shadow-lift: 0 12px 32px -12px rgb(36 26 18 / 0.25);
-  --shadow-card: 0 1px 2px rgb(36 26 18 / 0.06), 0 4px 16px -8px rgb(36 26 18 / 0.12);
+
+  /* Fluid typography scale (clamp: min -> max via viewport width) */
+  --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.8125rem);
+  --text-sm: clamp(0.8125rem, 0.775rem + 0.25vw, 0.875rem);
+  --text-base: clamp(0.9375rem, 0.875rem + 0.3125vw, 1rem);
+  --text-lg: clamp(1.0625rem, 0.975rem + 0.4375vw, 1.1875rem);
+  --text-xl: clamp(1.25rem, 1.125rem + 0.625vw, 1.5rem);
+  --text-2xl: clamp(1.5rem, 1.3rem + 1vw, 1.875rem);
+  --text-3xl: clamp(1.875rem, 1.55rem + 1.625vw, 2.375rem);
+  --text-4xl: clamp(2.25rem, 1.75rem + 2.5vw, 3.25rem);
+
+  /* Fluid spacing scale */
+  --space-xs: clamp(0.25rem, 0.2rem + 0.25vw, 0.375rem);
+  --space-sm: clamp(0.5rem, 0.45rem + 0.25vw, 0.75rem);
+  --space-md: clamp(1rem, 0.875rem + 0.625vw, 1.5rem);
+  --space-lg: clamp(1.5rem, 1.25rem + 1.25vw, 2.5rem);
+  --space-xl: clamp(2rem, 1.5rem + 2.5vw, 4rem);
+
+  /* Radius tokens */
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-full: 9999px;
+
+  /* Touch target min (WCAG 2.5.5 / mobile usability) */
+  --touch-target-min: 44px;
+
+  /* Shadow & elevation tokens */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+  --shadow-lift: 0 12px 32px -12px rgb(36 26 18 / 0.22);
+  --shadow-card: 0 1px 3px rgb(36 26 18 / 0.06), 0 4px 16px -8px rgb(36 26 18 / 0.1);
+
+  /* Motion & transition tokens */
+  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 150ms var(--ease-standard);
+  --transition-normal: 250ms var(--ease-standard);
+  --transition-slow: 400ms var(--ease-standard);
 }

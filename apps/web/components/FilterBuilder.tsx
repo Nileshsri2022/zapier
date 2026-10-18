@@ -93,53 +93,53 @@ export function FilterBuilder({ zapId, initialConditions = [], onSave }: FilterB
   const noValueOperators = ['is_empty', 'is_not_empty'];
 
   return (
-    <div className="bg-[#1f1f3a] rounded-lg border border-purple-500/30 overflow-hidden">
+    <div className="filter-builder">
       {/* Header */}
       <div
-        className="flex items-center justify-between p-3 cursor-pointer hover:bg-purple-500/10"
+        className="filter-builder__header"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex items-center gap-2">
-          <Filter size={18} className="text-purple-400" />
-          <span className="text-white font-medium">Filters</span>
+        <div className="filter-builder__head-left">
+          <Filter size={18} className="filter-builder__icon" />
+          <span className="filter-builder__title">Filters</span>
           {conditions.length > 0 && (
-            <span className="bg-purple-500/30 text-purple-300 text-xs px-2 py-0.5 rounded-full">
+            <span className="filter-builder__count">
               {conditions.length}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="filter-builder__head-right">
           {conditions.length === 0 && (
-            <span className="text-gray-500 text-sm">No filters - all triggers run</span>
+            <span className="filter-builder__empty-hint">No filters - all triggers run</span>
           )}
           {isExpanded ? (
-            <ChevronUp className="text-gray-400" size={18} />
+            <ChevronUp size={18} style={{ color: 'hsl(var(--muted-foreground))' }} />
           ) : (
-            <ChevronDown className="text-gray-400" size={18} />
+            <ChevronDown size={18} style={{ color: 'hsl(var(--muted-foreground))' }} />
           )}
         </div>
       </div>
 
       {/* Expanded Content */}
       {isExpanded && (
-        <div className="p-3 pt-0 space-y-3">
+        <div className="filter-builder__body">
           {/* Condition Rows */}
           {conditions.map((condition, index) => (
-            <div key={index} className="flex gap-2 items-center">
+            <div key={index} className="filter-builder__row">
               {/* Field */}
               <input
                 type="text"
                 placeholder="Field (e.g. data.amount)"
                 value={condition.field}
                 onChange={(e) => updateCondition(index, 'field', e.target.value)}
-                className="flex-1 bg-[#2a2a4a] text-white px-3 py-2 rounded border border-gray-600 focus:border-purple-500 focus:outline-none text-sm"
+                className="filter-builder__input"
               />
 
               {/* Operator */}
               <select
                 value={condition.operator}
                 onChange={(e) => updateCondition(index, 'operator', e.target.value)}
-                className="bg-[#2a2a4a] text-white px-3 py-2 rounded border border-gray-600 focus:border-purple-500 focus:outline-none text-sm"
+                className="filter-builder__select"
               >
                 {OPERATORS.map((op) => (
                   <option key={op.value} value={op.value}>
@@ -155,14 +155,16 @@ export function FilterBuilder({ zapId, initialConditions = [], onSave }: FilterB
                   placeholder="Value"
                   value={condition.value}
                   onChange={(e) => updateCondition(index, 'value', e.target.value)}
-                  className="flex-1 bg-[#2a2a4a] text-white px-3 py-2 rounded border border-gray-600 focus:border-purple-500 focus:outline-none text-sm"
+                  className="filter-builder__input"
                 />
               )}
 
               {/* Remove */}
               <button
+                type="button"
                 onClick={() => removeCondition(index)}
-                className="p-2 text-red-400 hover:bg-red-500/20 rounded"
+                className="filter-builder__delete-btn"
+                aria-label={`Remove filter condition ${index + 1}`}
               >
                 <Trash2 size={16} />
               </button>
@@ -170,10 +172,11 @@ export function FilterBuilder({ zapId, initialConditions = [], onSave }: FilterB
           ))}
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2">
+          <div className="filter-builder__actions">
             <button
+              type="button"
               onClick={addCondition}
-              className="flex items-center gap-1 text-purple-400 hover:text-purple-300 text-sm"
+              className="filter-builder__add-btn"
             >
               <Plus size={16} />
               Add Condition
@@ -181,9 +184,10 @@ export function FilterBuilder({ zapId, initialConditions = [], onSave }: FilterB
 
             {conditions.length > 0 && (
               <button
+                type="button"
                 onClick={saveFilters}
                 disabled={isSaving}
-                className="ml-auto flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm disabled:opacity-50"
+                className="filter-builder__save-btn"
               >
                 <Save size={14} />
                 {isSaving ? 'Saving...' : 'Save Filters'}
@@ -192,7 +196,7 @@ export function FilterBuilder({ zapId, initialConditions = [], onSave }: FilterB
           </div>
 
           {/* Help Text */}
-          <p className="text-xs text-gray-500 pt-2">
+          <p className="filter-builder__help">
             Filters run before actions. If conditions don&apos;t match, the Zap will skip.
           </p>
         </div>

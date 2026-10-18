@@ -12,16 +12,16 @@ const POINTS = [
 const page = () => {
   return (
     <div className="auth-shell">
-      <h1 className="p-4 absolute text-2xl font-bold translate-y-[-4px] hover:text-primary-500 transition-all">
+      <h1 className="auth-brand">
         <Link href={'/'}>ZapMate</Link>
       </h1>
 
       <div className="auth-aside">
         <h2>Join millions worldwide who automate their work using ZapMate.</h2>
-        <ul className="flex flex-col gap-4">
+        <ul className="auth-points">
           {POINTS.map((point) => (
-            <li key={point} className="flex items-center gap-2">
-              <Check className="size-5 shrink-0 text-success" aria-hidden="true" />
+            <li key={point} className="auth-point">
+              <Check className="auth-point__icon" aria-hidden="true" />
               <span>{point}</span>
             </li>
           ))}

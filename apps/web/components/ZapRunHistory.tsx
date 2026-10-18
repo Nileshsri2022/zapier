@@ -84,61 +84,68 @@ export function ZapRunHistory({ zapId, zapName, isOpen, onClose }: ZapRunHistory
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-[#1a1a2e] rounded-xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl">
+    <div
+      className="history-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="history-dialog">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+        <div className="history-header">
           <div>
-            <h2 className="text-lg font-semibold text-white">Run History</h2>
-            <p className="text-sm text-gray-400">{zapName}</p>
+            <h2 className="history-title">Run History</h2>
+            <p className="history-sub">{zapName}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
-            <X size={24} />
+          <button
+            type="button"
+            onClick={onClose}
+            className="history-close-btn"
+            aria-label="Close run history"
+          >
+            <X size={20} />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-4 overflow-y-auto max-h-[60vh]">
-          {error && <div className="text-red-400 text-center py-4">{error}</div>}
+        <div className="history-body">
+          {error && <div className="history-error">{error}</div>}
 
           {runs.length === 0 && !loading && !error && (
-            <div className="text-center py-12">
-              <Clock className="mx-auto text-gray-500 mb-3" size={48} />
-              <p className="text-gray-400">No runs yet</p>
-              <p className="text-gray-500 text-sm">This Zap hasn't been triggered yet</p>
+            <div className="history-empty">
+              <Clock className="history-empty__icon" size={44} />
+              <p className="history-empty__title">No runs yet</p>
+              <p className="history-empty__sub">This Zap hasn't been triggered yet</p>
             </div>
           )}
 
           {/* Timeline */}
-          <div className="space-y-3">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {runs.map((run) => (
-              <div
-                key={run.id}
-                className="bg-[#252542] rounded-lg p-4 hover:bg-[#2a2a4a] transition-colors"
-              >
+              <div key={run.id} className="history-item">
                 <div
-                  className="flex items-center justify-between cursor-pointer"
+                  className="history-item__header"
                   onClick={() => setExpandedRun(expandedRun === run.id ? null : run.id)}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <span className="text-white font-medium">{formatTime(run.createdAt)}</span>
-                    <span className="text-gray-400 text-sm">
+                  <div className="history-item__summary">
+                    <div className="history-status-dot" />
+                    <span className="history-time">{formatTime(run.createdAt)}</span>
+                    <span className="history-subtime">
                       {new Date(run.createdAt).toLocaleTimeString()}
                     </span>
                   </div>
                   {expandedRun === run.id ? (
-                    <ChevronUp className="text-gray-400" size={20} />
+                    <ChevronUp className="history-toggle-icon" size={18} />
                   ) : (
-                    <ChevronDown className="text-gray-400" size={20} />
+                    <ChevronDown className="history-toggle-icon" size={18} />
                   )}
                 </div>
 
                 {/* Expanded Details */}
                 {expandedRun === run.id && (
-                  <div className="mt-3 pt-3 border-t border-gray-700">
-                    <p className="text-xs text-gray-500 mb-2">Trigger Data:</p>
-                    <pre className="bg-[#1a1a2e] p-3 rounded text-xs text-gray-300 overflow-x-auto">
+                  <div className="history-details">
+                    <p className="history-details__label">Trigger Data:</p>
+                    <pre className="history-pre">
                       {JSON.stringify(run.metadata, null, 2)}
                     </pre>
                   </div>
@@ -150,9 +157,10 @@ export function ZapRunHistory({ zapId, zapName, isOpen, onClose }: ZapRunHistory
           {/* Load More */}
           {hasMore && runs.length > 0 && (
             <button
+              type="button"
               onClick={loadMore}
               disabled={loading}
-              className="w-full mt-4 py-2 bg-[#252542] text-white rounded-lg hover:bg-[#2a2a4a] disabled:opacity-50 flex items-center justify-center gap-2"
+              className="history-load-more"
             >
               {loading ? (
                 <>
@@ -166,8 +174,8 @@ export function ZapRunHistory({ zapId, zapName, isOpen, onClose }: ZapRunHistory
           )}
 
           {loading && runs.length === 0 && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="animate-spin text-purple-500" size={32} />
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
+              <Loader2 className="animate-spin" size={32} style={{ color: 'hsl(var(--brand-primary))' }} />
             </div>
           )}
         </div>

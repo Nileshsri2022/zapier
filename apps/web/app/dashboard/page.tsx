@@ -144,7 +144,7 @@ export default function Page() {
 
   return (
     <MainSection>
-      <div className="flex flex-col py-4 px-2 xs:px-3 sm:px-6 md:px-12 lg:px-20 gap-4 xs:gap-6">
+      <div className="dash-container">
         <div className="dash-head">
           <div>
             <h1 className="dash-title">My Zaps</h1>
@@ -372,21 +372,18 @@ export default function Page() {
         </table>
 
         {/* Mobile Card Layout - Visible only on mobile */}
-        <div className="md:hidden flex flex-col gap-3">
+        <div className="dash-cards">
           {data.total > 0 &&
             data?.zaps?.map((zap: TZap, index) => {
               // @ts-ignore
               const url = `${HOOKS_URL}/hooks/${session?.user?.id}/${zap.id}`;
 
               return (
-                <div
-                  key={zap.id}
-                  className="border border-gray-200 rounded-lg p-3 bg-white shadow-sm"
-                >
+                <div key={zap.id} className="dash-card">
                   {/* Header: Name + Toggle */}
-                  <div className="flex justify-between items-center mb-2">
+                  <div className="dash-card__header">
                     <Link
-                      className="font-medium text-foreground hover:text-primary-500 hover:underline text-sm xs:text-base truncate max-w-[60%] transition-colors"
+                      className="dash-card__title"
                       href={{ pathname: '/editor', query: { zapId: zap.id } }}
                     >
                       {zap.name}
@@ -403,18 +400,18 @@ export default function Page() {
                   </div>
 
                   {/* Flow Icons */}
-                  <div className="flex items-center gap-1 mb-2">
-                    <span className="text-xs text-gray-500 mr-1">Flow:</span>
+                  <div className="dash-card__flow">
+                    <span className="dash-card__flow-label">Flow:</span>
                     <img
-                      className="w-5 h-5 border p-[2px] border-gray-400 rounded"
+                      className="dash-card__icon"
                       src={appIcon(zap.trigger.trigger.type, zap.trigger.trigger.image)}
                       alt={zap.trigger.trigger.type}
                     />
-                    <span className="text-gray-400">→</span>
+                    <span className="dash-card__arrow">→</span>
                     {zap.actions.map((a, i) => (
                       <img
                         key={i}
-                        className="w-5 h-5 p-[2px] border border-gray-400 rounded"
+                        className="dash-card__icon"
                         src={appIcon(a.action.type, a.action.image)}
                         alt={a.action.type}
                       />
@@ -422,21 +419,23 @@ export default function Page() {
                   </div>
 
                   {/* Date */}
-                  <p className="text-xs text-gray-500 mb-2">
+                  <p className="dash-card__meta">
                     {formatDateTimeToCustomString(zap.createdDate)}
                   </p>
 
                   {/* Actions */}
-                  <div className="flex gap-2 pt-2 border-t border-gray-100">
+                  <div className="dash-card__footer">
                     <button
+                      type="button"
                       onClick={() => handleUrlCopy(url)}
-                      className="flex-1 text-xs py-2 px-3 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 flex items-center justify-center gap-1"
+                      className="dash-card__btn"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 20 20"
                         fill="currentColor"
-                        className="w-4 h-4"
+                        width="16"
+                        height="16"
                       >
                         <path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z" />
                         <path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z" />
@@ -444,14 +443,16 @@ export default function Page() {
                       Copy URL
                     </button>
                     <button
+                      type="button"
                       onClick={() => setHistoryZap(zap)}
-                      className="text-xs py-2 px-3 bg-blue-50 hover:bg-blue-100 rounded text-blue-600 flex items-center justify-center gap-1"
+                      className="dash-card__btn dash-card__btn--history"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 20 20"
                         fill="currentColor"
-                        className="w-4 h-4"
+                        width="16"
+                        height="16"
                       >
                         <path
                           fillRule="evenodd"
@@ -462,14 +463,16 @@ export default function Page() {
                       History
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleZapDelete(zap)}
-                      className="text-xs py-2 px-3 bg-red-50 hover:bg-red-100 rounded text-red-600 flex items-center justify-center gap-1"
+                      className="dash-card__btn dash-card__btn--delete"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 20 20"
                         fill="currentColor"
-                        className="w-4 h-4"
+                        width="16"
+                        height="16"
                       >
                         <path
                           fillRule="evenodd"
