@@ -54,6 +54,7 @@ jest.mock('@repo/db', () => ({
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       delete: jest.fn(),
     },
     trigger: {
@@ -73,10 +74,14 @@ jest.mock('@repo/db', () => ({
     availableTriggers: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      createMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
     availableActions: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      createMany: jest.fn(),
+      deleteMany: jest.fn(),
     },
     zapRun: {
       findMany: jest.fn(),
@@ -145,6 +150,7 @@ jest.mock('@repo/db', () => ({
         },
       })
     ),
+    $disconnect: jest.fn(),
   },
 }));
 

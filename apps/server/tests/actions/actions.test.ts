@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import client from '@repo/db';
 import * as ActionsController from '../../src/controllers/ActionsController';
+import { seedDatabase, SEEDED_ACTION_TYPES, UNIMPLEMENTED_GMAIL_ACTIONS } from '../../src/seed';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -106,6 +107,55 @@ describe('ActionsController - Execute Action', () => {
       await expect(
         ActionsController.executeAction('Solana', metadata, triggerPayload)
       ).resolves.not.toThrow();
+    });
+  });
+});
+
+describe('Seed Catalog - F4 / Gap D2 alignment', () => {
+  it('excludes unimplemented Gmail actions from SEEDED_ACTION_TYPES', () => {
+    for (const gmailAction of UNIMPLEMENTED_GMAIL_ACTIONS) {
+      expect(SEEDED_ACTION_TYPES).not.toContain(gmailAction);
+    }
+    expect(SEEDED_ACTION_TYPES).toEqual([
+      'Email',
+      'Solana',
+      'WhatsApp Send Message',
+      'Telegram Send Message',
+      'Webhook',
+    ]);
+  });
+
+  it('prunes unreferenced Gmail actions and deactivates armed Zaps referencing them', async () => {
+    (client.availableTriggers.createMany as jest.Mock).mockResolvedValue({ count: 23 });
+    (client.availableActions.createMany as jest.Mock).mockResolvedValue({ count: 5 });
+    (client.trigger.findMany as jest.Mock).mockResolvedValue([]);
+    (client.availableTriggers.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
+    (client.action.findMany as jest.Mock).mockResolvedValue([
+      {
+        action: { type: 'Gmail Send Email' },
+        zap: { id: 'zap-gmail-1', name: 'Broken Gmail Zap', isActive: true },
+      },
+    ]);
+    (client.zap.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+    (client.availableActions.deleteMany as jest.Mock).mockResolvedValue({ count: 5 });
+
+    await seedDatabase();
+
+    expect(client.availableActions.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.arrayContaining([expect.objectContaining({ type: 'Gmail Send Email' })]),
+        skipDuplicates: true,
+      })
+    );
+    expect(client.zap.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['zap-gmail-1'] } },
+      data: { isActive: false },
+    });
+    expect(client.availableActions.deleteMany).toHaveBeenCalledWith({
+      where: {
+        type: { in: [...UNIMPLEMENTED_GMAIL_ACTIONS] },
+        action: { none: {} },
+      },
     });
   });
 });
