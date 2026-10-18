@@ -1,6 +1,5 @@
 import express, { Express } from 'express';
 import router from './routes';
-import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import client from '@repo/db';
@@ -11,7 +10,9 @@ import {
   apiSecurityHeaders,
   compressionMiddleware,
   getCsrfToken,
+  errorHandler,
 } from './middlewares';
+import { corsMiddleware } from './middlewares/cors';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger';
 
@@ -30,17 +31,17 @@ const PORT = env.PORT || 5000;
 // Trust proxy - required for express-rate-limit behind reverse proxy (Render, etc.)
 app.set('trust proxy', 1);
 
-// CORS configuration - allow all origins (auth is handled by JWT)
-const corsOptions = {
-  origin: true, // Allow all origins
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'X-CSRF-Token'],
-};
+// CORS must run FIRST — before body parsers, cookies, security headers and
+// routes. Every response (including preflight OPTIONS and error responses)
+// must carry the Access-Control-Allow-* headers or browsers block the request
+// with: "No 'Access-Control-Allow-Origin' header is present on the requested
+// resource." See src/middlewares/cors.ts for the origin allowlist.
+app.use(corsMiddleware);
+// Handle preflights explicitly for every path, ahead of all routes/routers.
+app.options('*', corsMiddleware);
 
 app.use(express.json());
 app.use(cookieParser()); // Parse cookies for auth
-app.use(cors(corsOptions));
 app.use(compressionMiddleware); // Compress API responses
 
 // Security middleware
@@ -87,6 +88,10 @@ app.use('/api', router);
 app.get('/', (req, res) => {
   res.send('Server is working!');
 });
+
+// Global error handler — must be registered after all routes. Returns JSON
+// errors (with CORS headers intact) instead of Express's default HTML page.
+app.use(errorHandler);
 
 // Start server
 const server = app.listen(PORT, () => {

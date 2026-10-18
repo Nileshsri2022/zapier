@@ -9,7 +9,9 @@ export const apiLimiter = rateLimit({
   max: 100, // Limit each IP to 100 requests per window
   standardHeaders: true, // Return rate limit info in RateLimit-* headers
   legacyHeaders: false, // Disable X-RateLimit-* headers
-  skip: () => process.env.NODE_ENV === 'test',
+  // Never rate limit CORS preflights — a 429 without CORS headers would be
+  // reported by browsers as a CORS failure instead of a rate limit.
+  skip: (req) => process.env.NODE_ENV === 'test' || req.method === 'OPTIONS',
   message: {
     success: false,
     message: 'Too many requests, please try again later.',
@@ -26,7 +28,7 @@ export const authLimiter = rateLimit({
   max: 5, // Limit each IP to 5 login attempts per window
   standardHeaders: true,
   legacyHeaders: false,
-  skip: () => process.env.NODE_ENV === 'test',
+  skip: (req) => process.env.NODE_ENV === 'test' || req.method === 'OPTIONS', // never limit CORS preflights
   message: {
     success: false,
     message: 'Too many login attempts, please try again after 15 minutes.',
