@@ -1,4 +1,4 @@
-# App icons (served locally from /apps/*)
+# App icons (served locally from /apps-v2/*)
 
 Brand marks (Gmail, Google Sheets, Google Calendar, GitHub, WhatsApp, Telegram)
 are from Simple Icons (CC0), tinted with each brand's colour, downloaded and

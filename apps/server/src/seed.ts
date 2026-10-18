@@ -7,100 +7,100 @@ async function seedDatabase() {
       data: [
         {
           type: 'Webhook',
-          image: '/apps/webhook.svg',
+          image: '/apps-v2/webhook.svg',
         },
         {
           type: 'Gmail New Email',
-          image: '/apps/email.svg',
+          image: '/apps-v2/email.svg',
         },
         {
           type: 'Gmail Labeled',
-          image: '/apps/email.svg',
+          image: '/apps-v2/email.svg',
         },
         {
           type: 'Gmail Starred',
-          image: '/apps/email.svg',
+          image: '/apps-v2/email.svg',
         },
         {
           type: 'Gmail From Sender',
-          image: '/apps/email.svg',
+          image: '/apps-v2/email.svg',
         },
         {
           type: 'GitHub Push',
-          image: '/apps/github.svg',
+          image: '/apps-v2/github.svg',
         },
         {
           type: 'GitHub Pull Request',
-          image: '/apps/github.svg',
+          image: '/apps-v2/github.svg',
         },
         {
           type: 'GitHub Issue',
-          image: '/apps/github.svg',
+          image: '/apps-v2/github.svg',
         },
         {
           type: 'GitHub Release',
-          image: '/apps/github.svg',
+          image: '/apps-v2/github.svg',
         },
         {
           type: 'Google Sheets Updated Row',
-          image: '/apps/sheets.svg',
+          image: '/apps-v2/sheets.svg',
         },
         {
           type: 'WhatsApp Message Received',
-          image: '/apps/whatsapp.svg',
+          image: '/apps-v2/whatsapp.svg',
         },
         {
           type: 'Telegram New Message',
-          image: '/apps/telegram.svg',
+          image: '/apps-v2/telegram.svg',
         },
         {
           type: 'Schedule Every Minute',
-          image: '/apps/schedule.svg',
+          image: '/apps-v2/schedule.svg',
         },
         {
           type: 'Schedule Every Hour',
-          image: '/apps/schedule.svg',
+          image: '/apps-v2/schedule.svg',
         },
         {
           type: 'Schedule Every Day',
-          image: '/apps/schedule.svg',
+          image: '/apps-v2/schedule.svg',
         },
         {
           type: 'Schedule Every Week',
-          image: '/apps/schedule.svg',
+          image: '/apps-v2/schedule.svg',
         },
         {
           type: 'Schedule Every Month',
-          image: '/apps/schedule.svg',
+          image: '/apps-v2/schedule.svg',
         },
         // Google Calendar Triggers
         {
           type: 'Google Calendar New Event',
-          image: '/apps/calendar.svg',
+          image: '/apps-v2/calendar.svg',
         },
         {
           type: 'Google Calendar Event Updated',
-          image: '/apps/calendar.svg',
+          image: '/apps-v2/calendar.svg',
         },
         {
           type: 'Google Calendar Event Start',
-          image: '/apps/calendar.svg',
+          image: '/apps-v2/calendar.svg',
         },
         {
           type: 'Google Calendar Event Ended',
-          image: '/apps/calendar.svg',
+          image: '/apps-v2/calendar.svg',
         },
         {
           type: 'Google Calendar Event Cancelled',
-          image: '/apps/calendar.svg',
+          image: '/apps-v2/calendar.svg',
         },
         {
           type: 'Google Calendar New Calendar',
-          image: '/apps/calendar.svg',
+          image: '/apps-v2/calendar.svg',
         },
         {
           type: 'Google Calendar Event Matching Search',
-          image: '/apps/calendar.svg',
+          image: '/apps-v2/calendar.svg',
         },
       ],
       skipDuplicates: true,
@@ -111,47 +111,47 @@ async function seedDatabase() {
       data: [
         {
           type: 'Email',
-          image: '/apps/email.svg',
+          image: '/apps-v2/email.svg',
         },
         {
           type: 'Solana',
-          image: '/apps/Solana.svg',
+          image: '/apps-v2/Solana.svg',
         },
         {
           type: 'Gmail Send Email',
-          image: '/apps/email.svg',
+          image: '/apps-v2/email.svg',
         },
         {
           type: 'Gmail Reply',
-          image: '/apps/email.svg',
+          image: '/apps-v2/email.svg',
         },
         {
           type: 'Gmail Add Label',
-          image: '/apps/email.svg',
+          image: '/apps-v2/email.svg',
         },
         {
           type: 'Gmail Remove Label',
-          image: '/apps/email.svg',
+          image: '/apps-v2/email.svg',
         },
         {
           type: 'Gmail Mark as Read',
-          image: '/apps/email.svg',
+          image: '/apps-v2/email.svg',
         },
         {
           type: 'Gmail Archive',
-          image: '/apps/email.svg',
+          image: '/apps-v2/email.svg',
         },
         {
           type: 'WhatsApp Send Message',
-          image: '/apps/whatsapp.svg',
+          image: '/apps-v2/whatsapp.svg',
         },
         {
           type: 'Telegram Send Message',
-          image: '/apps/telegram.svg',
+          image: '/apps-v2/telegram.svg',
         },
         {
           type: 'Webhook',
-          image: '/apps/webhook.svg',
+          image: '/apps-v2/webhook.svg',
         },
       ],
       skipDuplicates: true,

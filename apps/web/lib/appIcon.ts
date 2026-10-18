@@ -1,7 +1,7 @@
 /**
  * Local app icons — NEVER a CDN.
  *
- * Icons ship in the repo at public/apps/*.svg and are served same-origin.
+ * Icons ship in the repo at public/apps-v2/*.svg and are served same-origin.
  * DB rows seeded before that change may still store old remote URLs
  * (icons8/flaticon — some now 404). appIcon() normalizes whatever it is
  * given to a local file, by trigger/action type first, then by the stored
@@ -9,19 +9,19 @@
  * render a broken image.
  */
 const BY_KEYWORD: Array<[RegExp, string]> = [
-  [/gmail/, '/apps/gmail.svg'],
-  [/sheet/, '/apps/sheets.svg'],
-  [/calendar/, '/apps/calendar.svg'],
-  [/github/, '/apps/github.svg'],
-  [/whatsapp/, '/apps/whatsapp.svg'],
-  [/telegram/, '/apps/telegram.svg'],
-  [/solana/, '/apps/Solana.svg'],
-  [/schedule/, '/apps/schedule.svg'],
-  [/webhook/, '/apps/webhook.svg'],
-  [/email|mail/, '/apps/email.svg'],
+  [/gmail/, '/apps-v2/gmail.svg'],
+  [/sheet/, '/apps-v2/sheets.svg'],
+  [/calendar/, '/apps-v2/calendar.svg'],
+  [/github/, '/apps-v2/github.svg'],
+  [/whatsapp/, '/apps-v2/whatsapp.svg'],
+  [/telegram/, '/apps-v2/telegram.svg'],
+  [/solana/, '/apps-v2/Solana.svg'],
+  [/schedule/, '/apps-v2/schedule.svg'],
+  [/webhook/, '/apps-v2/webhook.svg'],
+  [/email|mail/, '/apps-v2/email.svg'],
 ];
 
-export const FALLBACK_ICON = '/apps/webhook.svg';
+export const FALLBACK_ICON = '/apps-v2/webhook.svg';
 
 /** Resolve a local icon path for a trigger/action type and/or stored image value. */
 export function appIcon(type?: string | null, image?: string | null): string {

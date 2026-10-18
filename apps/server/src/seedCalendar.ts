@@ -2,7 +2,7 @@ import client from '@repo/db';
 
 // Script to insert or update Google Calendar trigger types
 async function seedCalendarTriggers() {
-  const calendarIcon = '/apps/calendar.svg';
+  const calendarIcon = '/apps-v2/calendar.svg';
 
   const calendarTriggers = [
     'Google Calendar New Event',
