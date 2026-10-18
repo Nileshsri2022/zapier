@@ -344,7 +344,16 @@ export const processWebhookTrigger = async (zapId: string, payload: any) => {
   }
 };
 
-export const processGmailTrigger = async (zapId: string, emailData: any) => {
+/**
+ * LEGACY (deprecated): execute a Gmail-triggered Zap's actions inline in
+ * this API server. Superseded by outbox dispatch in
+ * services/GmailDispatch (reports/gmail-worker-routing-spec.md) — kept
+ * only behind GMAIL_EXECUTION_PATH=inline until the P4 rollout flip, and
+ * deleted together with executeZapActions in P5. Renamed from
+ * `processGmailTrigger`, which collided with the fan-out function of the
+ * same name in GmailTriggersController.
+ */
+export const executeGmailZapInline = async (zapId: string, emailData: any) => {
   try {
     const zap = await client.zap.findUnique({
       where: { id: zapId, isActive: true },

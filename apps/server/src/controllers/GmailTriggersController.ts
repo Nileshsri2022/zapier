@@ -1,10 +1,58 @@
 import { Request, Response } from 'express';
 import client from '@repo/db';
-import { GmailService } from '../services/GmailService';
-import { processGmailTrigger as runZapActions } from './ZapController';
+import {
+  dispatchGmailEvent,
+  gmailExecutionPath,
+  mapGmailEventType,
+  shouldTrigger,
+} from '../services/GmailDispatch';
+import { executeGmailZapInline } from './ZapController';
 
+/**
+ * Fan a Gmail event out to every Zap configured for one Gmail server.
+ *
+ * Routing (reports/gmail-worker-routing-spec.md, D6 kill-switch):
+ * - GMAIL_EXECUTION_PATH=outbox → hydrate + dedup + ZapRun/ZapRunOutbox,
+ *   executed by apps/worker like every other trigger (GmailDispatch).
+ * - otherwise (default) → the legacy server-inline executor, byte-identical
+ *   to the pre-spec behavior until the rollout flip in P4; both the switch
+ *   and the inline path are deleted in P5.
+ */
 export const processGmailTrigger = async (serverId: string, emailData: any) => {
   try {
+    if (gmailExecutionPath() === 'outbox') {
+      // Resolve the concrete server row. Callers historically pass a
+      // GmailServer id — the webhook controller passes an email address,
+      // which cannot resolve until GmailServer.email lands in P3 (spec
+      // audit B3). Unresolvable => log + no-op, never a synthetic run.
+      const server = await client.gmailServer.findUnique({
+        where: { id: serverId },
+      });
+
+      if (!server || !server.isActive) {
+        console.warn(
+          `Gmail outbox dispatch skipped: no active GmailServer with id "${serverId}" ` +
+            '(email-address resolution lands with GmailServer.email in spec P3)'
+        );
+        return;
+      }
+
+      const messageId = emailData?.id || emailData?.messageId;
+      if (!messageId) {
+        console.warn('Gmail outbox dispatch skipped: event carries no message id');
+        return;
+      }
+
+      await dispatchGmailEvent(
+        server,
+        messageId,
+        mapGmailEventType(emailData?.eventType),
+        emailData?.eventType
+      );
+      return;
+    }
+
+    // Legacy inline path (default until P4) — unchanged behavior.
     // Find all Gmail triggers for this server
     const gmailTriggers = await client.gmailTrigger.findMany({
       where: { serverId },
@@ -13,83 +61,13 @@ export const processGmailTrigger = async (serverId: string, emailData: any) => {
 
     for (const gmailTrigger of gmailTriggers) {
       if (await shouldTrigger(gmailTrigger, emailData)) {
-        // Process the zap (single implementation lives in ZapController)
-        await runZapActions(gmailTrigger.zap.id, emailData);
+        await executeGmailZapInline(gmailTrigger.zap.id, emailData);
       }
     }
   } catch (error) {
     console.error('Error processing Gmail trigger:', error);
     throw error;
   }
-};
-
-const shouldTrigger = async (gmailTrigger: any, emailData: any): Promise<boolean> => {
-  try {
-    const { triggerType, watchedLabels, senderFilter, subjectFilter, metadata } = gmailTrigger;
-
-    // Check trigger type
-    switch (triggerType) {
-      case 'new_email':
-        return isNewEmailTrigger(emailData, {
-          watchedLabels,
-          senderFilter,
-          subjectFilter,
-          metadata,
-        });
-      case 'labeled':
-        return isLabeledTrigger(emailData, metadata);
-      case 'starred':
-        return isStarredTrigger(emailData, metadata);
-      case 'moved':
-        return isMovedTrigger(emailData, metadata);
-      default:
-        return false;
-    }
-  } catch (error) {
-    console.error('Error checking trigger condition:', error);
-    return false;
-  }
-};
-
-const isNewEmailTrigger = (emailData: any, filters: any): boolean => {
-  // Check if email matches the filters
-  if (filters.watchedLabels && filters.watchedLabels.length > 0) {
-    const hasWatchedLabel = emailData.labels?.some((label: string) =>
-      filters.watchedLabels.includes(label)
-    );
-    if (!hasWatchedLabel) return false;
-  }
-
-  if (filters.senderFilter) {
-    const senderMatch = emailData.from?.toLowerCase().includes(filters.senderFilter.toLowerCase());
-    if (!senderMatch) return false;
-  }
-
-  if (filters.subjectFilter) {
-    const subjectMatch = emailData.subject
-      ?.toLowerCase()
-      .includes(filters.subjectFilter.toLowerCase());
-    if (!subjectMatch) return false;
-  }
-
-  return true;
-};
-
-const isLabeledTrigger = (emailData: any, metadata: any): boolean => {
-  // Check if email was recently labeled
-  const targetLabels = metadata?.targetLabels || [];
-  return emailData.labels?.some((label: string) => targetLabels.includes(label));
-};
-
-const isStarredTrigger = (emailData: any, metadata: any): boolean => {
-  // Check if email was starred
-  return emailData.labels?.includes('STARRED');
-};
-
-const isMovedTrigger = (emailData: any, metadata: any): boolean => {
-  // Check if email was moved to specific folder
-  const targetFolder = metadata?.targetFolder;
-  return emailData.labels?.includes(targetFolder);
 };
 
 export const createGmailTrigger = async (req: Request, res: Response): Promise<any> => {

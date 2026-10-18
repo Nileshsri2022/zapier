@@ -112,12 +112,16 @@ describe('ZapController - run status is recorded honestly', () => {
     });
   });
 
-  describe('processGmailTrigger', () => {
+  // Renamed from processGmailTrigger in gmail-worker-routing-spec P2 (the old
+  // name collided with GmailTriggersController's fan-out); this legacy inline
+  // executor is deleted in P5, at which point these suites are re-pinned to
+  // enqueue semantics per the spec's test plan.
+  describe('executeGmailZapInline (legacy)', () => {
     it('records failed when an action throws', async () => {
       (client.zap.findUnique as jest.Mock).mockResolvedValue(zapWith([{ type: 'GmailSend' }]));
       mockedExecuteAction.mockRejectedValue(new Error('gmail quota exceeded'));
 
-      await ZapController.processGmailTrigger('zap-123', { messageId: 'm1' });
+      await ZapController.executeGmailZapInline('zap-123', { messageId: 'm1' });
 
       const run = lastRunRecord();
       expect(run.status).toBe('failed');

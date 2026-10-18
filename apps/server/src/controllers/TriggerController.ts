@@ -1,7 +1,7 @@
 import client from '@repo/db';
 import type { Request, Response } from 'express';
 import crypto from 'crypto';
-import { processWebhookTrigger, processGmailTrigger } from './ZapController';
+import { processWebhookTrigger } from './ZapController';
 
 export const fetchAvailableTriggers = async (req: Request, res: Response): Promise<any> => {
   const avialableTriggers = await client.availableTriggers.findMany();
@@ -50,30 +50,10 @@ export const handleWebhook = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-export const handleGmailTrigger = async (req: Request, res: Response): Promise<any> => {
-  try {
-    const { zapId } = req.params;
-    const emailData = req.body;
-
-    if (!zapId) {
-      return res.status(400).json({ message: 'Zap ID is required' });
-    }
-
-    // Process the Gmail trigger
-    await processGmailTrigger(zapId as string, emailData);
-
-    return res.status(200).json({
-      message: 'Gmail trigger processed successfully',
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('Gmail trigger processing error:', error);
-    return res.status(500).json({
-      message: 'Gmail trigger processing failed',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-};
+// NOTE: an unmounted `handleGmailTrigger` handler used to live here (it was
+// exported but attached to no route, and called the second function named
+// processGmailTrigger). Removed in gmail-worker-routing-spec P2 — Gmail
+// events enter via GmailRoutes' /webhook and GmailTriggersController.
 
 export const verifyWebhookSignature = (payload: string, signature: string): boolean => {
   try {

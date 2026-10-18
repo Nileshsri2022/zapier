@@ -19,6 +19,12 @@ const envSchema = z.object({
 
   // Optional webhook secret
   WEBHOOK_SECRET: z.string().optional(),
+
+  // Gmail execution routing (reports/gmail-worker-routing-spec.md D6):
+  // 'inline' (default) = legacy server-inline executor; 'outbox' = enqueue
+  // ZapRun + ZapRunOutbox for apps/worker. Temporary rollout kill-switch —
+  // removed together with the inline executor in spec phase P5.
+  GMAIL_EXECUTION_PATH: z.enum(['inline', 'outbox']).default('inline'),
 });
 
 export type Env = z.infer<typeof envSchema>;
