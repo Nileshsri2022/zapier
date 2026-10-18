@@ -6,6 +6,7 @@ import { sendEmailWithTextBody, sendZapFailureNotification } from '@repo/email';
 import { withRetry, RetryResult } from './utils/retry';
 import { sendSol, getSolanaPrivateKey } from './sendSolana';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
+import { isKnownActionType } from './utils/actionTypes';
 
 dotenv.config();
 
@@ -63,6 +64,16 @@ async function executeActionWithRetry(
 ): Promise<RetryResult<{ success: boolean; message: string; output?: any }>> {
   return withRetry(
     async () => {
+      // Fail loudly for actions the worker cannot execute. Previously an unknown
+      // type fell through to a fake `success: true` no-op and the run was marked
+      // completed (gap D2 in reports/workflow-execution-gaps.md).
+      if (!isKnownActionType(actionType)) {
+        throw new Error(
+          `Unknown action type: "${actionType}". The worker does not implement this action; ` +
+            `check the Zap's steps against the available action catalog.`
+        );
+      }
+
       if (actionType === 'Email') {
         const { to, subject, body } = metadata;
         let emailReceiver: string;
@@ -108,10 +119,13 @@ async function executeActionWithRetry(
         const resolvedAddress = replaceKeys(address, zapRunMetadata);
         const resolvedAmount = replaceKeys(amount, zapRunMetadata);
 
-        // Check if a Solana key is configured (documented name, then legacy)
+        // Check if a Solana key is configured (documented name, then legacy).
+        // Fail the run loudly instead of silently skipping a configured transfer.
         if (!getSolanaPrivateKey()) {
-          console.warn('⚠️ SOLANA_PRIVATE_KEY not configured - skipping Solana transfer');
-          return { success: false, message: 'SOLANA_PRIVATE_KEY not configured' };
+          throw new Error(
+            'Solana action configured but SOLANA_PRIVATE_KEY is not set. ' +
+              'Configure the key or remove the Solana step from the Zap.'
+          );
         }
 
         console.log(`Sending ${resolvedAmount} SOL to ${resolvedAddress}...`);
@@ -204,7 +218,9 @@ async function executeActionWithRetry(
         };
       }
 
-      return { success: true, message: `Unknown action: ${actionType}`, output: {} };
+      // Safety net — unreachable while the guard above uses the same registry,
+      // but never report success for an unimplemented action.
+      throw new Error(`Unknown action: ${actionType}`);
     },
     { maxRetries: 3, initialDelayMs: 1000 }
   );
