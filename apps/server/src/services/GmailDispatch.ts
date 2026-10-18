@@ -30,6 +30,18 @@ export interface GmailServerLike {
   refreshToken: string;
   accessToken: string;
   tokenExpiry?: Date | null;
+  email?: string | null;
+  lastHistoryId?: string | null;
+}
+
+function createGmailService(server: GmailServerLike): GmailService {
+  return new GmailService({
+    clientId: server.clientId,
+    clientSecret: server.clientSecret,
+    refreshToken: server.refreshToken,
+    accessToken: server.accessToken,
+    tokenExpiry: server.tokenExpiry || undefined,
+  });
 }
 
 export interface GmailDispatchResult {
@@ -122,15 +134,10 @@ export async function dispatchGmailEvent(
   server: GmailServerLike,
   messageId: string,
   eventType: GmailEventType,
-  rawEventType?: string
+  rawEventType?: string,
+  existingService?: GmailService
 ): Promise<GmailDispatchResult> {
-  const gmailService = new GmailService({
-    clientId: server.clientId,
-    clientSecret: server.clientSecret,
-    refreshToken: server.refreshToken,
-    accessToken: server.accessToken,
-    tokenExpiry: server.tokenExpiry || undefined,
-  });
+  const gmailService = existingService || createGmailService(server);
 
   // Hydrate once per message (not per Zap). Filters and downstream steps
   // need from/subject/labels/body — the bare notification ids the ingress
@@ -194,6 +201,194 @@ export async function dispatchGmailEvent(
   }
 
   return result;
+}
+
+/**
+ * Resolve connected Gmail servers for a mailbox address (spec D3/B3).
+ * Push notifications carry only the address; two users may connect the
+ * same mailbox, so every active match fans out independently.
+ */
+export async function resolveGmailServersByEmail(email: string): Promise<GmailServerLike[]> {
+  if (!email) return [];
+  const servers = await client.gmailServer.findMany({
+    where: { email, isActive: true },
+  });
+  return servers || [];
+}
+
+export interface GmailHistoryEvent {
+  messageId: string;
+  eventType: GmailEventType;
+  rawEventType: string;
+}
+
+/**
+ * Map Gmail `users.history.list` records onto the stored
+ * GmailTrigger.triggerType vocabulary (pure — unit-testable).
+ * Mapping is deliberately conservative; `shouldTrigger` still applies
+ * each Zap's own label/sender/subject filters on the hydrated payload:
+ * - messagesAdded                          -> new_email
+ * - labelsAdded containing STARRED         -> starred
+ * - labelsAdded (any other label)          -> labeled
+ * - labelsRemoved containing INBOX         -> moved (left the inbox)
+ * - labelsRemoved (any other label)        -> labeled
+ * Duplicates within the batch collapse to one event per message+type.
+ */
+export function mapHistoryRecords(records: any[]): GmailHistoryEvent[] {
+  const seen = new Set<string>();
+  const events: GmailHistoryEvent[] = [];
+
+  const add = (messageId: unknown, eventType: GmailEventType, rawEventType: string) => {
+    if (typeof messageId !== 'string' || !messageId) return;
+    const key = `${messageId}:${eventType}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    events.push({ messageId, eventType, rawEventType });
+  };
+
+  for (const record of records || []) {
+    for (const entry of record?.messagesAdded || []) {
+      add(entry?.message?.id, 'new_email', 'messageAdded');
+    }
+    for (const entry of record?.labelsAdded || []) {
+      const labels: string[] = entry?.labelIds || [];
+      add(entry?.message?.id, labels.includes('STARRED') ? 'starred' : 'labeled', 'labelAdded');
+    }
+    for (const entry of record?.labelsRemoved || []) {
+      const labels: string[] = entry?.labelIds || [];
+      add(entry?.message?.id, labels.includes('INBOX') ? 'moved' : 'labeled', 'labelRemoved');
+    }
+  }
+
+  return events;
+}
+
+export interface GmailHistoryDeltaResult extends GmailDispatchResult {
+  /** True when there was no usable cursor and one was (re)initialized
+   * without processing — first connect or a too-old cursor. */
+  cursorReset: boolean;
+}
+
+/**
+ * Process one real Gmail watch notification for a server: list the
+ * history delta since the stored cursor, dispatch each changed message,
+ * then advance the cursor. The cursor advances only after the whole
+ * batch is enqueued — if hydration throws mid-batch, the error
+ * propagates (push provider redelivers) and the dedup claims in
+ * dispatchGmailEvent make the retry skip already-enqueued Zaps.
+ */
+export async function processHistoryDelta(
+  server: GmailServerLike,
+  notificationHistoryId: string
+): Promise<GmailHistoryDeltaResult> {
+  const empty: GmailHistoryDeltaResult = { created: 0, skipped: 0, failed: 0, cursorReset: false };
+  const gmailService = createGmailService(server);
+
+  // First notification ever for this server: start from "now". Listing
+  // from the dawn of the mailbox would fire Zaps for ancient mail.
+  if (!server.lastHistoryId) {
+    await client.gmailServer.update({
+      where: { id: server.id },
+      data: { lastHistoryId: notificationHistoryId },
+    });
+    console.log(
+      `📬 Gmail history cursor initialized for server ${server.id} at ${notificationHistoryId}`
+    );
+    return { ...empty, cursorReset: true };
+  }
+
+  const records = await gmailService.listHistory(server.lastHistoryId);
+
+  // Cursor too old to list (Gmail expires old history ids): reset to the
+  // notification's id and move on — events in the gap are unrecoverable
+  // by design, and retrying would poison-loop the endpoint.
+  if (records === null) {
+    await client.gmailServer.update({
+      where: { id: server.id },
+      data: { lastHistoryId: notificationHistoryId },
+    });
+    console.warn(
+      `📬 Gmail history cursor reset for server ${server.id} (was ${server.lastHistoryId})`
+    );
+    return { ...empty, cursorReset: true };
+  }
+
+  const totals: GmailDispatchResult = { created: 0, skipped: 0, failed: 0 };
+  for (const event of mapHistoryRecords(records)) {
+    const result = await dispatchGmailEvent(
+      server,
+      event.messageId,
+      event.eventType,
+      event.rawEventType,
+      gmailService
+    );
+    totals.created += result.created;
+    totals.skipped += result.skipped;
+    totals.failed += result.failed;
+  }
+
+  await client.gmailServer.update({
+    where: { id: server.id },
+    data: { lastHistoryId: notificationHistoryId },
+  });
+
+  return { ...totals, cursorReset: false };
+}
+
+/**
+ * Renew Gmail watches expiring within 24 hours (spec §4.4). Gmail
+ * watches die after 7 days; without renewal push silently stops.
+ * Renewal does NOT touch lastHistoryId (history.list from the existing
+ * cursor stays valid across renewals; resetting it would skip the
+ * unprocessed delta) — it only initializes the cursor when unset.
+ */
+export async function renewExpiringGmailWatches(
+  now: Date = new Date()
+): Promise<{ renewed: number; failed: number; checked: number }> {
+  const horizon = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const servers = (await client.gmailServer.findMany({
+    where: { isActive: true },
+    include: { watchHistory: { orderBy: { createdAt: 'desc' }, take: 1 } },
+  })) as any[];
+
+  let renewed = 0;
+  let failed = 0;
+
+  for (const server of servers) {
+    const latestWatch = server.watchHistory?.[0];
+    const needsRenewal =
+      !latestWatch || !latestWatch.isActive || new Date(latestWatch.expiry) <= horizon;
+    if (!needsRenewal) continue;
+
+    try {
+      const gmailService = createGmailService(server);
+      const watchResult = await gmailService.watchEmails(['INBOX']);
+
+      await client.gmailWatch.create({
+        data: {
+          serverId: server.id,
+          watchId: watchResult.watchId,
+          expiry: watchResult.expiry,
+          isActive: true,
+        },
+      });
+
+      if (!server.lastHistoryId && watchResult.watchId) {
+        await client.gmailServer.update({
+          where: { id: server.id },
+          data: { lastHistoryId: watchResult.watchId },
+        });
+      }
+
+      console.log(`📬 Gmail watch renewed for server ${server.id} (expiry ${watchResult.expiry})`);
+      renewed++;
+    } catch (error) {
+      failed++;
+      console.error(`Failed to renew Gmail watch for server ${server.id}:`, error);
+    }
+  }
+
+  return { renewed, failed, checked: servers.length };
 }
 
 // ---------------------------------------------------------------------------

@@ -4,6 +4,7 @@ import {
   dispatchGmailEvent,
   gmailExecutionPath,
   mapGmailEventType,
+  resolveGmailServersByEmail,
   shouldTrigger,
 } from '../services/GmailDispatch';
 import { executeGmailZapInline } from './ZapController';
@@ -21,18 +22,25 @@ import { executeGmailZapInline } from './ZapController';
 export const processGmailTrigger = async (serverId: string, emailData: any) => {
   try {
     if (gmailExecutionPath() === 'outbox') {
-      // Resolve the concrete server row. Callers historically pass a
-      // GmailServer id — the webhook controller passes an email address,
-      // which cannot resolve until GmailServer.email lands in P3 (spec
-      // audit B3). Unresolvable => log + no-op, never a synthetic run.
-      const server = await client.gmailServer.findUnique({
+      // Resolve the concrete server row(s). Callers pass either a
+      // GmailServer id (internal) or the mailbox email address (the
+      // webhook controller). Email resolution uses GmailServer.email
+      // (spec D3/B3) — rows predating that column resolve only after
+      // the backfill script runs. Unresolvable => log + no-op, never a
+      // synthetic run.
+      const byId = await client.gmailServer.findUnique({
         where: { id: serverId },
       });
+      const servers = byId
+        ? byId.isActive
+          ? [byId]
+          : []
+        : await resolveGmailServersByEmail(serverId);
 
-      if (!server || !server.isActive) {
+      if (servers.length === 0) {
         console.warn(
-          `Gmail outbox dispatch skipped: no active GmailServer with id "${serverId}" ` +
-            '(email-address resolution lands with GmailServer.email in spec P3)'
+          `Gmail outbox dispatch skipped: no active GmailServer for "${serverId}" ` +
+            '(unknown id, or email not yet backfilled — see backfillGmailServerEmail script)'
         );
         return;
       }
@@ -43,12 +51,14 @@ export const processGmailTrigger = async (serverId: string, emailData: any) => {
         return;
       }
 
-      await dispatchGmailEvent(
-        server,
-        messageId,
-        mapGmailEventType(emailData?.eventType),
-        emailData?.eventType
-      );
+      for (const server of servers) {
+        await dispatchGmailEvent(
+          server,
+          messageId,
+          mapGmailEventType(emailData?.eventType),
+          emailData?.eventType
+        );
+      }
       return;
     }
 

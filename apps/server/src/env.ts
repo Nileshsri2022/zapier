@@ -25,6 +25,12 @@ const envSchema = z.object({
   // ZapRun + ZapRunOutbox for apps/worker. Temporary rollout kill-switch —
   // removed together with the inline executor in spec phase P5.
   GMAIL_EXECUTION_PATH: z.enum(['inline', 'outbox']).default('inline'),
+
+  // Gmail Pub/Sub push OIDC verification (spec §4.4). Both are optional in
+  // schema but SHOULD be set in production: the audience expected on the
+  // push JWT and the service-account email allowed to deliver to us.
+  GMAIL_PUBSUB_AUDIENCE: z.string().optional(),
+  GMAIL_PUBSUB_SERVICE_ACCOUNT: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

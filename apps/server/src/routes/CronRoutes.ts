@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import client from '@repo/db';
+import { renewExpiringGmailWatches } from '../services/GmailDispatch';
 
 const router = Router();
 
@@ -159,5 +160,30 @@ function calculateNextRun(schedule: any): Date {
 
   return next;
 }
+
+/**
+ * GET /api/cron/renew-gmail-watches
+ * Gmail watches expire after 7 days; the external cron calls this daily
+ * to renew any expiring within 24 hours (gmail-worker-routing-spec §4.4).
+ * Same x-cron-secret protection as process-schedules (fail closed).
+ */
+router.get('/renew-gmail-watches', async (req: Request, res: Response): Promise<any> => {
+  const cronSecret = req.headers['x-cron-secret'];
+  if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
+    console.log('⚠️ Unauthorized cron request (renew-gmail-watches)');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const result = await renewExpiringGmailWatches();
+    return res.json({ success: true, ...result, timestamp: new Date().toISOString() });
+  } catch (error) {
+    console.error('Gmail watch renewal failed:', error);
+    return res.status(500).json({
+      error: 'Gmail watch renewal failed',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
 
 export default router;

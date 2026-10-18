@@ -5,6 +5,7 @@ import {
   isGmailActionType,
   isCurrentlyFailingOnGmailPath,
 } from '../../src/scripts/auditGmailZaps';
+import { computeBackfillPlan } from '../../src/scripts/backfillGmailServerEmail';
 
 /**
  * P1 pre-flight audit classification (reports/gmail-worker-routing-spec.md).
@@ -135,5 +136,38 @@ describe('formatAuditReport + type classifiers', () => {
   ])('%s -> gmail:%s currentlyFailing:%s', (type, gmail, failing) => {
     expect(isGmailActionType(type as string)).toBe(gmail);
     expect(isCurrentlyFailingOnGmailPath(type as string)).toBe(failing);
+  });
+});
+
+describe('computeBackfillPlan (GmailServer.email backfill, spec D3)', () => {
+  it('plans email (+ cursor only when unset) and records profile failures', async () => {
+    const servers = [
+      { id: 'needs-both', email: null, lastHistoryId: null },
+      { id: 'has-cursor', email: null, lastHistoryId: '777' },
+      { id: 'already-done', email: 'done@gmail.com', lastHistoryId: '888' },
+      { id: 'dead-token', email: null, lastHistoryId: null },
+    ];
+    const fetchProfile = jest.fn(async (server: any) => {
+      if (server.id === 'dead-token') return null;
+      return { email: `${server.id}@gmail.com`, historyId: '999' };
+    });
+
+    const plan = await computeBackfillPlan(servers, fetchProfile);
+
+    expect(plan.updates).toEqual([
+      { id: 'needs-both', email: 'needs-both@gmail.com', lastHistoryId: '999' },
+      { id: 'has-cursor', email: 'has-cursor@gmail.com' },
+    ]);
+    expect(plan.failures).toEqual(['dead-token']);
+    // Servers that already have an email are never re-fetched (idempotent).
+    expect(fetchProfile).toHaveBeenCalledTimes(3);
+    expect(fetchProfile).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'already-done' }));
+  });
+
+  it('treats a throwing profile fetch as a failure, not a crash', async () => {
+    const plan = await computeBackfillPlan([{ id: 'boom', email: null }], async () => {
+      throw new Error('invalid_grant');
+    });
+    expect(plan).toEqual({ updates: [], failures: ['boom'] });
   });
 });

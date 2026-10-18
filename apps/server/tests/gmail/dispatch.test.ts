@@ -10,10 +10,14 @@ import client from '@repo/db';
 
 const mockGetEmailMetadata = jest.fn();
 const mockGetEmailContent = jest.fn();
+const mockListHistory = jest.fn();
+const mockWatchEmails = jest.fn();
 jest.mock('../../src/services/GmailService', () => ({
   GmailService: jest.fn().mockImplementation(() => ({
     getEmailMetadata: mockGetEmailMetadata,
     getEmailContent: mockGetEmailContent,
+    listHistory: mockListHistory,
+    watchEmails: mockWatchEmails,
   })),
 }));
 
@@ -33,6 +37,9 @@ import {
   dispatchGmailEvent,
   shouldTrigger,
   mapGmailEventType,
+  mapHistoryRecords,
+  processHistoryDelta,
+  renewExpiringGmailWatches,
   gmailExecutionPath,
 } from '../../src/services/GmailDispatch';
 import { processGmailTrigger } from '../../src/controllers/GmailTriggersController';
@@ -282,14 +289,28 @@ describe('GmailTriggersController.processGmailTrigger routing (D6 switch)', () =
     expect(client.zapRunOutbox.create).toHaveBeenCalled();
   });
 
-  it('outbox mode: unresolvable server id is a logged no-op (email resolution is P3)', async () => {
+  it('outbox mode: unresolvable identifier is a logged no-op', async () => {
     process.env.GMAIL_EXECUTION_PATH = 'outbox';
     (client.gmailServer.findUnique as jest.Mock).mockResolvedValue(null);
+    (client.gmailServer.findMany as jest.Mock).mockResolvedValue([]);
 
     await expect(
-      processGmailTrigger('owner@gmail.com', { id: 'msg-1', eventType: 'new_email' })
+      processGmailTrigger('nobody@gmail.com', { id: 'msg-1', eventType: 'new_email' })
     ).resolves.toBeUndefined();
     expect(client.zapRun.create).not.toHaveBeenCalled();
+  });
+
+  it('outbox mode: falls back to GmailServer.email resolution (P3/B3)', async () => {
+    process.env.GMAIL_EXECUTION_PATH = 'outbox';
+    (client.gmailServer.findUnique as jest.Mock).mockResolvedValue(null);
+    (client.gmailServer.findMany as jest.Mock).mockResolvedValue([server]);
+
+    await processGmailTrigger('owner@gmail.com', { id: 'msg-1', eventType: 'new_email' });
+
+    expect(client.gmailServer.findMany).toHaveBeenCalledWith({
+      where: { email: 'owner@gmail.com', isActive: true },
+    });
+    expect(client.zapRun.create).toHaveBeenCalled();
   });
 
   it('inline mode (default): legacy fan-out, no outbox writes', async () => {
@@ -304,5 +325,149 @@ describe('GmailTriggersController.processGmailTrigger routing (D6 switch)', () =
     });
     expect(client.zapRunOutbox.create).not.toHaveBeenCalled();
     expect(mockGetEmailMetadata).not.toHaveBeenCalled();
+  });
+});
+
+describe('mapHistoryRecords (users.history.list -> trigger vocabulary)', () => {
+  const msg = (id: string, labelIds?: string[]) => ({ message: { id }, labelIds });
+
+  it('maps messageAdded/labelAdded/labelRemoved conservatively', () => {
+    const events = mapHistoryRecords([
+      { messagesAdded: [msg('m1')] },
+      { labelsAdded: [msg('m2', ['STARRED']), msg('m3', ['BILLING'])] },
+      { labelsRemoved: [msg('m4', ['INBOX']), msg('m5', ['UNREAD'])] },
+    ]);
+
+    expect(events).toEqual([
+      { messageId: 'm1', eventType: 'new_email', rawEventType: 'messageAdded' },
+      { messageId: 'm2', eventType: 'starred', rawEventType: 'labelAdded' },
+      { messageId: 'm3', eventType: 'labeled', rawEventType: 'labelAdded' },
+      { messageId: 'm4', eventType: 'moved', rawEventType: 'labelRemoved' },
+      { messageId: 'm5', eventType: 'labeled', rawEventType: 'labelRemoved' },
+    ]);
+  });
+
+  it('collapses duplicate message+type pairs within the batch and ignores malformed entries', () => {
+    const events = mapHistoryRecords([
+      { messagesAdded: [msg('m1'), msg('m1'), { message: {} }, null as any] },
+      null as any,
+      {},
+    ]);
+    expect(events).toEqual([
+      { messageId: 'm1', eventType: 'new_email', rawEventType: 'messageAdded' },
+    ]);
+  });
+});
+
+describe('processHistoryDelta (real Pub/Sub notifications)', () => {
+  const serverWithCursor = { ...server, lastHistoryId: '100' };
+
+  beforeEach(() => {
+    mockDedupSeen.clear();
+    mockGetEmailMetadata.mockResolvedValue({ ...hydratedMetadata });
+    mockGetEmailContent.mockResolvedValue({ body: 'body', truncated: false });
+    (client.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(client));
+    (client.zapRun.create as jest.Mock).mockResolvedValue({ id: 'run-1' });
+    (client.zapRunOutbox.create as jest.Mock).mockResolvedValue({ id: 'outbox-1' });
+    (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([triggerRow()]);
+    (client.gmailServer.update as jest.Mock).mockResolvedValue({});
+  });
+
+  it('dispatches the delta and advances the cursor afterwards', async () => {
+    mockListHistory.mockResolvedValue([{ messagesAdded: [{ message: { id: 'msg-1' } }] }]);
+
+    const result = await processHistoryDelta(serverWithCursor, '150');
+
+    expect(mockListHistory).toHaveBeenCalledWith('100');
+    expect(result).toMatchObject({ created: 1, cursorReset: false });
+    expect(client.gmailServer.update).toHaveBeenCalledWith({
+      where: { id: 'server-1' },
+      data: { lastHistoryId: '150' },
+    });
+  });
+
+  it('initializes the cursor without listing when none is stored (no ancient-mail flood)', async () => {
+    const result = await processHistoryDelta({ ...server, lastHistoryId: null }, '150');
+
+    expect(mockListHistory).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ created: 0, cursorReset: true });
+    expect(client.gmailServer.update).toHaveBeenCalledWith({
+      where: { id: 'server-1' },
+      data: { lastHistoryId: '150' },
+    });
+  });
+
+  it('resets the cursor when Gmail reports it too old (listHistory null)', async () => {
+    mockListHistory.mockResolvedValue(null);
+
+    const result = await processHistoryDelta(serverWithCursor, '150');
+
+    expect(result).toMatchObject({ created: 0, cursorReset: true });
+    expect(client.zapRun.create).not.toHaveBeenCalled();
+    expect(client.gmailServer.update).toHaveBeenCalledWith({
+      where: { id: 'server-1' },
+      data: { lastHistoryId: '150' },
+    });
+  });
+
+  it('does NOT advance the cursor when hydration fails, so redelivery retries safely', async () => {
+    mockListHistory.mockResolvedValue([{ messagesAdded: [{ message: { id: 'msg-1' } }] }]);
+    mockGetEmailMetadata.mockResolvedValue(null);
+
+    await expect(processHistoryDelta(serverWithCursor, '150')).rejects.toThrow(/hydrate/i);
+    expect(client.gmailServer.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('renewExpiringGmailWatches', () => {
+  const now = new Date('2026-10-19T00:00:00.000Z');
+  const watchServer = (id: string, expiry: Date | null, extra: any = {}) => ({
+    ...server,
+    id,
+    lastHistoryId: '100',
+    watchHistory: expiry ? [{ expiry, isActive: true, createdAt: now }] : [],
+    ...extra,
+  });
+
+  beforeEach(() => {
+    (client as any).gmailWatch = { create: jest.fn().mockResolvedValue({}) };
+    (client.gmailServer.update as jest.Mock).mockResolvedValue({});
+    mockWatchEmails.mockResolvedValue({
+      watchId: '555',
+      expiry: new Date('2026-10-26T00:00:00.000Z'),
+    });
+  });
+
+  it('renews only watches expiring within 24h (or missing) and records them', async () => {
+    (client.gmailServer.findMany as jest.Mock).mockResolvedValue([
+      watchServer('soon', new Date('2026-10-19T12:00:00.000Z')),
+      watchServer('fine', new Date('2026-10-25T00:00:00.000Z')),
+      watchServer('none', null, { lastHistoryId: null }),
+    ]);
+
+    const result = await renewExpiringGmailWatches(now);
+
+    expect(result).toEqual({ renewed: 2, failed: 0, checked: 3 });
+    expect(mockWatchEmails).toHaveBeenCalledTimes(2);
+    expect((client as any).gmailWatch.create).toHaveBeenCalledTimes(2);
+    // Cursor initialized only where unset — never reset (would skip deltas).
+    expect(client.gmailServer.update).toHaveBeenCalledTimes(1);
+    expect(client.gmailServer.update).toHaveBeenCalledWith({
+      where: { id: 'none' },
+      data: { lastHistoryId: '555' },
+    });
+  });
+
+  it('counts per-server failures without aborting the sweep', async () => {
+    (client.gmailServer.findMany as jest.Mock).mockResolvedValue([
+      watchServer('bad', null),
+      watchServer('good', null),
+    ]);
+    mockWatchEmails
+      .mockRejectedValueOnce(new Error('watch rejected'))
+      .mockResolvedValue({ watchId: '556', expiry: new Date('2026-10-26T00:00:00.000Z') });
+
+    const result = await renewExpiringGmailWatches(now);
+    expect(result).toEqual({ renewed: 1, failed: 1, checked: 2 });
   });
 });

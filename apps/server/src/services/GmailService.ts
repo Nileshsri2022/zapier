@@ -226,6 +226,73 @@ export class GmailService {
   }
 
   /**
+   * Connected mailbox identity (address + current history id).
+   * Used at OAuth time and by the GmailServer.email backfill
+   * (reports/gmail-worker-routing-spec.md D3).
+   */
+  async getProfileEmail(): Promise<{ email: string; historyId: string } | null> {
+    await this.ensureValidToken();
+
+    try {
+      const response = await this.gmail.users.getProfile({ userId: 'me' });
+      return {
+        email: response.data.emailAddress || '',
+        historyId: response.data.historyId || '',
+      };
+    } catch (error) {
+      console.error('Error fetching Gmail profile:', error);
+      return null;
+    }
+  }
+
+  /**
+   * History delta since a stored cursor — how real Gmail watch
+   * notifications ({ emailAddress, historyId } only) are turned into
+   * concrete message events (spec B2). Returns the raw history records.
+   *
+   * Returns null when Gmail reports the start history id as too old
+   * (HTTP 404) — the caller resets the cursor instead of retrying a
+   * delta that can never be listed. Other errors throw so the push
+   * provider redelivers and the delta is retried.
+   */
+  async listHistory(startHistoryId: string): Promise<any[] | null> {
+    await this.ensureValidToken();
+
+    try {
+      const records: any[] = [];
+      let pageToken: string | undefined;
+
+      // Bounded pagination: a single mailbox delta beyond 5 pages is an
+      // anomaly (e.g. bulk import); remaining records surface on the
+      // next notification because the cursor only advances per batch.
+      for (let page = 0; page < 5; page++) {
+        const response = await this.gmail.users.history.list({
+          userId: 'me',
+          startHistoryId,
+          historyTypes: ['messageAdded', 'labelAdded', 'labelRemoved'],
+          maxResults: 100,
+          pageToken,
+        });
+
+        records.push(...(response.data.history || []));
+        pageToken = response.data.nextPageToken || undefined;
+        if (!pageToken) break;
+      }
+
+      return records;
+    } catch (error: any) {
+      const status = error?.code ?? error?.response?.status;
+      if (status === 404) {
+        console.warn(
+          `Gmail history cursor ${startHistoryId} is too old (404) — caller will reset it`
+        );
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Send email
    */
   async sendEmail(

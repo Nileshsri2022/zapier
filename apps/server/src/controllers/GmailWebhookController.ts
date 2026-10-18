@@ -1,6 +1,12 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { processGmailTrigger } from './GmailTriggersController';
+import {
+  gmailExecutionPath,
+  processHistoryDelta,
+  resolveGmailServersByEmail,
+} from '../services/GmailDispatch';
 
 export interface GmailNotification {
   message: {
@@ -14,35 +20,104 @@ export interface GmailNotification {
 export interface GmailNotificationData {
   emailAddress: string;
   historyId: string;
-  eventType: 'new_email' | 'label_added' | 'label_removed' | 'starred' | 'unstarred' | 'moved';
+  // Legacy custom-relay fields. Real Gmail watch notifications contain
+  // ONLY emailAddress + historyId (spec audit B2) — eventType/messageId
+  // are present only when an enriching relay produced them.
+  eventType?: 'new_email' | 'label_added' | 'label_removed' | 'starred' | 'unstarred' | 'moved';
   messageId?: string;
   threadId?: string;
   labelIds?: string[];
 }
 
+const oidcClient = new OAuth2Client();
+
 /**
- * Handle Gmail push notifications
+ * Authenticate a Gmail push delivery. Two accepted credentials
+ * (reports/gmail-worker-routing-spec.md §4.4/§8):
+ *
+ * 1. Pub/Sub OIDC (real Google push subscriptions): an
+ *    `Authorization: Bearer <JWT>` whose signature/issuer verify, whose
+ *    audience matches GMAIL_PUBSUB_AUDIENCE when configured, and whose
+ *    email claim matches GMAIL_PUBSUB_SERVICE_ACCOUNT when configured.
+ * 2. Legacy HMAC (`x-goog-signature` + GMAIL_WEBHOOK_SECRET) for any
+ *    pre-existing custom relay — kept only until the P1 probe confirms
+ *    nothing depends on it, then removed.
+ *
+ * Fails closed: no recognized valid credential => false.
+ */
+export async function verifyGmailPushAuth(req: Request): Promise<boolean> {
+  const authorization = req.headers.authorization;
+
+  if (typeof authorization === 'string' && authorization.startsWith('Bearer ')) {
+    const idToken = authorization.slice('Bearer '.length).trim();
+    try {
+      const ticket = await oidcClient.verifyIdToken({
+        idToken,
+        audience: process.env.GMAIL_PUBSUB_AUDIENCE || undefined,
+      });
+      const payload = ticket.getPayload();
+
+      if (!payload || payload.email_verified !== true || !payload.email) return false;
+      const expectedAccount = process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT;
+      if (expectedAccount && payload.email !== expectedAccount) return false;
+      return true;
+    } catch (error) {
+      console.warn(
+        'Gmail Pub/Sub OIDC verification failed:',
+        error instanceof Error ? error.message : error
+      );
+      return false;
+    }
+  }
+
+  // Legacy path — real Pub/Sub never sends this header.
+  return verifyGmailWebhookSignature(req.headers, req.body);
+}
+
+/**
+ * Handle Gmail push notifications.
+ *
+ * Two payload shapes converge on the same dispatch:
+ * - Real Gmail watch: { emailAddress, historyId } — the changed
+ *   messages are discovered via history.list (processHistoryDelta).
+ * - Legacy custom relay: enriched eventType/messageId fields — handled
+ *   by the per-event handlers below, unchanged.
  */
 export const handleGmailWebhook = async (req: Request, res: Response): Promise<any> => {
   try {
     const notification: GmailNotification = req.body;
 
-    // Verify webhook signature for security
-    if (!verifyGmailWebhookSignature(req.headers, req.body)) {
-      console.warn('Invalid Gmail webhook signature');
+    if (!(await verifyGmailPushAuth(req))) {
+      console.warn('Invalid Gmail webhook credentials');
       return res.status(401).json({ message: 'Invalid signature' });
     }
 
-    // Decode notification data
-    const notificationData: GmailNotificationData = JSON.parse(
-      Buffer.from(notification.message.data, 'base64').toString('utf-8')
-    );
+    if (!notification?.message?.data) {
+      return res.status(400).json({ message: 'Malformed Pub/Sub envelope' });
+    }
+
+    let notificationData: GmailNotificationData;
+    try {
+      notificationData = JSON.parse(
+        Buffer.from(notification.message.data, 'base64').toString('utf-8')
+      );
+    } catch {
+      // A body that can never parse would poison-loop on redelivery.
+      return res.status(400).json({ message: 'Undecodable notification data' });
+    }
 
     console.log('Received Gmail notification:', {
       eventType: notificationData.eventType,
       messageId: notificationData.messageId,
       threadId: notificationData.threadId,
+      historyId: notificationData.historyId,
     });
+
+    // Real Gmail watch shape: no eventType — resolve the delta first.
+    if (!notificationData.eventType) {
+      await handleHistoryNotification(notificationData);
+      return res.status(200).json({ message: 'OK' });
+    }
 
     // Process the notification based on event type
     switch (notificationData.eventType) {
@@ -75,6 +150,40 @@ export const handleGmailWebhook = async (req: Request, res: Response): Promise<a
       message: 'Error processing Gmail notification',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
+  }
+};
+
+/**
+ * Real Gmail watch notifications: identify changed messages through the
+ * history delta for each server connected to the notified mailbox.
+ * Errors propagate (→ HTTP 500 → Pub/Sub redelivers; dedup makes the
+ * retry safe). In inline mode the notification is acknowledged WITHOUT
+ * advancing the cursor, so no event is silently swallowed before the
+ * P4 flip — the inline executor cannot consume history deltas.
+ */
+const handleHistoryNotification = async (data: GmailNotificationData): Promise<void> => {
+  if (!data.emailAddress || !data.historyId) {
+    console.warn('Gmail history notification missing emailAddress/historyId');
+    return;
+  }
+
+  if (gmailExecutionPath() !== 'outbox') {
+    console.log(
+      `📬 Gmail history notification for ${data.emailAddress} acknowledged without processing (GMAIL_EXECUTION_PATH=inline)`
+    );
+    return;
+  }
+
+  const servers = await resolveGmailServersByEmail(data.emailAddress);
+  if (servers.length === 0) {
+    // Mailbox not connected (or email not backfilled yet) — ack so the
+    // provider does not retry a notification we can never route.
+    console.log(`📬 No connected GmailServer for ${data.emailAddress}; notification dropped`);
+    return;
+  }
+
+  for (const server of servers) {
+    await processHistoryDelta(server, String(data.historyId));
   }
 };
 
@@ -200,16 +309,6 @@ export const verifyGmailWebhookSignature = (headers: any, body: any): boolean =>
   }
 };
 
-/**
- * Renew Gmail watch subscription before it expires
- */
-export const renewGmailWatch = async (serverId: string): Promise<void> => {
-  try {
-    // This would be called by a scheduled job
-    // Implementation would depend on your GmailService
-    console.log(`Renewing Gmail watch for server: ${serverId}`);
-    // TODO: Implement watch renewal logic
-  } catch (error) {
-    console.error('Error renewing Gmail watch:', error);
-  }
-};
+// Watch renewal used to be a TODO stub here. It is implemented as
+// renewExpiringGmailWatches() in services/GmailDispatch and exposed via
+// GET /api/cron/renew-gmail-watches (reports/gmail-worker-routing-spec.md §4.4).

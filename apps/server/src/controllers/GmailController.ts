@@ -91,6 +91,12 @@ export const handleGmailCallback = async (req: Request, res: Response): Promise<
     const gmailServer = await client.gmailServer.create({
       data: {
         name: name || 'Gmail Server',
+        // Push notifications identify the mailbox only by address, and the
+        // history cursor starts at connect time so no old mail fires
+        // (reports/gmail-worker-routing-spec.md D3 — the profile was
+        // previously fetched for verification and then discarded).
+        email: profile.data.emailAddress || null,
+        lastHistoryId: profile.data.historyId || null,
         clientId: process.env.GOOGLE_CLIENT_ID!,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
         refreshToken: tokens.refresh_token!,
