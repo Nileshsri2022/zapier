@@ -7,100 +7,100 @@ async function seedDatabase() {
       data: [
         {
           type: 'Webhook',
-          image: 'https://img.icons8.com/ios-filled/50/webhook.png',
+          image: '/apps/webhook.svg',
         },
         {
           type: 'Gmail New Email',
-          image: 'https://img.icons8.com/ios-filled/50/email.png',
+          image: '/apps/email.svg',
         },
         {
           type: 'Gmail Labeled',
-          image: 'https://img.icons8.com/ios-filled/50/email.png',
+          image: '/apps/email.svg',
         },
         {
           type: 'Gmail Starred',
-          image: 'https://img.icons8.com/ios-filled/50/email.png',
+          image: '/apps/email.svg',
         },
         {
           type: 'Gmail From Sender',
-          image: 'https://img.icons8.com/ios-filled/50/email.png',
+          image: '/apps/email.svg',
         },
         {
           type: 'GitHub Push',
-          image: 'https://img.icons8.com/ios-filled/50/github.png',
+          image: '/apps/github.svg',
         },
         {
           type: 'GitHub Pull Request',
-          image: 'https://img.icons8.com/ios-filled/50/github.png',
+          image: '/apps/github.svg',
         },
         {
           type: 'GitHub Issue',
-          image: 'https://img.icons8.com/ios-filled/50/github.png',
+          image: '/apps/github.svg',
         },
         {
           type: 'GitHub Release',
-          image: 'https://img.icons8.com/ios-filled/50/github.png',
+          image: '/apps/github.svg',
         },
         {
           type: 'Google Sheets Updated Row',
-          image: 'https://img.icons8.com/color/48/google-sheets.png',
+          image: '/apps/sheets.svg',
         },
         {
           type: 'WhatsApp Message Received',
-          image: 'https://img.icons8.com/color/48/whatsapp.png',
+          image: '/apps/whatsapp.svg',
         },
         {
           type: 'Telegram New Message',
-          image: 'https://img.icons8.com/color/48/telegram-app.png',
+          image: '/apps/telegram.svg',
         },
         {
           type: 'Schedule Every Minute',
-          image: 'https://img.icons8.com/ios-filled/50/schedule.png',
+          image: '/apps/schedule.svg',
         },
         {
           type: 'Schedule Every Hour',
-          image: 'https://img.icons8.com/ios-filled/50/schedule.png',
+          image: '/apps/schedule.svg',
         },
         {
           type: 'Schedule Every Day',
-          image: 'https://img.icons8.com/ios-filled/50/schedule.png',
+          image: '/apps/schedule.svg',
         },
         {
           type: 'Schedule Every Week',
-          image: 'https://img.icons8.com/ios-filled/50/schedule.png',
+          image: '/apps/schedule.svg',
         },
         {
           type: 'Schedule Every Month',
-          image: 'https://img.icons8.com/ios-filled/50/schedule.png',
+          image: '/apps/schedule.svg',
         },
         // Google Calendar Triggers
         {
           type: 'Google Calendar New Event',
-          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
+          image: '/apps/calendar.svg',
         },
         {
           type: 'Google Calendar Event Updated',
-          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
+          image: '/apps/calendar.svg',
         },
         {
           type: 'Google Calendar Event Start',
-          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
+          image: '/apps/calendar.svg',
         },
         {
           type: 'Google Calendar Event Ended',
-          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
+          image: '/apps/calendar.svg',
         },
         {
           type: 'Google Calendar Event Cancelled',
-          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
+          image: '/apps/calendar.svg',
         },
         {
           type: 'Google Calendar New Calendar',
-          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
+          image: '/apps/calendar.svg',
         },
         {
           type: 'Google Calendar Event Matching Search',
-          image: 'https://cdn-icons-png.flaticon.com/48/2965/2965879.png',
+          image: '/apps/calendar.svg',
         },
       ],
       skipDuplicates: true,
@@ -111,47 +111,47 @@ async function seedDatabase() {
       data: [
         {
           type: 'Email',
-          image: 'https://img.icons8.com/ios-filled/50/email.png',
+          image: '/apps/email.svg',
         },
         {
           type: 'Solana',
-          image: 'https://cryptologos.cc/logos/solana-sol-logo.png?v=029',
+          image: '/apps/Solena.svg',
         },
         {
           type: 'Gmail Send Email',
-          image: 'https://img.icons8.com/ios-filled/50/email.png',
+          image: '/apps/email.svg',
         },
         {
           type: 'Gmail Reply',
-          image: 'https://img.icons8.com/ios-filled/50/email.png',
+          image: '/apps/email.svg',
         },
         {
           type: 'Gmail Add Label',
-          image: 'https://img.icons8.com/ios-filled/50/email.png',
+          image: '/apps/email.svg',
         },
         {
           type: 'Gmail Remove Label',
-          image: 'https://img.icons8.com/ios-filled/50/email.png',
+          image: '/apps/email.svg',
         },
         {
           type: 'Gmail Mark as Read',
-          image: 'https://img.icons8.com/ios-filled/50/email.png',
+          image: '/apps/email.svg',
         },
         {
           type: 'Gmail Archive',
-          image: 'https://img.icons8.com/ios-filled/50/email.png',
+          image: '/apps/email.svg',
         },
         {
           type: 'WhatsApp Send Message',
-          image: 'https://img.icons8.com/color/48/whatsapp.png',
+          image: '/apps/whatsapp.svg',
         },
         {
           type: 'Telegram Send Message',
-          image: 'https://img.icons8.com/color/48/telegram-app.png',
+          image: '/apps/telegram.svg',
         },
         {
           type: 'Webhook',
-          image: 'https://img.icons8.com/ios-filled/50/webhook.png',
+          image: '/apps/webhook.svg',
         },
       ],
       skipDuplicates: true,
