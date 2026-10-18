@@ -9,6 +9,8 @@ import '../styles/components/button.css';
 import '../styles/components/form-input.css';
 import '../styles/components/spinner.css';
 import '../styles/components/tooltip.css';
+import '../styles/pages/landing.css';
+import '../styles/pages/app.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { Analytics } from '@vercel/analytics/react';

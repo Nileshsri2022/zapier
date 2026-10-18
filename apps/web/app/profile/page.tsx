@@ -56,9 +56,9 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20 px-6">
+    <div className="min-h-screen bg-base-100 pt-20 px-6">
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">My Profile</h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-8">My Profile</h1>
 
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center gap-4 mb-6">

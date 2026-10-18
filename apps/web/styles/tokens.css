@@ -51,3 +51,11 @@
   --radius: 0.5rem;
   --link-bg: 249 64% 98%;
 }
+
+/* ---- frontend-design pass (2026-10-18) ---- */
+:root {
+  --success: 152 69% 31%;
+  --success-foreground: 0 0% 100%;
+  --shadow-lift: 0 12px 32px -12px rgb(36 26 18 / 0.25);
+  --shadow-card: 0 1px 2px rgb(36 26 18 / 0.06), 0 4px 16px -8px rgb(36 26 18 / 0.12);
+}

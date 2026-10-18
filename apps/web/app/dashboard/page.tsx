@@ -144,8 +144,15 @@ export default function Page() {
   return (
     <MainSection>
       <div className="flex flex-col py-4 px-2 xs:px-3 sm:px-6 md:px-12 lg:px-20 gap-4 xs:gap-6">
-        <div className="flex flex-col xs:flex-row justify-between items-start xs:items-center gap-2">
-          <h3 className="text-xl xs:text-2xl sm:text-3xl font-semibold">My Zaps</h3>
+        <div className="dash-head">
+          <div>
+            <h1 className="dash-title">My Zaps</h1>
+            <p className="dash-sub">
+              {data.total > 0
+                ? `${data.total} ${data.total === 1 ? 'zap' : 'zaps'} — toggle one off to pause it without deleting it.`
+                : 'Zaps you create will show up here.'}
+            </p>
+          </div>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={handleCreateClick}>
               <svg
@@ -166,7 +173,7 @@ export default function Page() {
         </div>
 
         {/* Desktop Table - Hidden on mobile */}
-        <table className="hidden md:table">
+        <table className="dash-table hidden md:table">
           <thead>
             <tr className="border-b border-gray-200">
               <th className="font-normal py-3 text-start w-40">Name</th>
@@ -227,7 +234,7 @@ export default function Page() {
                     </td>
                     <td className="font-normal py-3 text-start">
                       <div className="flex gap-10">
-                        {url}
+                        <span className="dash-url">{url}</span>
                         <svg
                           onClick={() => handleUrlCopy(url)}
                           xmlns="http://www.w3.org/2000/svg"
@@ -256,8 +263,9 @@ export default function Page() {
                           onChange={(e) => toggleZapExecution(e, zap)}
                           className="sr-only peer"
                         />
-                        <div className="relative z-10 w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-700"></div>
+                        <div className="relative z-10 w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
                       </label>
+                      <div><span className="dash-status" data-on={zap.isActive}>{zap.isActive ? 'Live' : 'Paused'}</span></div>
                     </td>
                     <td
                       onClick={() =>
@@ -349,6 +357,17 @@ export default function Page() {
                   </tr>
                 );
               })}
+            {data.total === 0 && !loading && (
+              <tr>
+                <td colSpan={6}>
+                  <div className="dash-empty">
+                    <h3>No zaps yet</h3>
+                    <p>Build your first zap: pick a trigger, add an action, and ZapMate runs it for you from then on.</p>
+                    <Button variant="primary" onClick={handleCreateClick}>Create your first zap</Button>
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
 
@@ -380,7 +399,7 @@ export default function Page() {
                         onChange={(e) => toggleZapExecution(e, zap)}
                         className="sr-only peer"
                       />
-                      <div className="relative w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-green-700 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                      <div className="relative w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-success after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
                     </label>
                   </div>
 
@@ -466,8 +485,10 @@ export default function Page() {
               );
             })}
           {data.total === 0 && !loading && (
-            <div className="text-center text-gray-500 py-8">
-              No zaps yet. Create your first one!
+            <div className="dash-empty">
+              <h3>No zaps yet</h3>
+              <p>Build your first zap: pick a trigger, add an action, and ZapMate runs it for you from then on.</p>
+              <Button variant="primary" onClick={handleCreateClick}>Create your first zap</Button>
             </div>
           )}
         </div>

@@ -49,7 +49,7 @@ export const SignupForm = () => {
   };
 
   return (
-    <div className="p-3 xs:p-4 sm:p-6 border border-gray-400 rounded-md w-full xs:w-[95%] sm:w-[90%] md:w-[75%] lg:w-[60%] mx-auto">
+    <div className="auth-card">
       <form className="flex flex-col gap-2">
         <FormInput label="Name" name="signup_name" onChange={handleChange} />
         <FormInput label="Email" name="signup_email" onChange={handleChange} />
@@ -122,7 +122,7 @@ export const LoginForm = () => {
   };
 
   return (
-    <div className="p-3 xs:p-4 sm:p-6 border border-gray-400 rounded-md w-full xs:w-[95%] sm:w-[90%] md:w-[75%] lg:w-[60%] mx-auto">
+    <div className="auth-card">
       <form className="flex flex-col gap-2">
         <FormInput label="Email" name="login_email" onChange={handleChange} />
         <FormInput label="Password" name="login_pw" onChange={handleChange} />
