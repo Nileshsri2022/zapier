@@ -2,11 +2,7 @@ import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { processGmailTrigger } from './GmailTriggersController';
-import {
-  gmailExecutionPath,
-  processHistoryDelta,
-  resolveGmailServersByEmail,
-} from '../services/GmailDispatch';
+import { processHistoryDelta, resolveGmailServersByEmail } from '../services/GmailDispatch';
 
 export interface GmailNotification {
   message: {
@@ -157,20 +153,11 @@ export const handleGmailWebhook = async (req: Request, res: Response): Promise<a
  * Real Gmail watch notifications: identify changed messages through the
  * history delta for each server connected to the notified mailbox.
  * Errors propagate (→ HTTP 500 → Pub/Sub redelivers; dedup makes the
- * retry safe). In inline mode the notification is acknowledged WITHOUT
- * advancing the cursor, so no event is silently swallowed before the
- * P4 flip — the inline executor cannot consume history deltas.
+ * retry safe).
  */
 const handleHistoryNotification = async (data: GmailNotificationData): Promise<void> => {
   if (!data.emailAddress || !data.historyId) {
     console.warn('Gmail history notification missing emailAddress/historyId');
-    return;
-  }
-
-  if (gmailExecutionPath() !== 'outbox') {
-    console.log(
-      `📬 Gmail history notification for ${data.emailAddress} acknowledged without processing (GMAIL_EXECUTION_PATH=inline)`
-    );
     return;
   }
 

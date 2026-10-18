@@ -7,24 +7,13 @@ const envSchema = z.object({
   PORT: z.string().default('5000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
-  // Optional SMTP settings - live config, not legacy residue: the Email action
-  // (ActionsController) sends through nodemailer using these. SMTP_PASS is the
-  // name the code reads; the docs used to call it SMTP_PASSWORD and
-  // ActionsController now accepts either. The worker sends via Resend instead
-  // and does not use this block.
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.string().optional(),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
+  // No SMTP block: the server-inline nodemailer Email executor was deleted
+  // in gmail-worker-routing-spec P5. The Email action sends from
+  // apps/worker via Resend (RESEND_API_KEY there); this server never sends
+  // action email. Setting SMTP_* has no effect.
 
   // Optional webhook secret
   WEBHOOK_SECRET: z.string().optional(),
-
-  // Gmail execution routing (reports/gmail-worker-routing-spec.md D6):
-  // 'inline' (default) = legacy server-inline executor; 'outbox' = enqueue
-  // ZapRun + ZapRunOutbox for apps/worker. Temporary rollout kill-switch —
-  // removed together with the inline executor in spec phase P5.
-  GMAIL_EXECUTION_PATH: z.enum(['inline', 'outbox']).default('inline'),
 
   // Gmail Pub/Sub push OIDC verification (spec §4.4). Both are optional in
   // schema but SHOULD be set in production: the audience expected on the

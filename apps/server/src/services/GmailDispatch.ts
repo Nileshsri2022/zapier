@@ -13,12 +13,9 @@ import { isDuplicateEvent } from '../utils/dedup';
  * step conditions.
  *
  * The dispatch is ingress-agnostic: callers supply a resolved GmailServer
- * row, a message id, and an event type. Whether that event arrived via
- * Pub/Sub push or (future) polling is decided at the spec's D2 gate (P3).
- *
- * Rollout: GmailTriggersController only calls this when
- * GMAIL_EXECUTION_PATH=outbox (default: legacy inline path, unchanged).
- * The switch and the legacy executor are deleted in P5 of the spec.
+ * row, a message id, and an event type. As of spec phase P5 the legacy
+ * inline executor and its GMAIL_EXECUTION_PATH switch are deleted — this
+ * outbox dispatch is the only Gmail execution path.
  */
 
 export type GmailEventType = 'new_email' | 'labeled' | 'starred' | 'moved';
@@ -48,11 +45,6 @@ export interface GmailDispatchResult {
   created: number;
   skipped: number;
   failed: number;
-}
-
-/** Which execution path Gmail dispatch uses (spec D6 kill-switch). */
-export function gmailExecutionPath(): 'inline' | 'outbox' {
-  return process.env.GMAIL_EXECUTION_PATH === 'outbox' ? 'outbox' : 'inline';
 }
 
 /**

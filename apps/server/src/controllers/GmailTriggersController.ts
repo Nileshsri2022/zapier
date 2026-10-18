@@ -2,77 +2,55 @@ import { Request, Response } from 'express';
 import client from '@repo/db';
 import {
   dispatchGmailEvent,
-  gmailExecutionPath,
   mapGmailEventType,
   resolveGmailServersByEmail,
-  shouldTrigger,
 } from '../services/GmailDispatch';
-import { executeGmailZapInline } from './ZapController';
 
 /**
- * Fan a Gmail event out to every Zap configured for one Gmail server.
- *
- * Routing (reports/gmail-worker-routing-spec.md, D6 kill-switch):
- * - GMAIL_EXECUTION_PATH=outbox → hydrate + dedup + ZapRun/ZapRunOutbox,
- *   executed by apps/worker like every other trigger (GmailDispatch).
- * - otherwise (default) → the legacy server-inline executor, byte-identical
- *   to the pre-spec behavior until the rollout flip in P4; both the switch
- *   and the inline path are deleted in P5.
+ * Fan a Gmail event out to every Zap configured for one Gmail server:
+ * resolve server(s) → hydrate + dedup + ZapRun/ZapRunOutbox for
+ * apps/worker (services/GmailDispatch). The legacy server-inline
+ * executor and its GMAIL_EXECUTION_PATH switch were deleted in
+ * gmail-worker-routing-spec P5 — the worker is the only engine.
  */
 export const processGmailTrigger = async (serverId: string, emailData: any) => {
   try {
-    if (gmailExecutionPath() === 'outbox') {
-      // Resolve the concrete server row(s). Callers pass either a
-      // GmailServer id (internal) or the mailbox email address (the
-      // webhook controller). Email resolution uses GmailServer.email
-      // (spec D3/B3) — rows predating that column resolve only after
-      // the backfill script runs. Unresolvable => log + no-op, never a
-      // synthetic run.
-      const byId = await client.gmailServer.findUnique({
-        where: { id: serverId },
-      });
-      const servers = byId
-        ? byId.isActive
-          ? [byId]
-          : []
-        : await resolveGmailServersByEmail(serverId);
+    // Resolve the concrete server row(s). Callers pass either a
+    // GmailServer id (internal) or the mailbox email address (the
+    // webhook controller). Email resolution uses GmailServer.email
+    // (spec D3/B3) — rows predating that column resolve only after
+    // the backfill script runs. Unresolvable => log + no-op, never a
+    // synthetic run.
+    const byId = await client.gmailServer.findUnique({
+      where: { id: serverId },
+    });
+    const servers = byId
+      ? byId.isActive
+        ? [byId]
+        : []
+      : await resolveGmailServersByEmail(serverId);
 
-      if (servers.length === 0) {
-        console.warn(
-          `Gmail outbox dispatch skipped: no active GmailServer for "${serverId}" ` +
-            '(unknown id, or email not yet backfilled — see backfillGmailServerEmail script)'
-        );
-        return;
-      }
-
-      const messageId = emailData?.id || emailData?.messageId;
-      if (!messageId) {
-        console.warn('Gmail outbox dispatch skipped: event carries no message id');
-        return;
-      }
-
-      for (const server of servers) {
-        await dispatchGmailEvent(
-          server,
-          messageId,
-          mapGmailEventType(emailData?.eventType),
-          emailData?.eventType
-        );
-      }
+    if (servers.length === 0) {
+      console.warn(
+        `Gmail dispatch skipped: no active GmailServer for "${serverId}" ` +
+          '(unknown id, or email not yet backfilled — see backfillGmailServerEmail script)'
+      );
       return;
     }
 
-    // Legacy inline path (default until P4) — unchanged behavior.
-    // Find all Gmail triggers for this server
-    const gmailTriggers = await client.gmailTrigger.findMany({
-      where: { serverId },
-      include: { zap: true },
-    });
+    const messageId = emailData?.id || emailData?.messageId;
+    if (!messageId) {
+      console.warn('Gmail dispatch skipped: event carries no message id');
+      return;
+    }
 
-    for (const gmailTrigger of gmailTriggers) {
-      if (await shouldTrigger(gmailTrigger, emailData)) {
-        await executeGmailZapInline(gmailTrigger.zap.id, emailData);
-      }
+    for (const server of servers) {
+      await dispatchGmailEvent(
+        server,
+        messageId,
+        mapGmailEventType(emailData?.eventType),
+        emailData?.eventType
+      );
     }
   } catch (error) {
     console.error('Error processing Gmail trigger:', error);

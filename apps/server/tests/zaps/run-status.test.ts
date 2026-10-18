@@ -1,35 +1,34 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import client from '@repo/db';
-import * as ZapController from '../../src/controllers/ZapController';
-import * as ActionsController from '../../src/controllers/ActionsController';
 import * as TriggerController from '../../src/controllers/TriggerController';
 
-jest.mock('../../src/controllers/ActionsController');
-
 /**
- * A run whose actions failed must not be recorded as a success.
- * Before this, per-action errors were swallowed and zapRun.create was called
- * without a status, so a Zap where every step failed still looked healthy.
+ * Enqueue semantics for the legacy server webhook (gmail-worker-routing
+ * P5). This file previously pinned the server-inline executor writing
+ * final run statuses itself. The honest-status intent carries over:
+ *
+ * - a delivered webhook durably creates ZapRun + ZapRunOutbox in ONE
+ *   transaction — the run exists and is visible as `pending`; its final
+ *   status is owned by apps/worker (running -> completed/failed), never
+ *   pre-written here;
+ * - the HTTP response stays 200 once queued (providers must not retry
+ *   and double-run), including for missing/inactive Zaps (no rows);
+ * - nothing is enqueued for bad signatures, and duplicate event ids
+ *   (opt-in, hooks-ingress parity) enqueue only once.
  */
 
-const mockedExecuteAction = ActionsController.executeAction as jest.MockedFunction<
-  typeof ActionsController.executeAction
->;
-
-const zapWith = (actions: { type: string }[]) => ({
-  id: 'zap-123',
-  actions: actions.map((a, i) => ({
-    action: { type: a.type },
-    metadata: { step: i + 1 },
-    sortingOrder: i + 1,
-  })),
-});
-
-const lastRunRecord = () => {
-  const create = client.zapRun.create as jest.Mock;
-  expect(create).toHaveBeenCalled();
-  return create.mock.calls[create.mock.calls.length - 1][0].data;
-};
+const mockDedupSeen = new Set<string>();
+jest.mock('../../src/utils/dedup', () => ({
+  isDuplicateEvent: jest.fn(async (scope: string, eventId?: string) => {
+    if (!eventId) return false;
+    const key = `${scope}:${eventId}`;
+    if (mockDedupSeen.has(key)) return true;
+    mockDedupSeen.add(key);
+    return false;
+  }),
+  dedupKey: (scope: string, eventId: string) => `zapmate:dedup:${scope}:${eventId}`,
+}));
 
 const webhookRes = () => {
   const json = jest.fn();
@@ -37,115 +36,107 @@ const webhookRes = () => {
   return { res: { status, json } as unknown as Response, status, json };
 };
 
-describe('ZapController - run status is recorded honestly', () => {
+const webhookReq = (body: any, headers: Record<string, string> = {}) =>
+  ({ params: { zapId: 'zap-123' }, body, headers }) as unknown as Request;
+
+describe('TriggerController.handleWebhook — enqueue, never execute', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    mockDedupSeen.clear();
+    delete process.env.WEBHOOK_SECRET;
+    (client.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(client));
+    (client.zapRun.create as jest.Mock).mockResolvedValue({ id: 'run-1' });
+    (client.zapRunOutbox.create as jest.Mock).mockResolvedValue({ id: 'out-1' });
+    (client.zap.findUnique as jest.Mock).mockResolvedValue({ id: 'zap-123' });
   });
 
-  describe('processWebhookTrigger', () => {
-    it('records completed when every action succeeds', async () => {
-      (client.zap.findUnique as jest.Mock).mockResolvedValue(zapWith([{ type: 'Email' }]));
-      mockedExecuteAction.mockResolvedValue(undefined);
-
-      await ZapController.processWebhookTrigger('zap-123', { event: 'test' });
-
-      const run = lastRunRecord();
-      expect(run.status).toBe('completed');
-      expect(run.errorMessage).toBeNull();
-      expect(run.completedAt).toBeInstanceOf(Date);
-    });
-
-    it('records failed and names the action when one throws', async () => {
-      (client.zap.findUnique as jest.Mock).mockResolvedValue(
-        zapWith([{ type: 'Email' }, { type: 'Solana' }])
-      );
-      mockedExecuteAction
-        .mockResolvedValueOnce(undefined)
-        .mockRejectedValueOnce(new Error('insufficient funds'));
-
-      await ZapController.processWebhookTrigger('zap-123', { event: 'test' });
-
-      const run = lastRunRecord();
-      expect(run.status).toBe('failed');
-      expect(run.errorMessage).toContain('Solana');
-      expect(run.errorMessage).toContain('insufficient funds');
-    });
-
-    it('records failed when every action throws', async () => {
-      (client.zap.findUnique as jest.Mock).mockResolvedValue(zapWith([{ type: 'Email' }]));
-      mockedExecuteAction.mockRejectedValue(new Error('smtp down'));
-
-      await ZapController.processWebhookTrigger('zap-123', { event: 'test' });
-
-      expect(lastRunRecord().status).toBe('failed');
-    });
-
-    it('keeps executing later actions after one fails', async () => {
-      (client.zap.findUnique as jest.Mock).mockResolvedValue(
-        zapWith([{ type: 'Email' }, { type: 'Solana' }])
-      );
-      mockedExecuteAction
-        .mockRejectedValueOnce(new Error('first failed'))
-        .mockResolvedValueOnce(undefined);
-
-      await ZapController.processWebhookTrigger('zap-123', { event: 'test' });
-
-      expect(mockedExecuteAction).toHaveBeenCalledTimes(2);
-      expect(lastRunRecord().status).toBe('failed');
-    });
-
-    it('does not throw, so webhook providers do not retry and double-run', async () => {
-      (client.zap.findUnique as jest.Mock).mockResolvedValue(zapWith([{ type: 'Email' }]));
-      mockedExecuteAction.mockRejectedValue(new Error('smtp down'));
-
-      await expect(
-        ZapController.processWebhookTrigger('zap-123', { event: 'test' })
-      ).resolves.toBeUndefined();
-    });
-
-    it('writes no run when the zap is missing or inactive', async () => {
-      (client.zap.findUnique as jest.Mock).mockResolvedValue(null);
-
-      await ZapController.processWebhookTrigger('zap-123', { event: 'test' });
-
-      expect(client.zapRun.create).not.toHaveBeenCalled();
-    });
+  afterEach(() => {
+    delete process.env.WEBHOOK_SECRET;
   });
 
-  // Renamed from processGmailTrigger in gmail-worker-routing-spec P2 (the old
-  // name collided with GmailTriggersController's fan-out); this legacy inline
-  // executor is deleted in P5, at which point these suites are re-pinned to
-  // enqueue semantics per the spec's test plan.
-  describe('executeGmailZapInline (legacy)', () => {
-    it('records failed when an action throws', async () => {
-      (client.zap.findUnique as jest.Mock).mockResolvedValue(zapWith([{ type: 'GmailSend' }]));
-      mockedExecuteAction.mockRejectedValue(new Error('gmail quota exceeded'));
+  it('enqueues ZapRun + ZapRunOutbox in one transaction and returns 200', async () => {
+    const { res, status } = webhookRes();
+    await TriggerController.handleWebhook(webhookReq({ event: 'test', amount: 5 }), res);
 
-      await ZapController.executeGmailZapInline('zap-123', { messageId: 'm1' });
-
-      const run = lastRunRecord();
-      expect(run.status).toBe('failed');
-      expect(run.errorMessage).toContain('gmail quota exceeded');
+    expect(status).toHaveBeenCalledWith(200);
+    expect(client.$transaction).toHaveBeenCalledTimes(1);
+    // No pre-written final status: the worker owns running/completed/failed.
+    expect(client.zapRun.create).toHaveBeenCalledWith({
+      data: { zapId: 'zap-123', metadata: { event: 'test', amount: 5 } },
     });
+    expect(client.zapRunOutbox.create).toHaveBeenCalledWith({ data: { zapRunId: 'run-1' } });
   });
 
-  describe('webhook response is unchanged', () => {
-    it('still returns 200 with a failed action, so providers do not retry and double-run', async () => {
-      (client.zap.findUnique as jest.Mock).mockResolvedValue(zapWith([{ type: 'Email' }]));
-      mockedExecuteAction.mockRejectedValue(new Error('boom'));
+  it('writes no run when the zap is missing or inactive, but still returns 200', async () => {
+    (client.zap.findUnique as jest.Mock).mockResolvedValue(null);
+    const { res, status } = webhookRes();
 
-      const { res, status } = webhookRes();
-      await TriggerController.handleWebhook(
-        {
-          params: { zapId: 'zap-123' },
-          body: { event: 'test' },
-          headers: {},
-        } as unknown as Request,
-        res
-      );
+    await TriggerController.handleWebhook(webhookReq({ event: 'test' }), res);
 
-      expect(status).toHaveBeenCalledWith(200);
-      expect(lastRunRecord().status).toBe('failed');
-    });
+    expect(status).toHaveBeenCalledWith(200);
+    expect(client.zapRun.create).not.toHaveBeenCalled();
+    expect(client.zapRunOutbox.create).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 without a zapId', async () => {
+    const { res, status } = webhookRes();
+    await TriggerController.handleWebhook(
+      { params: {}, body: {}, headers: {} } as unknown as Request,
+      res
+    );
+    expect(status).toHaveBeenCalledWith(400);
+    expect(client.zapRun.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects missing/invalid signatures with 401 and enqueues nothing', async () => {
+    process.env.WEBHOOK_SECRET = 'test-webhook-secret';
+
+    const missing = webhookRes();
+    await TriggerController.handleWebhook(webhookReq({ event: 'test' }), missing.res);
+    expect(missing.status).toHaveBeenCalledWith(401);
+
+    const invalid = webhookRes();
+    await TriggerController.handleWebhook(
+      webhookReq({ event: 'test' }, { 'x-webhook-signature': 'sha256=deadbeef' }),
+      invalid.res
+    );
+    expect(invalid.status).toHaveBeenCalledWith(401);
+    expect(client.zapRun.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts a correctly signed webhook when a secret is configured', async () => {
+    process.env.WEBHOOK_SECRET = 'test-webhook-secret';
+    const body = { event: 'signed' };
+    const signature = `sha256=${crypto
+      .createHmac('sha256', 'test-webhook-secret')
+      .update(JSON.stringify(body))
+      .digest('hex')}`;
+
+    const { res, status } = webhookRes();
+    await TriggerController.handleWebhook(
+      webhookReq(body, { 'x-webhook-signature': signature }),
+      res
+    );
+
+    expect(status).toHaveBeenCalledWith(200);
+    expect(client.zapRun.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('enqueues only once for a duplicate opt-in event_id', async () => {
+    const first = webhookRes();
+    await TriggerController.handleWebhook(webhookReq({ event_id: 'evt-1' }), first.res);
+    const replay = webhookRes();
+    await TriggerController.handleWebhook(webhookReq({ event_id: 'evt-1' }), replay.res);
+
+    expect(first.status).toHaveBeenCalledWith(200);
+    expect(replay.status).toHaveBeenCalledWith(200);
+    expect(client.zapRun.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces enqueue failures as 500 so the provider redelivers', async () => {
+    (client.zapRun.create as jest.Mock).mockRejectedValue(new Error('db down'));
+    const { res, status } = webhookRes();
+
+    await TriggerController.handleWebhook(webhookReq({ event: 'test' }), res);
+    expect(status).toHaveBeenCalledWith(500);
   });
 });

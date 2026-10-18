@@ -75,7 +75,6 @@ const serverRow = {
 describe('handleGmailWebhook — Pub/Sub OIDC + history shape', () => {
   beforeEach(() => {
     mockDedupSeen.clear();
-    process.env.GMAIL_EXECUTION_PATH = 'outbox';
     process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT = PUSH_ACCOUNT;
     delete process.env.GMAIL_PUBSUB_AUDIENCE;
 
@@ -115,7 +114,6 @@ describe('handleGmailWebhook — Pub/Sub OIDC + history shape', () => {
   });
 
   afterEach(() => {
-    delete process.env.GMAIL_EXECUTION_PATH;
     delete process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT;
     delete process.env.GMAIL_WEBHOOK_SECRET;
   });
@@ -169,17 +167,6 @@ describe('handleGmailWebhook — Pub/Sub OIDC + history shape', () => {
     expect(status).toHaveBeenCalledWith(401);
   });
 
-  it('acks 200 without processing in inline mode and does not move the cursor', async () => {
-    process.env.GMAIL_EXECUTION_PATH = 'inline';
-    const { req, res, status } = historyReq();
-    await handleGmailWebhook(req, res);
-
-    expect(status).toHaveBeenCalledWith(200);
-    expect(mockListHistory).not.toHaveBeenCalled();
-    expect(client.gmailServer.update).not.toHaveBeenCalled();
-    expect(client.zapRun.create).not.toHaveBeenCalled();
-  });
-
   it('acks 200 for a mailbox with no connected server (nothing to route to)', async () => {
     (client.gmailServer.findMany as jest.Mock).mockResolvedValue([]);
     const { req, res, status } = historyReq();
@@ -211,7 +198,6 @@ describe('handleGmailWebhook — legacy custom-relay shape (HMAC)', () => {
   beforeEach(() => {
     mockDedupSeen.clear();
     process.env.GMAIL_WEBHOOK_SECRET = SECRET;
-    delete process.env.GMAIL_EXECUTION_PATH; // inline: legacy fan-out
     (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([]);
   });
 
@@ -233,14 +219,47 @@ describe('handleGmailWebhook — legacy custom-relay shape (HMAC)', () => {
     return reqRes(body, { 'x-goog-signature': signature });
   };
 
-  it('accepts a correctly HMAC-signed legacy payload and fans out as before', async () => {
+  it('accepts a correctly HMAC-signed legacy payload and dispatches via outbox (P5)', async () => {
+    // Post-P5 the legacy shape takes the same single path as real Pub/Sub:
+    // resolve server by email -> hydrate -> ZapRun + ZapRunOutbox.
+    (client.gmailServer.findUnique as jest.Mock).mockResolvedValue(null);
+    (client.gmailServer.findMany as jest.Mock).mockResolvedValue([serverRow]);
+    (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([
+      {
+        triggerType: 'new_email',
+        watchedLabels: [],
+        senderFilter: null,
+        subjectFilter: null,
+        metadata: {},
+        zap: { id: 'zap-1', isActive: true },
+      },
+    ]);
+    (client.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(client));
+    (client.zapRun.create as jest.Mock).mockResolvedValue({ id: 'run-1' });
+    (client.zapRunOutbox.create as jest.Mock).mockResolvedValue({ id: 'out-1' });
+    mockGetEmailMetadata.mockResolvedValue({
+      id: 'msg-1',
+      threadId: 't1',
+      snippet: 's',
+      from: 'A <a@example.com>',
+      to: ['owner@gmail.com'],
+      subject: 'Hello',
+      date: new Date('2026-10-19T10:00:00.000Z'),
+      labels: ['INBOX'],
+      hasAttachments: false,
+      isRead: false,
+    });
+    mockGetEmailContent.mockResolvedValue({ body: 'hello body', truncated: false });
+
     const { req, res, status } = legacyReq();
     await handleGmailWebhook(req, res);
 
     expect(status).toHaveBeenCalledWith(200);
-    // Legacy inline fan-out queries triggers by the (email) identifier —
-    // unchanged pre-P3 behavior for this shape.
-    expect(client.gmailTrigger.findMany).toHaveBeenCalled();
+    expect(client.gmailServer.findMany).toHaveBeenCalledWith({
+      where: { email: 'owner@gmail.com', isActive: true },
+    });
+    expect(client.zapRun.create).toHaveBeenCalled();
+    expect(client.zapRunOutbox.create).toHaveBeenCalled();
   });
 
   it('rejects a legacy payload with a bad HMAC', async () => {

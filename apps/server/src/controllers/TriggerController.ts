@@ -1,7 +1,7 @@
 import client from '@repo/db';
 import type { Request, Response } from 'express';
 import crypto from 'crypto';
-import { processWebhookTrigger } from './ZapController';
+import { isDuplicateEvent } from '../utils/dedup';
 
 export const fetchAvailableTriggers = async (req: Request, res: Response): Promise<any> => {
   const avialableTriggers = await client.availableTriggers.findMany();
@@ -12,6 +12,18 @@ export const fetchAvailableTriggers = async (req: Request, res: Response): Promi
   });
 };
 
+/**
+ * Legacy server webhook ingress (POST /api/triggers/webhook/:zapId).
+ *
+ * As of gmail-worker-routing-spec P5 this no longer executes actions in
+ * this process (the server-inline executor is deleted): like every other
+ * ingress it durably enqueues ZapRun + ZapRunOutbox (in one transaction)
+ * and apps/worker runs the Zap. Response contract is unchanged — 200 once
+ * the run is durably queued (or when the Zap is missing/inactive, so
+ * providers don't retry-loop), 401 on bad signature, 400 without zapId.
+ * Run outcomes now surface via ZapRun status + the worker's failure
+ * email, exactly like the primary hooks-service webhook.
+ */
 export const handleWebhook = async (req: Request, res: Response): Promise<any> => {
   try {
     const { zapId } = req.params;
@@ -34,9 +46,43 @@ export const handleWebhook = async (req: Request, res: Response): Promise<any> =
       }
     }
 
-    // Process the webhook trigger
-    await processWebhookTrigger(zapId as string, payload);
+    // Opt-in dedup parity with the hooks ingress (same scope/key shape,
+    // so an event delivered to both URLs still fires only once).
+    const eventId =
+      typeof payload?.event_id === 'string'
+        ? payload.event_id
+        : typeof payload?.eventId === 'string'
+          ? payload.eventId
+          : undefined;
+    if (await isDuplicateEvent('webhook', eventId ? `${zapId}:${eventId}` : undefined)) {
+      return res.status(200).json({
+        message: 'Duplicate event skipped',
+        timestamp: new Date().toISOString(),
+      });
+    }
 
+    const zap = await client.zap.findUnique({
+      where: { id: zapId as string, isActive: true },
+      select: { id: true },
+    });
+
+    if (!zap) {
+      console.log(`Zap ${zapId} not found or inactive — webhook acknowledged without a run`);
+      return res.status(200).json({
+        message: 'Webhook processed successfully',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    const zapRun = await client.$transaction(async (tx: any) => {
+      const run = await tx.zapRun.create({
+        data: { zapId: zap.id, metadata: payload },
+      });
+      await tx.zapRunOutbox.create({ data: { zapRunId: run.id } });
+      return run;
+    });
+
+    console.log(`📝 ZapRun created: ${zapRun.id} (legacy server webhook)`);
     return res.status(200).json({
       message: 'Webhook processed successfully',
       timestamp: new Date().toISOString(),

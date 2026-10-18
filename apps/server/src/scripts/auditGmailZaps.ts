@@ -18,8 +18,12 @@ import client from '@repo/db';
  *                         worker resolves {key} (spec D8 rewrite).
  *
  * Run:  bunx tsx src/scripts/auditGmailZaps.ts          (from apps/server)
- * This script never writes. Deactivation/template-rewrite apply steps are
- * separate, explicit P4 tooling — not flags here.
+ * Read-only by default. The single write mode is explicit:
+ *   bunx tsx src/scripts/auditGmailZaps.ts --apply-deactivate-risky
+ * which deactivates (isActive=false) the D7 risky set — active Zaps with
+ * Solana or Gmail* actions — so owners re-enable them consciously after
+ * the P4 flip. It never writes anything else, and the template rewrite
+ * is a separate script (rewriteGmailZapTemplates.ts).
  */
 
 export interface GmailZapAuditEntry {
@@ -137,6 +141,37 @@ export async function auditGmailZaps(
   return buildAuditReport(rows);
 }
 
+/**
+ * The D7 deactivation set: ACTIVE Zaps whose behavior changes dangerously
+ * at the P4 flip — Solana becomes a real transfer, Gmail* catalog actions
+ * become (loud) worker failures. Inactive Zaps are excluded: they cannot
+ * fire, and re-enabling one is already a conscious owner action.
+ */
+export function riskyZapIds(report: GmailZapAuditReport): string[] {
+  return report.zaps
+    .filter((z) => z.isActive && (z.hasSolana || z.hasGmailAction))
+    .map((z) => z.zapId);
+}
+
+/**
+ * Deactivate the risky set (the ONLY write this script performs, behind
+ * --apply-deactivate-risky). Mirrors the seed.ts warn-and-deactivate
+ * precedent. Returns the ids that were flipped.
+ */
+export async function applyDeactivateRisky(
+  db: { zap: { updateMany: (args: any) => Promise<{ count: number }> } },
+  report: GmailZapAuditReport
+): Promise<{ deactivatedIds: string[]; count: number }> {
+  const ids = riskyZapIds(report);
+  if (ids.length === 0) return { deactivatedIds: [], count: 0 };
+
+  const result = await db.zap.updateMany({
+    where: { id: { in: ids }, isActive: true },
+    data: { isActive: false },
+  });
+  return { deactivatedIds: ids, count: result.count };
+}
+
 export function formatAuditReport(report: GmailZapAuditReport): string {
   const lines: string[] = [];
   const flags = (z: GmailZapAuditEntry) =>
@@ -174,9 +209,24 @@ export function formatAuditReport(report: GmailZapAuditReport): string {
 }
 
 if (require.main === module) {
+  const applyDeactivate = process.argv.includes('--apply-deactivate-risky');
+
   auditGmailZaps()
-    .then((report) => {
+    .then(async (report) => {
       console.log(formatAuditReport(report));
+
+      const risky = riskyZapIds(report);
+      if (applyDeactivate) {
+        const { deactivatedIds, count } = await applyDeactivateRisky(client as any, report);
+        console.log(
+          `\n--apply-deactivate-risky: deactivated ${count} Zap(s): ${deactivatedIds.join(', ') || '(none)'}`
+        );
+        console.log('Owners must consciously re-enable these after reviewing them (spec D7).');
+      } else if (risky.length > 0) {
+        console.log(
+          `\n${risky.length} active risky Zap(s) would be deactivated by --apply-deactivate-risky (dry-run — nothing written).`
+        );
+      }
     })
     .catch((error) => {
       console.error('Gmail zap audit failed:', error);

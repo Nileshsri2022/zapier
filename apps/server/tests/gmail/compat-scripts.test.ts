@@ -4,8 +4,16 @@ import {
   formatAuditReport,
   isGmailActionType,
   isCurrentlyFailingOnGmailPath,
+  riskyZapIds,
+  applyDeactivateRisky,
 } from '../../src/scripts/auditGmailZaps';
 import { computeBackfillPlan } from '../../src/scripts/backfillGmailServerEmail';
+import {
+  rewriteTemplateString,
+  rewriteMetadataTemplates,
+  buildRewritePlan,
+  applyRewritePlan,
+} from '../../src/scripts/rewriteGmailZapTemplates';
 
 /**
  * P1 pre-flight audit classification (reports/gmail-worker-routing-spec.md).
@@ -169,5 +177,108 @@ describe('computeBackfillPlan (GmailServer.email backfill, spec D3)', () => {
       throw new Error('invalid_grant');
     });
     expect(plan).toEqual({ updates: [], failures: ['boom'] });
+  });
+});
+
+describe('D7 risky-set deactivation (audit --apply-deactivate-risky)', () => {
+  const report = () =>
+    buildAuditReport([
+      zapRow({ id: 'sol-active', actions: [action('Solana')] }),
+      zapRow({ id: 'gmail-active', actions: [action('Gmail Send Email')] }),
+      zapRow({ id: 'sol-inactive', isActive: false, actions: [action('Solana')] }),
+      zapRow({ id: 'wa-active', actions: [action('WhatsApp Send Message')] }),
+    ]);
+
+  it('selects only ACTIVE Solana/GmailAction zaps (not the merely currently-failing set)', () => {
+    expect(riskyZapIds(report()).sort()).toEqual(['gmail-active', 'sol-active']);
+  });
+
+  it('deactivates via one guarded updateMany and reports the ids', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 2 });
+    const result = await applyDeactivateRisky({ zap: { updateMany } } as any, report());
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: { in: expect.arrayContaining(['sol-active', 'gmail-active']) }, isActive: true },
+      data: { isActive: false },
+    });
+    expect(result).toMatchObject({ count: 2 });
+    expect(result.deactivatedIds.sort()).toEqual(['gmail-active', 'sol-active']);
+  });
+
+  it('writes nothing when the risky set is empty', async () => {
+    const updateMany = jest.fn();
+    const clean = buildAuditReport([zapRow({ actions: [action('Email')] })]);
+    await expect(applyDeactivateRisky({ zap: { updateMany } } as any, clean)).resolves.toEqual({
+      deactivatedIds: [],
+      count: 0,
+    });
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('D8 template rewrite (rewriteGmailZapTemplates)', () => {
+  it('rewrites {{word}} to {word} and leaves everything else alone', () => {
+    expect(rewriteTemplateString('Hi {{from}}, re: {{subject}}')).toBe('Hi {from}, re: {subject}');
+    expect(rewriteTemplateString('already {subject}')).toBe('already {subject}');
+    expect(rewriteTemplateString('no templates')).toBe('no templates');
+    expect(rewriteTemplateString('{{not a key}}')).toBe('{{not a key}}');
+  });
+
+  it('walks nested metadata, records paths without leaking values into the plan shape', () => {
+    const metadata = {
+      to: '{{email}}',
+      body: { lines: ['Dear {{name}}', 'see {orderId}'] },
+      amount: 42,
+      flag: true,
+    };
+    const result = rewriteMetadataTemplates(metadata);
+
+    expect(result.changed).toBe(true);
+    expect(result.replacements).toBe(2);
+    expect(result.paths.sort()).toEqual(['body.lines[0]', 'to']);
+    expect(result.value).toEqual({
+      to: '{email}',
+      body: { lines: ['Dear {name}', 'see {orderId}'] },
+      amount: 42,
+      flag: true,
+    });
+    // Input is not mutated.
+    expect(metadata.to).toBe('{{email}}');
+  });
+
+  it('is idempotent: a second pass changes nothing', () => {
+    const once = rewriteMetadataTemplates({ body: '{{subject}}' });
+    const twice = rewriteMetadataTemplates(once.value);
+    expect(once.changed).toBe(true);
+    expect(twice.changed).toBe(false);
+    expect(twice.value).toEqual({ body: '{subject}' });
+  });
+
+  it('builds a plan containing only changed actions, applies via action.update', async () => {
+    const zaps = [
+      {
+        id: 'zap-1',
+        actions: [
+          { id: 'a1', action: { type: 'Email' }, metadata: { body: '{{subject}}' } },
+          { id: 'a2', action: { type: 'Webhook' }, metadata: { url: 'https://x.example' } },
+        ],
+      },
+    ];
+
+    const plan = buildRewritePlan(zaps as any);
+    expect(plan).toHaveLength(1);
+    expect(plan[0]).toMatchObject({
+      actionDbId: 'a1',
+      zapId: 'zap-1',
+      actionType: 'Email',
+      paths: ['body'],
+    });
+
+    const update = jest.fn().mockResolvedValue({});
+    await expect(applyRewritePlan({ action: { update } } as any, plan)).resolves.toBe(1);
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'a1' },
+      data: { metadata: { body: '{subject}' } },
+    });
   });
 });

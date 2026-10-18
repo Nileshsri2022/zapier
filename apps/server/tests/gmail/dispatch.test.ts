@@ -40,7 +40,6 @@ import {
   mapHistoryRecords,
   processHistoryDelta,
   renewExpiringGmailWatches,
-  gmailExecutionPath,
 } from '../../src/services/GmailDispatch';
 import { processGmailTrigger } from '../../src/controllers/GmailTriggersController';
 
@@ -89,10 +88,6 @@ describe('GmailDispatch.dispatchGmailEvent', () => {
     (client.zapRun.create as jest.Mock).mockResolvedValue({ id: 'run-1' });
     (client.zapRunOutbox.create as jest.Mock).mockResolvedValue({ id: 'outbox-1' });
     (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([triggerRow()]);
-  });
-
-  afterEach(() => {
-    delete process.env.GMAIL_EXECUTION_PATH;
   });
 
   it('enqueues ZapRun + ZapRunOutbox in one transaction with the §4.3 payload contract', async () => {
@@ -237,7 +232,7 @@ describe('shouldTrigger (hydrated filters)', () => {
   });
 });
 
-describe('event-type mapping + execution-path switch', () => {
+describe('event-type mapping', () => {
   it.each([
     ['new_email', 'new_email'],
     ['label_added', 'labeled'],
@@ -250,19 +245,9 @@ describe('event-type mapping + execution-path switch', () => {
   ])('maps %s -> %s', (raw, expected) => {
     expect(mapGmailEventType(raw as any)).toBe(expected);
   });
-
-  it('defaults to inline unless GMAIL_EXECUTION_PATH=outbox', () => {
-    delete process.env.GMAIL_EXECUTION_PATH;
-    expect(gmailExecutionPath()).toBe('inline');
-    process.env.GMAIL_EXECUTION_PATH = 'inline';
-    expect(gmailExecutionPath()).toBe('inline');
-    process.env.GMAIL_EXECUTION_PATH = 'outbox';
-    expect(gmailExecutionPath()).toBe('outbox');
-    delete process.env.GMAIL_EXECUTION_PATH;
-  });
 });
 
-describe('GmailTriggersController.processGmailTrigger routing (D6 switch)', () => {
+describe('GmailTriggersController.processGmailTrigger (outbox dispatch)', () => {
   beforeEach(() => {
     mockDedupSeen.clear();
     mockGetEmailMetadata.mockResolvedValue({ ...hydratedMetadata });
@@ -274,12 +259,7 @@ describe('GmailTriggersController.processGmailTrigger routing (D6 switch)', () =
     (client.zap.findUnique as jest.Mock).mockResolvedValue(null); // legacy executor no-ops
   });
 
-  afterEach(() => {
-    delete process.env.GMAIL_EXECUTION_PATH;
-  });
-
-  it('outbox mode: resolves the server and enqueues via dispatch', async () => {
-    process.env.GMAIL_EXECUTION_PATH = 'outbox';
+  it('resolves the server and enqueues via dispatch', async () => {
     (client.gmailServer.findUnique as jest.Mock).mockResolvedValue(server);
 
     await processGmailTrigger('server-1', { id: 'msg-1', eventType: 'new_email' });
@@ -289,8 +269,7 @@ describe('GmailTriggersController.processGmailTrigger routing (D6 switch)', () =
     expect(client.zapRunOutbox.create).toHaveBeenCalled();
   });
 
-  it('outbox mode: unresolvable identifier is a logged no-op', async () => {
-    process.env.GMAIL_EXECUTION_PATH = 'outbox';
+  it('unresolvable identifier is a logged no-op', async () => {
     (client.gmailServer.findUnique as jest.Mock).mockResolvedValue(null);
     (client.gmailServer.findMany as jest.Mock).mockResolvedValue([]);
 
@@ -300,8 +279,7 @@ describe('GmailTriggersController.processGmailTrigger routing (D6 switch)', () =
     expect(client.zapRun.create).not.toHaveBeenCalled();
   });
 
-  it('outbox mode: falls back to GmailServer.email resolution (P3/B3)', async () => {
-    process.env.GMAIL_EXECUTION_PATH = 'outbox';
+  it('falls back to GmailServer.email resolution (P3/B3)', async () => {
     (client.gmailServer.findUnique as jest.Mock).mockResolvedValue(null);
     (client.gmailServer.findMany as jest.Mock).mockResolvedValue([server]);
 
@@ -311,20 +289,6 @@ describe('GmailTriggersController.processGmailTrigger routing (D6 switch)', () =
       where: { email: 'owner@gmail.com', isActive: true },
     });
     expect(client.zapRun.create).toHaveBeenCalled();
-  });
-
-  it('inline mode (default): legacy fan-out, no outbox writes', async () => {
-    delete process.env.GMAIL_EXECUTION_PATH;
-
-    await processGmailTrigger('server-1', { id: 'msg-1', eventType: 'new_email' });
-
-    expect(client.gmailServer.findUnique).not.toHaveBeenCalled();
-    expect(client.gmailTrigger.findMany).toHaveBeenCalledWith({
-      where: { serverId: 'server-1' },
-      include: { zap: true },
-    });
-    expect(client.zapRunOutbox.create).not.toHaveBeenCalled();
-    expect(mockGetEmailMetadata).not.toHaveBeenCalled();
   });
 });
 

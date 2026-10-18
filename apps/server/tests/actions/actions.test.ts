@@ -68,48 +68,9 @@ describe('ActionsController - Fetch Available Actions', () => {
   });
 });
 
-describe('ActionsController - Execute Action', () => {
-  describe('executeAction', () => {
-    it('should throw error for unsupported action type', async () => {
-      const metadata = {};
-      const triggerPayload = {};
-
-      await expect(
-        ActionsController.executeAction('UnsupportedAction', metadata, triggerPayload)
-      ).rejects.toThrow('Unsupported action type: UnsupportedAction');
-    });
-
-    it('should not throw for Email action type', async () => {
-      const metadata = {
-        to: 'test@example.com',
-        subject: 'Test Subject',
-        body: 'Test Body',
-      };
-      const triggerPayload = { key: 'value' };
-
-      // This may throw due to SMTP not configured, but should attempt to execute
-      try {
-        await ActionsController.executeAction('Email', metadata, triggerPayload);
-      } catch (error: any) {
-        // Expected - SMTP not configured in tests
-        expect(error.message).not.toContain('Unsupported action type');
-      }
-    });
-
-    it('should not throw for Solana action type', async () => {
-      const metadata = {
-        address: 'solana-address-123',
-        amount: '0.1',
-      };
-      const triggerPayload = { key: 'value' };
-
-      // Solana action is just a placeholder log, should not throw
-      await expect(
-        ActionsController.executeAction('Solana', metadata, triggerPayload)
-      ).resolves.not.toThrow();
-    });
-  });
-});
+// The inline executeAction suite was removed in gmail-worker-routing P5:
+// ActionsController now only serves the catalog; execution lives in apps/worker
+// (guarded by worker tests/actionTypes.test.ts).
 
 describe('Seed Catalog - F4 / Gap D2 alignment', () => {
   it('excludes unimplemented Gmail actions from SEEDED_ACTION_TYPES', () => {
