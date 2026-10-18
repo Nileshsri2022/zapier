@@ -10,6 +10,7 @@
 import { Request, Response } from 'express';
 import { google, calendar_v3 } from 'googleapis';
 import client from '@repo/db';
+import { isDuplicateEvent } from './dedup';
 
 // Channel state for push notifications
 interface GoogleCalendarNotification {
@@ -103,6 +104,15 @@ export async function handleGoogleCalendarWebhook(req: Request, res: Response): 
 
     if (!trigger.zap.isActive) {
       console.log(`📅 Zap ${trigger.zapId} is inactive, skipping`);
+      return;
+    }
+
+    // Dedup per push NOTIFICATION (channel + message number). Google redelivers
+    // a failed notification unchanged; a genuinely new change carries a new
+    // message number, so legitimate event updates are never suppressed.
+    if (
+      await isDuplicateEvent('calendar', `${notification.channelId}:${notification.messageNumber}`)
+    ) {
       return;
     }
 

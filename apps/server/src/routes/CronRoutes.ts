@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import client from '@repo/db';
-import axios from 'axios';
 
 const router = Router();
 
@@ -44,7 +43,9 @@ router.get('/process-schedules', async (req: Request, res: Response): Promise<an
 
     for (const schedule of dueSchedules) {
       try {
-        // Create ZapRun
+        // Create ZapRun + ZapRunOutbox (F6: transactional outbox pattern so
+        // processor /process reliably drains scheduled runs to Kafka without
+        // depending on a 5 s cross-service HTTP call to hooks).
         const zapRun = await client.zapRun.create({
           data: {
             zapId: schedule.zapId,
@@ -54,6 +55,12 @@ router.get('/process-schedules', async (req: Request, res: Response): Promise<an
               scheduledAt: now.toISOString(),
               timezone: schedule.timezone,
             },
+          },
+        });
+
+        await client.zapRunOutbox.create({
+          data: {
+            zapRunId: zapRun.id,
           },
         });
 
@@ -69,27 +76,8 @@ router.get('/process-schedules', async (req: Request, res: Response): Promise<an
           },
         });
 
-        // Trigger processing via hooks service webhook
-        const hooksUrl = process.env.HOOKS_URL || 'https://zapier-hooks-bqyy.onrender.com';
-        try {
-          await axios.post(
-            `${hooksUrl}/api/webhooks/schedule`,
-            {
-              zapRunId: zapRun.id,
-              stage: 1,
-            },
-            {
-              headers: { 'Content-Type': 'application/json' },
-              timeout: 5000,
-            }
-          );
-        } catch (webhookError) {
-          // Even if webhook fails, ZapRun is created - processor can pick it up
-          console.log(`⚠️ Webhook notification failed, ZapRun ${zapRun.id} created`);
-        }
-
         console.log(
-          `✅ Schedule triggered for Zap "${schedule.zap.name}" - Next run: ${nextRunAt.toISOString()}`
+          `✅ Schedule triggered for Zap "${schedule.zap.name}" (ZapRun ${zapRun.id} queued to outbox) - Next run: ${nextRunAt.toISOString()}`
         );
       } catch (error) {
         console.error(`❌ Failed to process schedule ${schedule.id}:`, error);

@@ -1,21 +1,28 @@
 import express, { Request, Response, NextFunction } from 'express';
+import kafka from '@repo/kafka';
 import client from '@repo/db';
-import { sendEmailWithTextBody } from '@repo/email';
 import dotenv from 'dotenv';
 import { verifyWhatsAppWebhook, handleWhatsAppWebhook } from './whatsappHandler';
 import { handleTelegramWebhook } from './telegramHandler';
 import { handleGoogleCalendarWebhook } from './googleCalendarHandler';
+import { isDuplicateEvent } from './dedup';
+import { verifyWebhookRequest } from './webhookAuth';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
+const TOPIC_NAME = 'zap-events';
+
 // Enable CORS for all routes
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Content-Type, X-Webhook-Signature, X-Webhook-Secret, Authorization'
+  );
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -24,160 +31,25 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-// JSON parsing error handler will be added after routes
-
-// Helper: Replace placeholders in templates
-function replaceKeys(template: string, replacements: Record<string, string>): string {
-  return template.replace(/{(.*?)}/g, (_, key) => {
-    return replacements[key] || `{${key}}`;
-  });
-}
-
-// Helper: Validate email format
-const validateEmail = (email: string) => {
-  const regex = /^\S+@\S+\.\S+$/;
-  return regex.test(email);
-};
-
-// Execute a single action
-async function executeAction(action: any, metadata: any, triggerPayload: any) {
-  const actionType = action?.action?.type;
-
-  console.log(`Executing action: ${actionType}`);
-
-  switch (actionType) {
-    case 'Email':
-      await executeEmailAction(action.metadata, triggerPayload);
-      break;
-    case 'Solana':
-      await executeSolanaAction(action.metadata, triggerPayload);
-      break;
-    default:
-      console.log(`Unknown action type: ${actionType}`);
-  }
-}
-
-// Execute email action
-async function executeEmailAction(metadata: any, triggerPayload: any) {
+/**
+ * Enqueue a ZapRun for the worker (single execution engine).
+ *
+ * All triggers — webhooks, schedules, polls — funnel into Kafka here and are
+ * executed by apps/worker, which knows the full action catalog, retries,
+ * filters/conditions and output chaining. Previously this service also ran a
+ * legacy inline executor (Email/Solana only) that marked unimplemented
+ * actions as completed (gap D1 in reports/workflow-execution-gaps.md).
+ */
+async function enqueueZapRun(zapRunId: string): Promise<void> {
+  const producer = kafka.producer();
+  await producer.connect();
   try {
-    // Parse metadata if it's a string
-    let parsedMetadata = metadata;
-    if (typeof metadata === 'string') {
-      try {
-        parsedMetadata = JSON.parse(metadata);
-      } catch {
-        console.error('❌ Failed to parse metadata as JSON:', metadata);
-      }
-    }
-
-    if (!parsedMetadata) {
-      console.error('❌ No metadata provided for email action');
-      return;
-    }
-
-    const { to, subject, body } = parsedMetadata;
-    console.log(`📧 Email config: to=${to}, subject=${subject}, body length=${body?.length || 0}`);
-
-    let emailReceiver: string;
-
-    if (to && validateEmail(to)) {
-      emailReceiver = to;
-    } else {
-      // Try to extract email from trigger payload
-      const searchKey = JSON.stringify(triggerPayload);
-      const emailMatch = searchKey.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-      emailReceiver = emailMatch ? emailMatch[0] : to;
-      console.log(`📧 Email extracted from payload: ${emailReceiver}`);
-    }
-
-    if (!emailReceiver || !validateEmail(emailReceiver)) {
-      console.error(`❌ Invalid email recipient: ${emailReceiver}`);
-      return;
-    }
-
-    const emailBody = replaceKeys(body || '', triggerPayload);
-    const emailSubject = replaceKeys(subject || 'No Subject', triggerPayload);
-
-    console.log(`📧 Sending email to: ${emailReceiver}`);
-    await sendEmailWithTextBody(emailReceiver, emailSubject, emailBody);
-    console.log(`✅ Email sent successfully to ${emailReceiver}`);
-  } catch (error) {
-    console.error('❌ Email action failed:', error);
-    throw error;
-  }
-}
-
-// Execute Solana action (placeholder)
-async function executeSolanaAction(metadata: any, triggerPayload: any) {
-  try {
-    const { address, amount } = metadata;
-    const finalAddress = replaceKeys(address || '', triggerPayload);
-    const finalAmount = replaceKeys(amount || '', triggerPayload);
-
-    console.log(`💰 Solana: Sending ${finalAmount} SOL to ${finalAddress}`);
-    // TODO: Implement actual Solana transaction
-    console.log(`✅ Solana action logged (not implemented)`);
-  } catch (error) {
-    console.error('❌ Solana action failed:', error);
-    throw error;
-  }
-}
-
-// Process all actions for a zap immediately
-async function processZapImmediately(zapId: string, triggerPayload: any, zapRunId?: string) {
-  try {
-    // Get zap with all actions
-    const zap = await client.zap.findUnique({
-      where: { id: zapId },
-      include: {
-        actions: {
-          include: { action: true },
-          orderBy: { sortingOrder: 'asc' },
-        },
-      },
+    await producer.send({
+      topic: TOPIC_NAME,
+      messages: [{ value: JSON.stringify({ zapRunId, stage: 1 }) }],
     });
-
-    if (!zap) {
-      console.error(`Zap not found: ${zapId}`);
-      if (zapRunId) {
-        await client.zapRun.update({
-          where: { id: zapRunId },
-          data: { status: 'failed', errorMessage: 'Zap not found', completedAt: new Date() },
-        });
-      }
-      return { success: false, error: 'Zap not found' };
-    }
-
-    if (!zap.isActive) {
-      console.log(`Zap is inactive: ${zapId}`);
-      return { success: false, error: 'Zap is inactive' };
-    }
-
-    console.log(`🚀 Processing zap: ${zap.name} (${zap.actions.length} actions)`);
-
-    // Execute each action in order
-    for (const action of zap.actions) {
-      await executeAction(action, action.metadata, triggerPayload);
-    }
-
-    if (zapRunId) {
-      await client.zapRun.update({
-        where: { id: zapRunId },
-        data: { status: 'completed', completedAt: new Date() },
-      });
-    }
-
-    console.log(`✅ Zap completed: ${zap.name}`);
-    return { success: true, actionsExecuted: zap.actions.length };
-  } catch (error) {
-    console.error('❌ Zap processing failed:', error);
-    if (zapRunId) {
-      await client.zapRun.update({
-        where: { id: zapRunId },
-        data: { status: 'failed', errorMessage: String(error), completedAt: new Date() },
-      });
-    }
-    return { success: false, error: String(error) };
+  } finally {
+    await producer.disconnect();
   }
 }
 
@@ -186,9 +58,9 @@ app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'hooks' });
 });
 
-// Main webhook endpoint - IMMEDIATE PROCESSING
-app.post('/hooks/:userId/:zapId', async (req: Request, res: Response) => {
-  const { zapId, userId } = req.params;
+// Main webhook endpoint — queued to the worker for processing
+app.post('/hooks/:userId/:zapId', async (req: Request, res: Response): Promise<any> => {
+  const { zapId } = req.params;
   const triggerPayload = req.body;
 
   if (!zapId) {
@@ -199,6 +71,40 @@ app.post('/hooks/:userId/:zapId', async (req: Request, res: Response) => {
   console.log(`📨 Webhook received for zap: ${zapId}`);
 
   try {
+    const zap = await client.zap.findUnique({
+      where: { id: zapId },
+      include: { actions: true, trigger: true },
+    });
+
+    // F5: verify webhook signature/secret when WEBHOOK_SECRET or per-trigger
+    // metadata.secret is configured (before dedup or ZapRun creation so
+    // unauthenticated requests cannot pollute dedup keys or run history).
+    const auth = verifyWebhookRequest(req.headers, triggerPayload, zap?.trigger?.metadata);
+    if (!auth.authorized) {
+      return res.status(auth.status ?? 401).json({
+        message: auth.message ?? 'Unauthorized',
+      });
+    }
+
+    // Dedup: webhook clients are encouraged to include an `event_id` (or
+    // `eventId`) in the body so redeliveries can be dropped. Without one the
+    // event cannot be deduplicated (fail open).
+    const payload = (triggerPayload || {}) as Record<string, any>;
+    const eventId =
+      typeof payload.event_id === 'string'
+        ? payload.event_id
+        : typeof payload.eventId === 'string'
+          ? payload.eventId
+          : undefined;
+
+    if (await isDuplicateEvent('webhook', eventId ? `${zapId}:${eventId}` : undefined)) {
+      return res.status(200).json({
+        success: true,
+        message: 'Duplicate event skipped',
+        eventId,
+      });
+    }
+
     // Create ZapRun record for history
     const zapRun = await client.zapRun.create({
       data: {
@@ -209,18 +115,33 @@ app.post('/hooks/:userId/:zapId', async (req: Request, res: Response) => {
 
     console.log(`📝 ZapRun created: ${zapRun.id}`);
 
-    // Process immediately (non-blocking)
-    processZapImmediately(zapId as string, triggerPayload, zapRun.id)
-      .then((result) => {
-        console.log(`📊 Zap result:`, result);
-      })
-      .catch((error) => {
-        console.error(`❌ Background processing error:`, error);
+    if (!zap) {
+      await client.zapRun.update({
+        where: { id: zapRun.id },
+        data: { status: 'failed', errorMessage: 'Zap not found', completedAt: new Date() },
       });
+      return res.status(201).json({
+        message: 'Hook received but Zap not found',
+        zapRunId: zapRun.id,
+      });
+    }
 
-    // Respond immediately
+    if (!zap.isActive) {
+      await client.zapRun.update({
+        where: { id: zapRun.id },
+        data: { status: 'failed', errorMessage: 'Zap is inactive', completedAt: new Date() },
+      });
+      return res.status(201).json({
+        message: 'Hook received but Zap is inactive',
+        zapRunId: zapRun.id,
+      });
+    }
+
+    await enqueueZapRun(zapRun.id);
+
+    // Respond immediately — the worker picks up the event from Kafka
     res.status(201).json({
-      message: 'Hook triggered - processing started',
+      message: 'Hook triggered - queued for processing',
       zapRunId: zapRun.id,
     });
   } catch (error) {
@@ -248,53 +169,8 @@ app.post('/api/webhooks/telegram', handleTelegramWebhook);
 // ============================================
 app.post('/api/webhooks/google-calendar', handleGoogleCalendarWebhook);
 
-// ============================================
-// Schedule Webhook Routes (from cron service)
-// ============================================
-app.post('/api/webhooks/schedule', async (req: Request, res: Response) => {
-  const { zapRunId } = req.body;
-
-  if (!zapRunId) {
-    return res.status(400).json({ error: 'zapRunId is required' });
-  }
-
-  console.log(`📅 Schedule webhook received for ZapRun: ${zapRunId}`);
-
-  try {
-    // Get the ZapRun with its Zap
-    const zapRun = await client.zapRun.findUnique({
-      where: { id: zapRunId },
-      include: { zap: true },
-    });
-
-    if (!zapRun) {
-      return res.status(404).json({ error: 'ZapRun not found' });
-    }
-
-    // Process immediately
-    const triggerPayload = (zapRun.metadata as Record<string, any>) || {};
-
-    processZapImmediately(zapRun.zapId, triggerPayload, zapRunId)
-      .then((result) => {
-        console.log(`📊 Schedule Zap result:`, result);
-      })
-      .catch((error) => {
-        console.error(`❌ Schedule processing error:`, error);
-      });
-
-    res.status(200).json({
-      success: true,
-      message: 'Schedule processing started',
-      zapRunId,
-    });
-  } catch (error: any) {
-    console.error('Schedule webhook error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // JSON parsing error handler (must be after routes)
-app.use((err: any, req: any, res: any, next: any) => {
+app.use((err: any, req: any, res: any, next: NextFunction) => {
   if (err instanceof SyntaxError && 'body' in err) {
     console.log(`⚠️ Invalid JSON received at ${req.path}`);
     return res.status(400).json({ error: 'Invalid JSON body' });
@@ -310,5 +186,5 @@ process.on('SIGTERM', async () => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Hooks service running on port ${PORT} (IMMEDIATE MODE)`);
+  console.log(`🚀 Hooks service running on port ${PORT} (queue mode: Kafka -> worker)`);
 });

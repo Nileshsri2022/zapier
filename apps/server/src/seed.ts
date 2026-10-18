@@ -1,6 +1,54 @@
 import client from '@repo/db';
 
-async function seedDatabase() {
+/**
+ * Action catalog entries seeded into `AvailableActions`.
+ *
+ * Every entry here MUST be executable by `apps/worker` (matched by
+ * `isKnownActionType` in `apps/worker/src/utils/actionTypes.ts`). Unimplemented
+ * Gmail actions were previously seeded here and either faked `success: true`
+ * (before F3) or failed at runtime (after F3); see gap D2 / F4 in
+ * `reports/workflow-execution-gaps.md`.
+ */
+export const SEEDED_ACTIONS = [
+  {
+    type: 'Email',
+    image: '/apps/email.svg',
+  },
+  {
+    type: 'Solana',
+    image: '/apps/Solana.svg',
+  },
+  {
+    type: 'WhatsApp Send Message',
+    image: '/apps/whatsapp.svg',
+  },
+  {
+    type: 'Telegram Send Message',
+    image: '/apps/telegram.svg',
+  },
+  {
+    type: 'Webhook',
+    image: '/apps/webhook.svg',
+  },
+] as const;
+
+export const SEEDED_ACTION_TYPES = SEEDED_ACTIONS.map((a) => a.type);
+
+/**
+ * Unimplemented Gmail action types formerly seeded into `AvailableActions`.
+ * Removed from the catalog in F4 so users cannot select actions the worker
+ * does not implement.
+ */
+export const UNIMPLEMENTED_GMAIL_ACTIONS = [
+  'Gmail Send Email',
+  'Gmail Reply',
+  'Gmail Add Label',
+  'Gmail Remove Label',
+  'Gmail Mark as Read',
+  'Gmail Archive',
+] as const;
+
+export async function seedDatabase() {
   try {
     // Seed available triggers
     const triggers = await client.availableTriggers.createMany({
@@ -106,54 +154,9 @@ async function seedDatabase() {
       skipDuplicates: true,
     });
 
-    // Seed available actions
+    // Seed available actions (only actions implemented by apps/worker)
     const actions = await client.availableActions.createMany({
-      data: [
-        {
-          type: 'Email',
-          image: '/apps/email.svg',
-        },
-        {
-          type: 'Solana',
-          image: '/apps/Solana.svg',
-        },
-        {
-          type: 'Gmail Send Email',
-          image: '/apps/email.svg',
-        },
-        {
-          type: 'Gmail Reply',
-          image: '/apps/email.svg',
-        },
-        {
-          type: 'Gmail Add Label',
-          image: '/apps/email.svg',
-        },
-        {
-          type: 'Gmail Remove Label',
-          image: '/apps/email.svg',
-        },
-        {
-          type: 'Gmail Mark as Read',
-          image: '/apps/email.svg',
-        },
-        {
-          type: 'Gmail Archive',
-          image: '/apps/email.svg',
-        },
-        {
-          type: 'WhatsApp Send Message',
-          image: '/apps/whatsapp.svg',
-        },
-        {
-          type: 'Telegram Send Message',
-          image: '/apps/telegram.svg',
-        },
-        {
-          type: 'Webhook',
-          image: '/apps/webhook.svg',
-        },
-      ],
+      data: [...SEEDED_ACTIONS],
       skipDuplicates: true,
     });
 
@@ -182,9 +185,7 @@ async function seedDatabase() {
         `⚠️  ${deadTriggerRows.length} zap(s) use legacy Email/Solana triggers that can never fire:`
       );
       for (const row of deadTriggerRows) {
-        console.warn(
-          `   - Zap "${row.zap.name}" (${row.zap.id}) — trigger: ${row.trigger.type}`
-        );
+        console.warn(`   - Zap "${row.zap.name}" (${row.zap.id}) — trigger: ${row.trigger.type}`);
       }
 
       const activeDeadZapIds = deadTriggerRows
@@ -219,6 +220,60 @@ async function seedDatabase() {
       );
     }
 
+    // F4 / Gap D2 cleanup: Gmail actions were previously seeded into
+    // AvailableActions before worker executors existed. Deactivate any armed
+    // Zaps referencing them and prune unreferenced catalog rows so the UI only
+    // offers actions the worker can actually execute.
+    type DeadActionRow = {
+      action: { type: string };
+      zap: { id: string; name: string; isActive: boolean };
+    };
+
+    const deadActionRows: DeadActionRow[] = await client.action.findMany({
+      where: {
+        action: { type: { in: [...UNIMPLEMENTED_GMAIL_ACTIONS] } },
+      },
+      select: {
+        action: { select: { type: true } },
+        zap: { select: { id: true, name: true, isActive: true } },
+      },
+    });
+
+    if (deadActionRows.length > 0) {
+      console.warn(
+        `⚠️  ${deadActionRows.length} action step(s) reference unimplemented Gmail actions:`
+      );
+      for (const row of deadActionRows) {
+        console.warn(`   - Zap "${row.zap.name}" (${row.zap.id}) — action: ${row.action.type}`);
+      }
+
+      const activeDeadActionZapIds = Array.from(
+        new Set(deadActionRows.filter((row) => row.zap.isActive).map((row) => row.zap.id))
+      );
+
+      if (activeDeadActionZapIds.length > 0) {
+        const deactivated = await client.zap.updateMany({
+          where: { id: { in: activeDeadActionZapIds } },
+          data: { isActive: false },
+        });
+        console.warn(
+          `⚠️  Deactivated ${deactivated.count} zap(s) using unimplemented Gmail actions`
+        );
+      }
+    }
+
+    const removedUnimplementedActions = await client.availableActions.deleteMany({
+      where: {
+        type: { in: [...UNIMPLEMENTED_GMAIL_ACTIONS] },
+        action: { none: {} },
+      },
+    });
+    if (removedUnimplementedActions.count > 0) {
+      console.log(
+        `Removed ${removedUnimplementedActions.count} unimplemented Gmail action catalog entr(ies)`
+      );
+    }
+
     console.log('Database seeded successfully!');
     console.log(`Created ${triggers.count} triggers and ${actions.count} actions`);
   } catch (error) {
@@ -228,4 +283,6 @@ async function seedDatabase() {
   }
 }
 
-seedDatabase();
+if (require.main === module) {
+  seedDatabase();
+}

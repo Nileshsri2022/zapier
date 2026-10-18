@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import client from '@repo/db';
 import kafka from '@repo/kafka';
+import { isDuplicateEvent } from './dedup';
 
 const WHATSAPP_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'zapmate_whatsapp_verify';
 
@@ -112,6 +113,11 @@ async function processWhatsAppMessage(
       });
 
       if (!zap) continue;
+
+      // Dedup: Meta redelivers on missed ACKs; one message must fire the Zap once
+      if (await isDuplicateEvent('whatsapp', `${zap.id}:${message.id}`)) {
+        continue;
+      }
 
       // Create ZapRun with message metadata
       const zapRun = await client.zapRun.create({
