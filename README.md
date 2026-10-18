@@ -1,28 +1,34 @@
 <div align="center">
   <h1>⚡ ZapMate</h1>
-  <p><strong>A powerful Zapier clone built with microservices architecture</strong></p>
+  <p><strong>A production-ready workflow automation platform and Zapier alternative built on an event-driven microservices architecture.</strong></p>
   
-  <img src="https://github.com/user-attachments/assets/c3b72029-5857-416c-83d0-74b067dd427f" alt="ZapMate Demo" width="600" />
+  <img src="https://github.com/user-attachments/assets/c3b72029-5857-416c-83d0-74b067dd427f" alt="ZapMate Demo" width="680" />
   
   <p>
-    <em>Automate workflows and integrate multiple services seamlessly with ZapMate - a production-ready workflow automation platform</em>
+    <em>Connect your apps, automate repetitive workflows, and chain multi-step triggers and actions with guaranteed transactional delivery.</em>
+  </p>
+
+  <p>
+    <a href="https://zapier-web-seven.vercel.app"><strong>🌐 Live Web App</strong></a> •
+    <a href="#-architecture">System Architecture</a> •
+    <a href="#-supported-triggers--actions">Triggers & Actions</a> •
+    <a href="#-roadmap-next-triggers--actions">Next Integrations Roadmap</a> •
+    <a href="#-quick-start">Quick Start</a>
   </p>
 </div>
 
 ---
 
-## 🌟 Features
+## 🌟 Highlights & Current Capabilities
 
-- **🔄 Workflow Automation**: Create complex automations between different applications
-- **🏗️ Microservices Architecture**: Modular, scalable, and maintainable service design
-- **📨 Event-Driven Processing**: Kafka-powered message queue for reliable event handling
-- **🎯 Real-time Execution**: Instant trigger processing with webhook support
-- **📧 Multi-Channel Actions**: Email notifications, blockchain transactions, and more
-- **🎨 Modern UI/UX**: Beautiful, responsive interface built with Next.js
-- **🔒 Secure Authentication**: JWT-based user authentication and authorization
-- **📊 Visual Workflow Builder**: Drag-and-drop interface for creating Zaps
-- **⚡ High Performance**: Optimized for speed and reliability
-- **🐳 Container Ready**: Easy deployment with Docker support
+- **🔄 Multi-Step Pipeline Automation**: Chain triggers to multiple actions with step ordering and visual node connector lines.
+- **🏗️ 5-Tier Microservices Architecture**: Decoupled Web, API Server, Hooks, Processor, and Worker services.
+- **📨 Event-Driven Messaging**: Apache Kafka message streaming backed by a Transactional Outbox pattern for zero lost events.
+- **🔍 Conditional Logic & Filter Builder**: Set rule conditions (equals, contains, greater than, regex/empty) between triggers and actions.
+- **📜 Detailed Run History & Auditing**: Inspect payloads, trigger metadata, execution status, and timestamps for every run.
+- **🎨 Modern Design System & Decoupled CSS**: Strict separation of concerns — `.tsx` logic files are decoupled from token-backed CSS (`tokens.css`, `base.css`, `components/*.css`) using container queries, fluid `clamp()` typography/spacing, and WCAG $\ge 44\text{px}$ touch targets.
+- **📱 PWA & Mobile-First Responsive**: Zero horizontal overflow across mobile (360px+), tablet, and desktop viewports with dynamic viewport units (`100dvh`).
+- **🔒 Enterprise Security**: Secure cookie-based JWT authentication, CORS preflight isolation, and OAuth 2.0 account delegation.
 
 ---
 
@@ -30,420 +36,262 @@
 
 <div align="center">
 
-### Backend Services
+### Frontend (`apps/web`)
+![Next.js 14](https://img.shields.io/badge/Next.js_14-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![React 18](https://img.shields.io/badge/React_18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_v3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![Design Tokens](https://img.shields.io/badge/Design_Tokens-CSS_Variables-orange?style=for-the-badge)
+![PWA](https://img.shields.io/badge/PWA-Ready-purple?style=for-the-badge&logo=pwa)
 
+### Backend Services (`apps/server`, `apps/hooks`, `apps/processor`, `apps/worker`)
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
 ![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
-
-### Frontend
-
-![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
-
-### Database & Messaging
-
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
-![Prisma](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)
-![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-000?style=for-the-badge&logo=apachekafka)
-
-### DevOps & Tools
-
-![TurboRepo](https://img.shields.io/badge/TurboRepo-EF4444?style=for-the-badge&logo=turborepo&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2CA5E0?style=for-the-badge&logo=docker&logoColor=white)
 ![Bun](https://img.shields.io/badge/Bun-000000?style=for-the-badge&logo=bun&logoColor=white)
+
+### Database, Queue & Infrastructure
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
+![Prisma ORM](https://img.shields.io/badge/Prisma-3982CE?style=for-the-badge&logo=Prisma&logoColor=white)
+![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-000000?style=for-the-badge&logo=apachekafka&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2CA5E0?style=for-the-badge&logo=docker&logoColor=white)
+![Turborepo](https://img.shields.io/badge/Turborepo-EF4444?style=for-the-badge&logo=turborepo&logoColor=white)
 
 </div>
 
 ---
 
-## 🏗️ Architecture
+## ⚡ Supported Triggers & Actions
 
-### System Overview
-
-```mermaid
-graph TB
-    A[Web Frontend] --> B[Main Server API]
-    C[External Services] --> D[Hooks Service]
-    D --> E[Database]
-    B --> E
-    D --> F[Kafka Message Queue]
-    G[GitHub Actions Cron] --> H[Processor Service]
-    H --> E
-    H --> F
-    G --> I[Worker Service]
-    I --> J[Email Service]
-    I --> K[Blockchain Service]
-    I --> E
-    F --> I
-```
-
-### Service Architecture
-
-| Service           | Port | Purpose                          | Deployment           |
-| ----------------- | ---- | -------------------------------- | -------------------- |
-| **Main Server**   | 5000 | User management & Zap operations | Render (Free)        |
-| **Web Frontend**  | 3000 | User interface                   | Vercel (Free)        |
-| **Hooks Service** | 8000 | Webhook handling                 | Render (Free)        |
-| **Processor**     | 3001 | Outbox → Kafka publishing        | Render (Free + Cron) |
-| **Worker**        | 3002 | Action execution                 | Render (Free + Cron) |
-
-### Data Flow
-
-1. **Trigger**: External service sends webhook to Hooks Service
-2. **Queue**: Hooks creates ZapRunOutbox entry in database
-3. **Processing**: GitHub Actions triggers Processor every 5 min → publishes to Kafka
-4. **Execution**: GitHub Actions triggers Worker → consumes Kafka → executes actions
-5. **Completion**: Results stored in database and notifications sent
-
-### CI/CD Pipeline
-
-```mermaid
-graph LR
-    A[Push to main] --> B[GitHub Actions]
-    B --> C[Test & Lint]
-    C --> D[Deploy Web to Vercel]
-    C --> E[Deploy Server to Render]
-    C --> F[Deploy Hooks to Render]
-    C --> G[Deploy Processor to Render]
-    C --> H[Deploy Worker to Render]
-```
+| App / Integration | Type | Supported Events | Connection / Protocol |
+|:---|:---:|:---|:---|
+| **Webhook** | Trigger | Custom HTTP POST Payload (JSON) | Direct Webhook URL (`/hooks/:userId/:zapId`) |
+| **Schedule / Cron** | Trigger | Every Hour, Day, Week, Month, or Custom Cron | Database Scheduled Outbox Worker |
+| **Gmail** | Trigger & Action | New Email Received / Send Email | Google OAuth 2.0 Token Exchange |
+| **Google Sheets** | Trigger & Action | New Row Added / Append Row | Google OAuth 2.0 Spreadsheets API |
+| **Google Calendar** | Trigger & Action | New Event Created / Schedule Event | Google OAuth 2.0 Calendar API |
+| **Email (SMTP)** | Action | Send Outbound Notification Email | Nodemailer / Resend SMTP |
+| **Solana** | Action | Send SOL Cryptocurrency Transfer | Solana Web3 RPC Keypair Signing |
+| **Telegram** | Action | Send Bot Notification Message | Telegram Bot API (@BotFather Token) |
+| **WhatsApp** | Action | Send WhatsApp Business Message | Meta Graph Cloud API |
+| **GitHub** | Action | Issue / Repository Event Tracker | GitHub Personal Access Token / REST API |
 
 ---
 
-## 🚀 Quick Start
+## 🏗️ Architecture & Data Flow
+
+```mermaid
+flowchart TD
+    subgraph Client ["Client Layer"]
+        UI["Web App (Next.js 14)<br/>port 3000"]
+        ExtClient["External Apps / Webhook Send"]
+    end
+
+    subgraph Ingestion ["Ingestion & Control Plane"]
+        API["API Server (Express)<br/>port 5000"]
+        Hooks["Hooks Ingestion Service<br/>port 8000"]
+    end
+
+    subgraph Storage ["Persistence Layer"]
+        DB[("PostgreSQL (Prisma)")]
+        Outbox[("ZapRunOutbox Table")]
+    end
+
+    subgraph Messaging ["Event Streaming Layer"]
+        Proc["Processor Service (Outbox Worker)"]
+        Kafka["Apache Kafka Topic: zap-events"]
+    end
+
+    subgraph Execution ["Execution Layer"]
+        Worker["Worker Service (Consumer)"]
+        Filter["Filter Rule Evaluator"]
+        ActionExec["Action Executors"]
+    end
+
+    subgraph Integrations ["External APIs"]
+        Gmail["Gmail / Google Sheets / Calendar"]
+        TG["Telegram / WhatsApp"]
+        Sol["Solana Blockchain"]
+        Mail["SMTP Email"]
+    end
+
+    UI -->|Create / Manage Zaps| API
+    ExtClient -->|HTTP POST Payload| Hooks
+    API -->|Save Zap & Filter Rules| DB
+    Hooks -->|Atomic Write| Outbox
+    Hooks -->|Record Initial Run| DB
+    Proc -->|Poll pending rows| Outbox
+    Proc -->|Produce event message| Kafka
+    Kafka -->|Consume event| Worker
+    Worker -->|Fetch metadata & rules| DB
+    Worker -->|Evaluate conditions| Filter
+    Filter -->|If passed| ActionExec
+    ActionExec --> Gmail
+    ActionExec --> TG
+    ActionExec --> Sol
+    ActionExec --> Mail
+```
+
+### Microservices Breakdown
+
+| Service | Port | Path | Purpose | Deployment |
+|:---|:---:|:---|:---|:---|
+| **Web Frontend** | `3000` | `apps/web` | Next.js 14 user interface, dashboard, visual pipeline editor | Vercel |
+| **API Server** | `5000` | `apps/server` | User auth, Zap CRUD, trigger/action catalog, OAuth tokens | Render |
+| **Hooks Service** | `8000` | `apps/hooks` | Fast webhook receiver writing to Transactional Outbox | Render |
+| **Processor** | `3001` | `apps/processor` | Polls `ZapRunOutbox`, dispatches to Kafka topics | Render |
+| **Worker** | `3002` | `apps/worker` | Kafka consumer, evaluates filters, executes step actions | Render |
+
+---
+
+## 🔮 Roadmap: Next Triggers & Actions to Implement
+
+Based on industry automation telemetry (Zapier, Make, n8n), the following integrations are prioritized for the next release cycle:
+
+### 1. 💬 Discord & Slack (Priority 1 — Most Commonly Used Action)
+* **Why:** Real-time team notifications and community ops are the most frequent automation destination. Users want alerts for new leads, error logs, and customer signups posted into Discord channels and Slack feeds without sending an email.
+* **Events to Implement:**
+  - `Discord`: Action → **"Send Channel Message"** / **"Send Webhook Embed"** (via Bot Token or Webhook URL).
+  - `Slack`: Action → **"Send Channel Message"** / **"Send Direct Message"** (via Slack Web API / OAuth).
+
+### 2. 🤖 AI Reasoning & Transformation Step (Priority 1 — High Value)
+* **Why:** The modern automation paradigm relies on language models to process unstructured data before passing it along.
+* **Events to Implement:**
+  - Action → **"AI Prompt & Extraction"** (OpenAI / Claude API):
+    - Input: raw text or trigger payload (e.g., email body, webhook JSON).
+    - Capabilities: Summarize, categorize sentiment, extract key fields into structured JSON for subsequent action steps.
+
+### 3. 💳 Stripe (Priority 2 — Monetization & CRM Triggers)
+* **Why:** Payment-triggered automations are the highest-converting workflows.
+* **Events to Implement:**
+  - Trigger → **"Payment Succeeded"** (`charge.succeeded` / `checkout.session.completed`).
+  - Trigger → **"New Customer Created"** (`customer.created`).
+  - Trigger → **"Subscription Cancelled"** (`customer.subscription.deleted`).
+
+### 4. 📝 Notion (Priority 2 — Team Knowledge Base & CRM)
+* **Why:** Notion databases serve as default CRMs and issue trackers for startups and indie developers.
+* **Events to Implement:**
+  - Trigger → **"New Database Item"** (polling or webhook).
+  - Action → **"Create Page in Database"** (mapping trigger fields into Notion properties).
+
+### 5. 📊 Airtable (Priority 3 — Relational Spreadsheets)
+* **Why:** Provides relational database power with spreadsheet ease of use.
+* **Events to Implement:**
+  - Trigger → **"New or Updated Record"**.
+  - Action → **"Create Record"** / **"Update Record"**.
+
+---
+
+## 🚀 Quick Start (Local Development)
 
 ### Prerequisites
 
-- Node.js 18+ or Bun 1.1+
-- PostgreSQL
-- Apache Kafka (or Upstash Kafka for cloud)
-- Bun (recommended) or npm
+- **Bun** (v1.1+) or Node.js (v18+)
+- **PostgreSQL** database running locally or hosted (e.g. Neon, Supabase)
+- **Apache Kafka** running locally or via cloud (e.g. Upstash Kafka)
 
-### Installation
-
-1. **Clone the repository**
-
-   ```bash
-   git clone <repository-url>
-   cd zapmate
-   ```
-
-2. **Install dependencies**
-
-   ```bash
-   bun install
-   ```
-
-3. **Set up environment variables**
-
-   ```bash
-   cp apps/server/.env.example apps/server/.env
-   cp apps/web/.env.example apps/web/.env
-   ```
-
-4. **Configure database**
-
-   ```bash
-   # Update DATABASE_URL in apps/server/.env
-   DATABASE_URL="postgresql://username:password@localhost:5432/zapmate"
-   ```
-
-5. **Start services**
-
-   ```bash
-   # Start all services
-   bun run dev
-
-   # Or start individual services
-   cd apps/server && bun run dev  # API Server
-   cd apps/web && bun run dev     # Frontend
-   cd apps/hooks && bun run dev   # Webhook Handler
-   ```
-
-6. **Access the application**
-   - Frontend: http://localhost:3000
-   - API Server: http://localhost:5000
-   - Webhooks: http://localhost:8000
-
----
-
-## 📖 Usage Examples
-
-### Creating a Zap
-
-1. **Sign up/Login** to your ZapMate account
-2. **Navigate to Dashboard** and click "Create"
-3. **Choose a Trigger** (e.g., "New Email Received")
-4. **Configure Trigger** with your email settings
-5. **Add Actions** (e.g., "Send Slack Notification", "Save to Database")
-6. **Configure Actions** with templates and settings
-7. **Test the Zap** with sample data
-8. **Enable the Zap** to start automation
-
-### API Usage
+### 1. Clone & Install Dependencies
 
 ```bash
-# Get all available triggers
-curl -X GET http://localhost:5000/api/triggers \
-  -H "Authorization: Bearer YOUR_TOKEN"
-
-# Create a new Zap
-curl -X POST http://localhost:5000/api/zaps \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Email to Slack",
-    "availableTriggerId": "email-trigger-id",
-    "actions": [
-      {
-        "availableActionId": "slack-action-id",
-        "actionMetaData": {
-          "channel": "#general",
-          "message": "New email: {subject}"
-        }
-      }
-    ]
-  }'
-
-# Get user's Zaps
-curl -X GET http://localhost:5000/api/zaps \
-  -H "Authorization: Bearer YOUR_TOKEN"
+git clone https://github.com/Nileshsri2022/zapier.git
+cd zapier
+bun install
 ```
 
-### Webhook Integration
+### 2. Configure Environment Variables
 
 ```bash
-# Trigger a Zap via webhook
-curl -X POST http://localhost:8000/hooks/{userId}/{zapId} \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "subject": "New order received",
-    "body": "Order #123 has been placed"
-  }'
+# Server configuration
+cp apps/server/.env.example apps/server/.env
+
+# Web configuration
+cp apps/web/.env.example apps/web/.env.local
+```
+
+Key environment variables:
+```env
+# apps/server/.env
+DATABASE_URL="postgresql://user:password@localhost:5432/zapmate"
+JWT_SECRET="your-jwt-secret-key"
+KAFKA_BROKERS="localhost:9092"
+FRONTEND_URL="http://localhost:3000"
+
+# apps/web/.env.local
+NEXT_PUBLIC_API_URL="http://localhost:5000"
+NEXT_PUBLIC_HOOKS_URL="http://localhost:8000"
+```
+
+### 3. Run Database Migrations & Seeds
+
+```bash
+cd packages/db
+bunx prisma migrate dev
+bunx prisma db seed
+cd ../..
+```
+
+### 4. Start Development Services
+
+```bash
+# Start all microservices concurrently
+bun run dev
+
+# Or start specific microservices:
+cd apps/web && bun run dev     # Frontend on http://localhost:3000
+cd apps/server && bun run dev  # API Server on http://localhost:5000
+cd apps/hooks && bun run dev   # Webhook Receiver on http://localhost:8000
+cd apps/processor && bun run dev # Outbox Processor
+cd apps/worker && bun run dev  # Action Execution Worker
 ```
 
 ---
 
-## 📁 Project Structure
+## 📁 Repository Monorepo Structure
 
 ```
 zapmate/
-├── apps/                          # Application services
-│   ├── server/                    # Main API server (Port 5000)
-│   │   ├── src/
-│   │   │   ├── controllers/       # Request handlers
-│   │   │   ├── routes/            # API endpoints
-│   │   │   └── middlewares/       # Authentication & validation
-│   ├── web/                       # Next.js frontend (Port 3000)
-│   │   ├── app/                   # App router pages
-│   │   ├── components/            # Reusable UI components
-│   │   └── context/               # React context providers
-│   ├── hooks/                     # Webhook handler (Port 8000)
-│   ├── processor/                 # Event processing service
-│   └── worker/                    # Action execution service
-├── packages/                      # Shared packages
-│   ├── db/                        # Database client & schema
-│   ├── email/                     # Email service utilities
-│   ├── kafka/                     # Kafka client configuration
-│   ├── types/                     # TypeScript type definitions
-│   └── ui/                        # Shared UI components
-└── turbo.json                     # TurboRepo configuration
+├── apps/
+│   ├── web/                     # Next.js 14 App Router Frontend
+│   │   ├── app/                 # Routing: /, /dashboard, /editor, /login, /sign-up
+│   │   ├── components/          # Logic-only UI components (Modal, ZapCell, Navbar)
+│   │   └── styles/              # Decoupled design tokens and component stylesheets
+│   │       ├── tokens.css       # Single source of truth for colors, typography, radii
+│   │       ├── base.css         # Reset, 100dvh viewport, 44px touch targets
+│   │       ├── components/      # Component-level stylesheets (modal, navbar, zap-cell)
+│   │       └── pages/           # Page-level stylesheets (app.css, landing.css)
+│   ├── server/                  # Core API microservice (Express + TypeScript)
+│   ├── hooks/                   # Ingestion microservice writing to ZapRunOutbox
+│   ├── processor/               # Transactional Outbox Kafka producer
+│   └── worker/                  # Kafka consumer executing step actions
+├── packages/
+│   ├── db/                      # Shared Prisma schema, clients, and seeds
+│   ├── kafka/                   # Kafka client and topic configuration
+│   ├── types/                   # Shared TypeScript models and payload definitions
+│   └── ui/                      # Shared design tokens and base UI primitives
+├── reports/                     # Architecture, audit, and design system specs
+│   └── skills-redesign-report.md # Detailed breakdown of responsive & design system skills
+└── turbo.json                   # Turborepo task pipeline configuration
 ```
-
-### Key Directories Explained
-
-- **`apps/server/`**: Core business logic, user management, Zap operations
-- **`apps/web/`**: User interface, dashboard, Zap editor
-- **`apps/hooks/`**: Webhook endpoints for external integrations
-- **`apps/processor/`**: Transactional outbox pattern implementation
-- **`apps/worker/`**: Action execution engine with Kafka integration
-- **`packages/db/`**: Shared Prisma client and database utilities
-- **`packages/email/`**: Email sending capabilities
-- **`packages/kafka/`**: Kafka producer/consumer configurations
 
 ---
 
-## 🔧 Development
+## 🤝 Contributing a New Trigger or Action
 
-### Available Scripts
+To add a new integration to ZapMate:
 
-```bash
-# Development
-npm run dev              # Start all services
-npm run build           # Build all services
-npm run lint            # Lint all code
-npm run format          # Format code with Prettier
-
-# Individual services
-cd apps/server && npm run dev
-cd apps/web && npm run dev
-cd apps/hooks && npm run dev
-```
-
-### Code Style
-
-- **TypeScript**: Strict type checking enabled
-- **ESLint**: Configured with Next.js and React rules
-- **Prettier**: Code formatting on save
-- **Husky**: Pre-commit hooks for quality checks
-
-### Adding New Actions
-
-1. **Create action type** in database schema
-2. **Add controller** in `apps/server/src/controllers/`
-3. **Implement logic** in `apps/worker/src/index.ts`
-4. **Add UI components** in `apps/web/components/`
-5. **Update types** in `packages/types/`
-
----
-
-## 🚀 Deployment
-
-### CI/CD Pipeline (GitHub Actions)
-
-All deploys run from [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). A push to `main` that passes **Lint & Test** fans out to five parallel deploy jobs — one per runtime, because ZapMate is five separate services:
-
-| Job                | Target                    |
-| ------------------ | ------------------------- |
-| `Deploy Web`       | Vercel (`apps/web`)       |
-| `Deploy Server`    | Render (`apps/server`)    |
-| `Deploy Hooks`     | Render (`apps/hooks`)     |
-| `Deploy Processor` | Render (`apps/processor`) |
-| `Deploy Worker`    | Render (`apps/worker`)    |
-
-On pull requests the deploy jobs report as `skipping` — only **Lint & Test** runs, since every deploy job is gated on `github.ref == 'refs/heads/main' && github.event_name == 'push'`.
-
-GitHub Actions is the **only** path to Vercel production. Vercel's own Git integration is disabled with `"git": { "deploymentEnabled": false }` in `vercel.json`; without it each push triggers a second, ungated Vercel build that races this pipeline for the production slot.
-
-### Docker Deployment
-
-```dockerfile
-# Multi-stage build
-FROM node:18-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-
-FROM node:18-alpine AS production
-WORKDIR /app
-COPY --from=builder /app/node_modules ./node_modules
-COPY . .
-EXPOSE 3000 5000 8000
-CMD ["npm", "run", "dev"]
-```
-
-### Environment Configuration
-
-```bash
-# Production environment variables
-NODE_ENV=production
-DATABASE_URL=postgresql://prod:password@db:5432/zapmate
-KAFKA_BROKERS=kafka:9092
-JWT_SECRET=your-super-secret-key
-EMAIL_SERVICE_API_KEY=your-email-service-key
-```
-
-### Troubleshooting signup/signin CORS errors
-
-The production alias and Vercel's generated deployment URL are **different origins**.
-The API allows `https://zapier-web-seven.vercel.app`, the `zapier` project alias,
-and HTTPS deployment/branch URLs for `zapier` in the `nilesh-srivastavas-projects`
-team. Other trusted frontends must be listed in the **Render server's**
-`CORS_ORIGIN` (comma-separated exact origins); `FRONTEND_URL` is also allowed.
-Do not allow all `*.vercel.app` sites: authentication uses credentialed cookies.
-
-For a configuration-only fix on an older server deployment, append the exact
-origin from the browser error to `CORS_ORIGIN`, preserving any existing entries:
-
-```dotenv
-CORS_ORIGIN=https://zapier-web-seven.vercel.app,https://zapier-qwltqdtk3-nilesh-srivastavas-projects.vercel.app
-```
-
-Save and redeploy the **API server**, not just the frontend. For the code fix,
-deploy both `apps/server` and `apps/web`. In Vercel, `NEXT_PUBLIC_API_URL` must be
-`https://zapier-fd68.onrender.com` (no `/api` suffix); changing a `NEXT_PUBLIC_`
-variable requires a new frontend build. Prefer the stable production alias to
-an old immutable deployment URL when checking a new frontend release.
-
-Verify the actual preflight from a terminal (this does not create an account):
-
-```bash
-curl -i --max-time 90 -X OPTIONS 'https://zapier-fd68.onrender.com/api/auth/signup' \
-  -H 'Origin: https://zapier-qwltqdtk3-nilesh-srivastavas-projects.vercel.app' \
-  -H 'Access-Control-Request-Method: POST' \
-  -H 'Access-Control-Request-Headers: content-type'
-```
-
-Expect **204**, `Access-Control-Allow-Origin` equal to that exact origin,
-`Access-Control-Allow-Credentials: true`, and `POST`/`Content-Type` in the allowed
-methods/headers. A non-2xx response (especially a Render 502/503) can indicate an
-unavailable or failed deployment rather than an allowlist problem. Inspect the
-OPTIONS response in DevTools and Render's live deploy/runtime logs; also check
-`https://zapier-fd68.onrender.com/health`. Express CORS middleware cannot fix a
-response generated by the hosting proxy before the request reaches the app.
-A successful deployment-trigger job alone does not verify the live preflight.
-
-The updated service worker caches only public static assets, bypasses API and
-page requests, and removes the old `zapmate-v1` page cache. If DevTools still
-shows the old `sw.js:20` fetch handler after deploying, open **Application →
-Service Workers → Unregister**, remove the `zapmate-*` entries under **Cache
-Storage**, then reload the latest frontend. Clearing storage alone does not fix
-a rejected API origin or an unavailable backend.
-
-### Scaling Considerations
-
-- **Horizontal Scaling**: Use load balancer for multiple server instances
-- **Database**: Connection pooling and read replicas
-- **Kafka**: Partitioning and replication for high throughput
-- **Caching**: Redis for session storage and API response caching
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Workflow
-
-1. **Fork** the repository
-2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
-3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-4. **Push** to the branch (`git push origin feature/amazing-feature`)
-5. **Open** a Pull Request
-
-### Code Standards
-
-- Write clear, concise commit messages
-- Add tests for new features
-- Update documentation as needed
-- Follow the existing code style
-- Ensure all tests pass
+1. **Database Schema & Catalog:**
+   - Add the trigger or action type to `packages/db/prisma/schema.prisma` and seed script.
+   - Run `bunx prisma migrate dev`.
+2. **Execution Worker:**
+   - Implement the action execution logic in `apps/worker/src/index.ts` (or create a dedicated executor under `apps/worker/src/executors/`).
+3. **Frontend UI Catalog:**
+   - Register the app icon and definition in `apps/web/components/modal/constants.ts`.
+   - If metadata or OAuth is required, add a config form in `apps/web/components/metadata/`.
+4. **Test & Verify:**
+   - Run `bun x tsc --noEmit` across all workspaces.
+   - Trigger a test run via Webhooks or the Editor canvas.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- Inspired by [Zapier](https://zapier.com)
-- Built with modern web technologies
-- Thanks to all contributors and the open-source community
-
----
-
-<div align="center">
-  <p><strong>Built with ❤️ by the ZapMate team</strong></p>
-  <p>
-    <a href="#features">Features</a> •
-    <a href="#tech-stack">Tech Stack</a> •
-    <a href="#quick-start">Quick Start</a> •
-    <a href="#contributing">Contributing</a>
-  </p>
-</div>
+This project is licensed under the [MIT License](LICENSE).
