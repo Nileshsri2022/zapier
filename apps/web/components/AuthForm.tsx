@@ -34,7 +34,11 @@ export const SignupForm = () => {
         }, 500);
       })
       .catch((error) => {
-        toast.error(error);
+        const message =
+          error?.response?.data?.message ||
+          error?.message ||
+          'Signup failed. Is the server running?';
+        toast.error(message);
         setLoading(false);
       });
   };

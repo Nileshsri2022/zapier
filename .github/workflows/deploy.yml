@@ -49,6 +49,9 @@ jobs:
       - name: Run worker tests
         run: cd apps/worker && bun run test
 
+      - name: Run web tests
+        run: cd apps/web && bun run test
+
       - name: Build packages
         run: bun run build
 

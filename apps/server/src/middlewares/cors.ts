@@ -23,15 +23,23 @@ import type { CorsOptions } from 'cors';
  *      (malformed JSON, rate limit, crash) looks like a CORS failure too.
  *
  * Allowed origins come from env (`CORS_ORIGIN`, comma-separated, or
- * `FRONTEND_URL`) plus the built-in defaults below. Outside production any
- * localhost/127.0.0.1 origin is allowed so dev servers on any port work.
+ * `FRONTEND_URL`) plus the built-in defaults below. Vercel deployment URLs
+ * are restricted to this project's team, never all of *.vercel.app. Outside
+ * production any localhost/127.0.0.1 origin is allowed for local dev servers.
  */
 
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://zapier-web-seven.vercel.app', // deployed web app (Vercel)
+  'https://zapier-nilesh-srivastavas-projects.vercel.app', // project alias
   'http://localhost:3000', // local Next.js dev server
   'http://127.0.0.1:3000',
 ];
+
+// Vercel also serves this app at immutable deployment URLs and git-branch
+// aliases. Allow only HTTPS origins for zapier in this specific team. Allowing
+// every *.vercel.app origin would expose credentialed API responses to others.
+const VERCEL_DEPLOYMENT_ORIGIN =
+  /^https:\/\/zapier-(?:[a-z0-9]+|git-[a-z0-9-]+)-nilesh-srivastavas-projects\.vercel\.app$/;
 
 /** Normalize an origin for comparison (trim, strip trailing slash). */
 const normalizeOrigin = (origin: string): string => origin.trim().replace(/\/+$/, '');
@@ -54,6 +62,7 @@ export function isOriginAllowed(origin: string | undefined): boolean {
 
   const normalized = normalizeOrigin(origin);
   if (getAllowedOrigins().includes(normalized)) return true;
+  if (VERCEL_DEPLOYMENT_ORIGIN.test(normalized)) return true;
 
   // Any localhost port outside production (dev servers, e2e runners).
   if (process.env.NODE_ENV !== 'production') {
@@ -82,7 +91,12 @@ export const corsOptions: CorsOptions = {
     'X-Requested-With',
   ],
   // Let the browser read rate-limit and download headers cross-origin.
-  exposedHeaders: ['RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset', 'Content-Disposition'],
+  exposedHeaders: [
+    'RateLimit-Limit',
+    'RateLimit-Remaining',
+    'RateLimit-Reset',
+    'Content-Disposition',
+  ],
   // Cache preflights for 24h — far fewer OPTIONS round trips, so fewer
   // chances for a preflight to fail (and faster API calls).
   maxAge: 86400,

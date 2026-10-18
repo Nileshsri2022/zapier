@@ -16,6 +16,7 @@ import { errorHandler } from '../../src/middlewares/errorHandler';
  */
 
 const WEB_ORIGIN = 'https://zapier-web-seven.vercel.app';
+const DEPLOYMENT_ORIGIN = 'https://zapier-qwltqdtk3-nilesh-srivastavas-projects.vercel.app';
 const EVIL_ORIGIN = 'https://evil.example.com';
 
 const createApp = () => {
@@ -24,6 +25,9 @@ const createApp = () => {
   app.use(corsMiddleware);
   app.options('*', corsMiddleware);
   app.use(express.json());
+  app.post('/api/auth/signup', (req, res) => {
+    res.status(201).json({ success: true, message: 'Signup successful' });
+  });
   app.post('/api/auth/signin', (req, res) => {
     res.status(200).json({ success: true, message: 'Signin successful' });
   });
@@ -81,6 +85,104 @@ describe('CORS - preflight (OPTIONS)', () => {
   });
 });
 
+describe('CORS - Vercel deployment origins in production', () => {
+  beforeEach(() => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.CORS_ORIGIN;
+    delete process.env.FRONTEND_URL;
+  });
+
+  it.each([
+    WEB_ORIGIN,
+    DEPLOYMENT_ORIGIN,
+    'https://zapier-abc123xyz-nilesh-srivastavas-projects.vercel.app',
+    'https://zapier-git-main-nilesh-srivastavas-projects.vercel.app',
+    'https://zapier-git-fix-signup-nilesh-srivastavas-projects.vercel.app',
+    'https://zapier-nilesh-srivastavas-projects.vercel.app',
+  ])('allows signup and signin preflights from %s', async (origin) => {
+    for (const path of ['/api/auth/signup', '/api/auth/signin']) {
+      const response = await request(app)
+        .options(path)
+        .set('Origin', origin)
+        .set('Access-Control-Request-Method', 'POST')
+        .set('Access-Control-Request-Headers', 'content-type')
+        .expect(204);
+
+      expect(response.headers['access-control-allow-origin']).toBe(origin);
+      expect(response.headers['access-control-allow-credentials']).toBe('true');
+      expect(response.headers['access-control-allow-methods']).toContain('POST');
+      expect(response.headers['access-control-allow-headers']).toMatch(/content-type/i);
+      expect(response.headers.vary).toContain('Origin');
+    }
+  });
+
+  it('answers the reported signup preflight without reaching downstream middleware', async () => {
+    const downstream = jest.fn((_req, res) => res.sendStatus(503));
+    const preflightApp = express();
+    preflightApp.use(corsMiddleware);
+    preflightApp.use(downstream);
+
+    await request(preflightApp)
+      .options('/api/auth/signup')
+      .set('Origin', DEPLOYMENT_ORIGIN)
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'content-type')
+      .expect(204);
+
+    expect(downstream).not.toHaveBeenCalled();
+  });
+
+  it('keeps CORS headers on signup success and validation errors for the reported origin', async () => {
+    for (const [body, status] of [
+      ['{"name":"Test User","email":"user@example.com","password":"secret"}', 201],
+      ['{ invalid json }', 400],
+    ] as const) {
+      const response = await request(app)
+        .post('/api/auth/signup')
+        .set('Origin', DEPLOYMENT_ORIGIN)
+        .set('Content-Type', 'application/json')
+        .send(body)
+        .expect(status);
+
+      expect(response.headers['access-control-allow-origin']).toBe(DEPLOYMENT_ORIGIN);
+      expect(response.headers['access-control-allow-credentials']).toBe('true');
+    }
+  });
+
+  it('keeps CORS headers on server errors for the reported origin', async () => {
+    const response = await request(app)
+      .get('/api/boom')
+      .set('Origin', DEPLOYMENT_ORIGIN)
+      .expect(500);
+
+    expect(response.headers['access-control-allow-origin']).toBe(DEPLOYMENT_ORIGIN);
+    expect(response.headers['access-control-allow-credentials']).toBe('true');
+  });
+
+  it.each([
+    EVIL_ORIGIN,
+    'https://unrelated.vercel.app',
+    'https://zapier-qwltqdtk3-other-team.vercel.app',
+    'https://other-project-qwltqdtk3-nilesh-srivastavas-projects.vercel.app',
+    `${DEPLOYMENT_ORIGIN}.evil.example.com`,
+    `${DEPLOYMENT_ORIGIN}:444`,
+    `${DEPLOYMENT_ORIGIN}/api`,
+    DEPLOYMENT_ORIGIN.replace('https:', 'http:'),
+    'https://zapier-qwltqdtk3-nilesh-srivastavas-projectsXvercel.app',
+    'http://localhost:5173',
+    'null',
+  ])('does not grant credentialed access to %s', async (origin) => {
+    expect(isOriginAllowed(origin)).toBe(false);
+    const response = await request(app)
+      .options('/api/auth/signup')
+      .set('Origin', origin)
+      .set('Access-Control-Request-Method', 'POST');
+
+    expect(response.headers['access-control-allow-origin']).toBeUndefined();
+    expect(response.headers['access-control-allow-credentials']).toBeUndefined();
+  });
+});
+
 describe('CORS - actual requests', () => {
   it('returns CORS headers on POST /api/auth/signin for the web origin', async () => {
     const response = await request(app)
@@ -109,10 +211,7 @@ describe('CORS - actual requests', () => {
   });
 
   it('keeps CORS headers on 500 responses from route handlers', async () => {
-    const response = await request(app)
-      .get('/api/boom')
-      .set('Origin', WEB_ORIGIN)
-      .expect(500);
+    const response = await request(app).get('/api/boom').set('Origin', WEB_ORIGIN).expect(500);
 
     expect(response.headers['access-control-allow-origin']).toBe(WEB_ORIGIN);
     expect(response.body).toEqual({ success: false, message: 'kaboom', code: 'INTERNAL_ERROR' });
