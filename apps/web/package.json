@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "cd ../../packages/types && npx tsc && cd ../../apps/web && next build",
     "start": "next start",
+    "test": "node --test tests/*.test.cjs",
     "lint": "eslint ."
   },
   "dependencies": {
