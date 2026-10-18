@@ -389,7 +389,7 @@ model ScheduledTrigger {
   id           String    @id @default(uuid())
   zapId        String    @unique
   zap          Zap       @relation(fields: [zapId], references: [id], onDelete: Cascade)
-  scheduleType String // "hourly" | "daily" | "weekly" | "monthly"
+  scheduleType String // "minutely" | "hourly" | "daily" | "weekly" | "monthly"
   hour         Int? // 0-23 for daily/weekly/monthly
   minute       Int       @default(0) // 0-59
   dayOfWeek    Int? // 0-6 (Sunday=0) for weekly
