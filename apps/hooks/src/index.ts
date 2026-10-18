@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { verifyWhatsAppWebhook, handleWhatsAppWebhook } from './whatsappHandler';
 import { handleTelegramWebhook } from './telegramHandler';
 import { handleGoogleCalendarWebhook } from './googleCalendarHandler';
+import { isDuplicateEvent } from './dedup';
 
 dotenv.config();
 
@@ -70,6 +71,25 @@ app.post('/hooks/:userId/:zapId', async (req: Request, res: Response): Promise<a
       where: { id: zapId },
       include: { actions: true },
     });
+
+    // Dedup: webhook clients are encouraged to include an `event_id` (or
+    // `eventId`) in the body so redeliveries can be dropped. Without one the
+    // event cannot be deduplicated (fail open).
+    const payload = (triggerPayload || {}) as Record<string, any>;
+    const eventId =
+      typeof payload.event_id === 'string'
+        ? payload.event_id
+        : typeof payload.eventId === 'string'
+          ? payload.eventId
+          : undefined;
+
+    if (await isDuplicateEvent('webhook', eventId ? `${zapId}:${eventId}` : undefined)) {
+      return res.status(200).json({
+        success: true,
+        message: 'Duplicate event skipped',
+        eventId,
+      });
+    }
 
     // Create ZapRun record for history
     const zapRun = await client.zapRun.create({
