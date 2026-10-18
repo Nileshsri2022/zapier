@@ -3,15 +3,15 @@
 | | |
 |---|---|
 | **Repository** | `Nileshsri2022/zapier` (ZapMate) |
-| **Branch** | `arena/cf978436-zapier` |
-| **Base revision** | `5753c0a` |
+| **Branch** | `arena/ebab1487-zapier` (continuing `arena/cf978436-zapier`) |
+| **Base revision** | `8e5cb1b` (audit baseline `5753c0a`) |
 | **Date** | 2026-10-19 |
-| **Scope** | Trigger → action execution pipeline: `apps/hooks`, `apps/processor`, `apps/worker`, `apps/server` (schedule/cron routes), `packages/db` schema |
+| **Scope** | Trigger → action execution pipeline: `apps/hooks`, `apps/processor`, `apps/worker`, `apps/server` (schedule/cron routes, seed catalog), `packages/db` schema |
 | **Method** | Static read of all trigger handlers, the Kafka consumer, the action dispatcher, the Prisma schema, and the seed catalog. Each finding below is reproducible from the cited file/line. |
 
-> **Status:** §1–§3 are the **as-found audit** (as of `5753c0a`). §4's fixes **F1–F3 are landed in this branch** (commits cited in §6); §5's follow-ups (F4–F6) remain open. Verification: worker jest 28/28, server jest 135/135, `tsc --noEmit` on `apps/hooks` shows only the 6 pre-existing sandbox errors (unbuilt workspace `dist` + prisma engine download blocked), prettier clean on all touched files.
+> **Status:** §1–§3 are the **as-found audit** (as of `5753c0a`). **All fixes F1–F6 (and the schema comment cleanup) are landed** (commits cited in §6). Verification: worker jest **37/37**, server jest **144/144**, `tsc --noEmit` on `apps/hooks` shows only the 6 pre-existing sandbox errors (unbuilt workspace `dist` + prisma engine download blocked), prettier clean on all touched files.
 
-Legend — ✅ fixed in this branch, commit cited · 🟡 partly done, gap named · ⬜ not started.
+Legend — ✅ fixed, commit cited · 🟡 partly done, gap named · ⬜ not started.
 
 ---
 
@@ -106,28 +106,34 @@ Why duplicates arrive: WhatsApp/Meta and Google both redeliver when the consumer
 
 ---
 
-## 4. Fixes carried in this branch
+## 4. Fixes landed across F1–F6
 
 | ID | For | Change |
 |---|---|---|
 | **F1** | D3 | New `apps/hooks/src/dedup.ts`: `SET NX PX` (24 h TTL) on Upstash Redis (`@repo/redis`). Keys: `whatsapp:<zapId>:<messageId>`, `telegram:<zapId>:<messageId>`, `calendar:<channelId>:<messageNumber>` (per *notification* — a legitimate event update carries a new message number, so updates are not suppressed), `webhook:<zapId>:<event_id>` for the generic webhook (opt-in `event_id`/`eventId` body field). Fails **open** with a warning if Redis is unavailable (availability over dedup; documented trade-off). |
-| **F2** | D1 | `apps/hooks/src/index.ts`: generic webhook and schedule handlers now create/forward `{zapRunId, stage: 1}` to Kafka `zap-events` (same pattern as the WhatsApp handler). `processZapImmediately`, its local `executeAction`/`executeEmailAction`/`executeSolanaAction`, and the divergent duplicate `replaceKeys`/`validateEmail` are **deleted**. One execution engine remains. |
-| **F3** | D2 | `apps/worker/src/index.ts`: unknown action type now **throws** (run retries, then fails loudly and the user gets the failure email). Solana with missing key also throws instead of silently skipping. Guard extracted to `apps/worker/src/utils/actionTypes.ts` (`isKnownActionType`) with a new jest test. |
+| **F2** | D1 | `apps/hooks/src/index.ts`: generic webhook handler creates/forwards `{zapRunId, stage: 1}` to Kafka `zap-events` (same pattern as the WhatsApp handler). `processZapImmediately`, its local `executeAction`/`executeEmailAction`/`executeSolanaAction`, and the divergent duplicate `replaceKeys`/`validateEmail` are **deleted**. One execution engine remains. |
+| **F3** | D2 | `apps/worker/src/index.ts`: unknown action type now **throws** (run retries, then fails loudly and the user gets the failure email). Solana with missing key also throws instead of silently skipping. Guard extracted to `apps/worker/src/utils/actionTypes.ts` (`isKnownActionType`) with a jest test. |
+| **F4** | D2 | `apps/server/src/seed.ts`: removed the 6 unimplemented Gmail actions (`Gmail Send Email`, `Gmail Reply`, `Gmail Add Label`, `Gmail Remove Label`, `Gmail Mark as Read`, `Gmail Archive`) from `SEEDED_ACTIONS`, added safe deactivation/pruning for existing DB rows (matching the legacy `Email`/`Solana` trigger cleanup), and pinned `SEEDED_ACTION_TYPES` against `isKnownActionType` in jest tests. |
+| **F5** | Security | New `apps/hooks/src/webhookAuth.ts` wired into `POST /hooks/:userId/:zapId` before dedup and `ZapRun` creation: when `WEBHOOK_SECRET` or per-trigger `metadata.secret` is configured, requires `x-webhook-signature` (`sha256=<hmac>`) or `x-webhook-secret` / `Bearer` token (constant-time comparison, failing closed with 401 when missing/invalid); preserves capability-URL behavior when no secret is configured. |
+| **F6** | Reliability | `apps/server/src/routes/CronRoutes.ts`: `GET /api/cron/process-schedules` now writes a `ZapRunOutbox` row alongside `ZapRun` so `processor /process` reliably drains scheduled runs to Kafka without relying on a 5 s cross-service HTTP call to hooks; removed the redundant unauthenticated `POST /api/webhooks/schedule` endpoint in `apps/hooks/src/index.ts`. |
 
 **Acceptance criteria:**
 
 - F1: the same WhatsApp/Telegram event ID (or calendar notification) submitted twice produces exactly one `ZapRun`; distinct events are unaffected; Redis outage ⇒ runs continue (with warning log).
 - F2: a generic-webhook Zap with a WhatsApp action runs through the worker and actually sends; the hooks service contains no action-execution code; no duplicated `replaceKeys`.
 - F3: a Zap whose action type is unimplemented ends with `status: failed` + `errorMessage`, not `completed`; Solana-without-key fails the run instead of skipping it.
+- F4: `SEEDED_ACTION_TYPES` contains only actions accepted by `isKnownActionType`; `seedDatabase()` deactivates armed Zaps referencing unimplemented Gmail actions and deletes unreferenced catalog rows.
+- F5: `POST /hooks/:userId/:zapId` rejects unsigned or wrongly signed requests with 401 when `WEBHOOK_SECRET` or `trigger.metadata.secret` is set, before touching Redis dedup or creating a `ZapRun`.
+- F6: `GET /api/cron/process-schedules` writes both `ZapRun` and `ZapRunOutbox` for every due schedule so runs are never orphaned in `pending`.
 
 ---
 
-## 5. Follow-ups — deliberately NOT included in this branch
+## 5. Follow-ups (resolved in `arena/ebab1487-zapier`)
 
-- **⬜ F4 — Gmail action executors.** `Gmail Send Email` / `Gmail Reply` / `Gmail Add Label` / `Gmail Remove Label` are still user-selectable but unimplemented; after F3 they **fail loudly** instead of faking success. Either implement worker branches (reusing `GmailService` OAuth flow) or remove them from the seed catalog. Needs a decision.
-- **⬜ F5 — Generic webhook signature verification.** `POST /hooks/:userId/:zapId` authenticates by URL secrecy only; anyone who knows the URL can fire the Zap. A shared-secret header check (like `CRON_SECRET`) belongs here.
-- **⬜ F6 — Orphaned schedule runs.** `CronRoutes /process-schedules` creates a `ZapRun` **without** an outbox row, then POSTs to hooks; if that 5 s HTTP call fails the comment says "processor can pick it up" — but the processor only drains the outbox, so the run stays `pending` forever. Fix: write the `ZapRunOutbox` row (then the hooks schedule endpoint could even be dropped).
-- ⬜ Cosmetic: `ScheduledTrigger.scheduleType` comment in `packages/db/prisma/schema.prisma` omits `minutely` (the route validator accepts it).
+- **✅ F4 — Gmail action catalog alignment (`dfa502f`).** Unimplemented Gmail actions (`Gmail Send Email`, `Gmail Reply`, `Gmail Add Label`, `Gmail Remove Label`, `Gmail Mark as Read`, `Gmail Archive`) removed from `SEEDED_ACTIONS` in `apps/server/src/seed.ts`, with safe cleanup of unreferenced catalog rows and deactivation warning for any existing Zaps wired to them.
+- **✅ F5 — Generic webhook signature verification (`3b66af3`).** `apps/hooks/src/webhookAuth.ts` enforces HMAC-SHA256 (`x-webhook-signature`) or shared secret (`x-webhook-secret` / `Authorization: Bearer`) on `POST /hooks/:userId/:zapId` whenever `WEBHOOK_SECRET` or per-trigger `metadata.secret` is configured.
+- **✅ F6 — Orphaned schedule runs fixed via outbox (`3b66af3`).** `CronRoutes /process-schedules` now writes `ZapRunOutbox` alongside `ZapRun` and drops the fragile cross-service HTTP call to hooks (and the unauthenticated `POST /api/webhooks/schedule` route).
+- **✅ Cosmetic (`3b66af3`):** `ScheduledTrigger.scheduleType` comment in `packages/db/prisma/schema.prisma` now includes `minutely`.
 
 ---
 
@@ -136,11 +142,11 @@ Why duplicates arrive: WhatsApp/Meta and Google both redeliver when the consumer
 | # | Item | Status | Evidence |
 |---|---|---|---|
 | D1 | Dual execution path removed | ✅ | `6306134` — legacy inline executors deleted; all triggers queue to Kafka → worker |
-| D2 | Dispatcher fails loudly; no fake success | ✅ | `854b00a` — unknown action throws; Solana missing-key throws; 28/28 worker tests |
+| D2 | Dispatcher fails loudly; no fake success | ✅ | `854b00a`, `dfa502f` — unknown action throws; catalog pruned to worker-supported actions; 37/37 worker tests |
 | D3 | Webhook event dedup (WhatsApp, Telegram, Calendar, generic) | ✅ | `134d487` — `SET NX PX` dedup wired into all four trigger paths |
 | F1 | Dedup helper + wiring | ✅ | `134d487` — `apps/hooks/src/dedup.ts` + 4 handler call sites |
 | F2 | Hooks → Kafka; legacy executors deleted | ✅ | `6306134` — single `enqueueZapRun` path; hooks no longer executes actions |
 | F3 | Worker guard + jest test | ✅ | `854b00a` — `utils/actionTypes.ts` registry + `tests/actionTypes.test.ts` |
-| F4 | Gmail action executors (or catalog removal) | ⬜ | deferred (§5) — now fails loudly instead of fake success |
-| F5 | Generic webhook signature verification | ⬜ | deferred (§5) |
-| F6 | Schedule runs via outbox (no orphans) | ⬜ | deferred (§5) |
+| F4 | Gmail action catalog alignment + cleanup | ✅ | `dfa502f` — `seed.ts` removes 6 unimplemented Gmail actions + prunes/deactivates; pinned in `actionTypes.test.ts` & `actions.test.ts` |
+| F5 | Generic webhook signature verification | ✅ | `3b66af3` — `apps/hooks/src/webhookAuth.ts` wired into `POST /hooks/:userId/:zapId` + 6 unit tests in `webhook-security.test.ts` |
+| F6 | Schedule runs via outbox (no orphans) | ✅ | `3b66af3` — `CronRoutes /process-schedules` writes `ZapRunOutbox`; `/api/webhooks/schedule` dropped + outbox test in `webhook-security.test.ts` |
