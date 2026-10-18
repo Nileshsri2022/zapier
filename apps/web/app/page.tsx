@@ -83,7 +83,6 @@ export default function Home() {
                   />
                 )}
                 <div className={s.action ? 'flow-step flow-step--action' : 'flow-step'}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={s.icon} alt="" width={28} height={28} />
                   <div>
                     <div className="flow-step-kind">{s.kind}</div>
@@ -121,7 +120,6 @@ export default function Home() {
           <ul className="apps-list">
             {APPS.map((a) => (
               <li key={a.id}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={a.icon} alt="" width={24} height={24} loading="lazy" />
                 {a.name}
                 <span className="apps-note">
