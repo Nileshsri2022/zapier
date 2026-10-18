@@ -1,0 +1,253 @@
+/**
+ * Landing page — semantic classes only, tokens only (spec §7.6).
+ * The one bold element is `.flow-chain`: a zap drawn as a chain on the
+ * dotted editor canvas. Everything else is hairlines + type.
+ */
+
+.landing {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+@media (min-width: 1024px) {
+  .landing {
+    padding: 0 3rem;
+  }
+}
+
+.landing-hero {
+  display: grid;
+  gap: 3rem;
+  align-items: center;
+  padding: 4.5rem 0 4rem;
+}
+@media (min-width: 1024px) {
+  .landing-hero {
+    grid-template-columns: 1.05fr 0.95fr;
+    padding: 6rem 0 5.5rem;
+  }
+}
+
+.landing-title {
+  font-size: clamp(2.75rem, 6vw, 4.75rem);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  font-weight: 700;
+  max-width: 12ch;
+}
+.landing-lede {
+  margin-top: 1.5rem;
+  font-size: 1.25rem;
+  line-height: 1.55;
+  max-width: 46ch;
+  color: hsl(var(--muted-foreground));
+}
+.landing-ctas {
+  margin-top: 2.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+.landing-proof {
+  margin-top: 1.25rem;
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+}
+
+/* --- the flow chain (memorable element) --- */
+.flow-chain {
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  background: hsl(var(--brand-base-muted));
+  background-image: radial-gradient(hsl(var(--canvas-dot) / 0.18) 1px, transparent 0);
+  background-size: 22px 22px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-card);
+}
+.flow-chain-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1.25rem;
+}
+.flow-chain-name {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.flow-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(var(--success));
+}
+.flow-live::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: hsl(var(--success));
+}
+.flow-step {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  background: hsl(var(--popover));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  padding: 0.875rem 1rem;
+}
+.flow-step img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+.flow-step-kind {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+.flow-step-type {
+  font-weight: 600;
+  line-height: 1.2;
+}
+.flow-step--action {
+  margin-left: 1.75rem;
+}
+.flow-link {
+  width: 2px;
+  height: 22px;
+  margin-left: calc(1.75rem + 13px);
+  background: hsl(var(--brand-secondary));
+  opacity: 0.55;
+}
+.flow-link--in {
+  margin-left: 14px;
+  background: hsl(var(--brand-primary));
+}
+
+/* --- ruled sections (not the SaaS card kit) --- */
+.landing-section {
+  border-top: 1px solid hsl(var(--border));
+  padding: 3.5rem 0;
+}
+.landing-h2 {
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  letter-spacing: -0.025em;
+  font-weight: 700;
+  line-height: 1.05;
+  max-width: 22ch;
+}
+.landing-sub {
+  margin-top: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.6;
+  max-width: 52ch;
+}
+
+.steps {
+  margin-top: 2.5rem;
+  display: grid;
+  gap: 2rem;
+}
+@media (min-width: 768px) {
+  .steps {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+  }
+  .steps > li {
+    padding: 0 1.5rem;
+    border-left: 1px solid hsl(var(--border));
+  }
+  .steps > li:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .steps > li:last-child {
+    padding-right: 0;
+  }
+}
+.step-num {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.875rem;
+  color: hsl(var(--brand-primary));
+  font-weight: 600;
+}
+.step-title {
+  margin-top: 0.5rem;
+  font-weight: 600;
+  font-size: 1.125rem;
+  letter-spacing: -0.01em;
+}
+.step-body {
+  margin-top: 0.4rem;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.6;
+  font-size: 0.9375rem;
+}
+
+.apps-list {
+  margin-top: 2rem;
+  border-top: 1px solid hsl(var(--border));
+}
+.apps-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid hsl(var(--border));
+  font-weight: 500;
+}
+.apps-list img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+.apps-list .apps-note {
+  margin-left: auto;
+  font-size: 0.8125rem;
+  color: hsl(var(--muted-foreground));
+  font-weight: 400;
+}
+@media (min-width: 768px) {
+  .apps-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 3rem;
+  }
+  .apps-list .apps-note {
+    display: none;
+  }
+}
+
+.landing-cta {
+  background: hsl(var(--foreground));
+  color: hsl(var(--background));
+  border-radius: 1rem;
+  padding: 3rem 1.5rem;
+  text-align: left;
+  margin-bottom: 4rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.landing-cta h2 {
+  font-size: clamp(1.6rem, 3vw, 2.25rem);
+  letter-spacing: -0.025em;
+  font-weight: 700;
+  line-height: 1.1;
+  max-width: 20ch;
+}
+.landing-footer {
+  border-top: 1px solid hsl(var(--border));
+  padding: 1.5rem 0 2.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+}

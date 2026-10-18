@@ -34,9 +34,12 @@ const Navbar = ({
   const logoHref = mounted && isLoggedIn ? '/dashboard' : '/';
 
   return (
-    <nav className="fixed z-50 bg-base-100 w-full px-2 xs:px-3 sm:px-6 md:px-10 h-14 border-b border-gray-300 flex items-center justify-between transition-all overflow-y-visible">
-      <Link href={logoHref} className="text-primary-500 font-bold text-lg xs:text-xl sm:text-2xl">
-        Zap<span className="text-black font-bold">Mate</span>
+    <nav className="fixed z-50 bg-base-100/90 backdrop-blur w-full px-2 xs:px-3 sm:px-6 md:px-10 h-14 border-b border-border flex items-center justify-between transition-all overflow-y-visible">
+      <Link href={logoHref} className="flex items-center gap-2 font-bold text-lg xs:text-xl sm:text-2xl tracking-tight" aria-label="ZapMate home">
+        <span className="grid size-8 place-items-center rounded-lg bg-primary-500 text-white shadow-card" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-5"><path fillRule="evenodd" d="M14.615 1.595a.75.75 0 0 1 .359.852L12.982 9.75h7.268a.75.75 0 0 1 .548 1.262l-10.5 11.25a.75.75 0 0 1-1.272-.71l1.992-7.302H3.75a.75.75 0 0 1-.548-1.262l10.5-11.25a.75.75 0 0 1 .913-.143Z" clipRule="evenodd" /></svg>
+        </span>
+        <span>Zap<span className="text-primary-500">Mate</span></span>
       </Link>
 
       {mounted && isLoggedIn ? (
@@ -47,7 +50,7 @@ const Navbar = ({
         >
           <div
             className="flex justify-center items-center cursor-pointer w-10 h-10 rounded-full bg-primary-500 hover:bg-primary-700 hover:shadow-2xl transition-all"
-            onClick={() => setDropdownVisible(!dropdownVisible)}
+            onClick={() => setDropdownVisible(!dropdownVisible)} aria-expanded={dropdownVisible} aria-haspopup="menu" aria-label="Account menu"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -64,8 +67,8 @@ const Navbar = ({
           </div>
           {dropdownVisible && (
             <div className="bg-white z-50 w-40 h-20 p-2 border border-gray-300 rounded-sm flex flex-col gap-2 transition-all">
-              <div
-                className="border-b text-gray-500 cursor-pointer hover:bg-base-200 px-1 text-nm border-gray-300"
+              <button type="button"
+                className="border-b text-left text-gray-500 cursor-pointer hover:bg-base-200 px-1 text-nm border-gray-300"
                 onClick={async () => {
                   // Call logout API to clear httpOnly cookie
                   try {
@@ -82,16 +85,16 @@ const Navbar = ({
                 }}
               >
                 Logout
-              </div>
-              <div
-                className="border-b text-gray-500 cursor-pointer hover:bg-base-200 px-1 text-nm border-gray-300"
+              </button>
+              <button type="button"
+                className="border-b text-left text-gray-500 cursor-pointer hover:bg-base-200 px-1 text-nm border-gray-300"
                 onClick={() => {
                   setDropdownVisible(false);
                   router.push('/profile');
                 }}
               >
                 My Profile
-              </div>
+              </button>
             </div>
           )}
         </div>
@@ -111,7 +114,7 @@ const Navbar = ({
           <button
             className="sm:hidden flex flex-col justify-center items-center w-10 h-10 gap-1.5"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
+            aria-label="Toggle menu" aria-expanded={mobileMenuOpen}
           >
             <span
               className={clsx('w-6 h-0.5 bg-gray-700 transition-all duration-300', {

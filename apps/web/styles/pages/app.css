@@ -1,0 +1,166 @@
+/** Dashboard + auth — semantic classes, tokens only. Quiet hairlines, type does the work. */
+
+/* --- dashboard --- */
+.dash-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.dash-title {
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+.dash-sub {
+  margin-top: 0.35rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.9375rem;
+}
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.dash-table th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  text-align: left;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.dash-table td {
+  padding: 0.9rem 0.5rem;
+  border-bottom: 1px solid hsl(var(--border));
+  vertical-align: middle;
+}
+.dash-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+.dash-table tbody tr:hover {
+  background: hsl(var(--brand-link-bg));
+}
+.dash-url {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.8125rem;
+  word-break: break-all;
+}
+.dash-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.dash-status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: hsl(var(--scrollbar-thumb));
+}
+.dash-status[data-on='true'] {
+  color: hsl(var(--success));
+}
+.dash-status[data-on='true']::before {
+  background: hsl(var(--success));
+}
+.dash-empty {
+  border: 1px dashed hsl(var(--border));
+  border-radius: 1rem;
+  padding: 3.5rem 1.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  background: hsl(var(--brand-base-muted));
+  background-image: radial-gradient(hsl(var(--canvas-dot) / 0.15) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+.dash-empty h3 {
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.dash-empty p {
+  color: hsl(var(--muted-foreground));
+  max-width: 42ch;
+  line-height: 1.6;
+}
+
+/* --- auth --- */
+.auth-shell {
+  min-height: 100dvh;
+  display: grid;
+}
+@media (min-width: 768px) {
+  .auth-shell {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.auth-aside {
+  padding: 6rem 2rem 3rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+  background: hsl(var(--brand-base-muted));
+  background-image: radial-gradient(hsl(var(--canvas-dot) / 0.15) 1px, transparent 0);
+  background-size: 24px 24px;
+  border-right: 1px solid hsl(var(--border));
+}
+@media (min-width: 1024px) {
+  .auth-aside {
+    padding-left: 15%;
+    padding-right: 12%;
+  }
+}
+.auth-aside h2 {
+  font-size: clamp(1.9rem, 3.5vw, 2.75rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  max-width: 16ch;
+}
+.auth-aside p,
+.auth-aside li {
+  color: hsl(var(--muted-foreground));
+  line-height: 1.6;
+}
+.auth-main {
+  padding: 6rem 1.25rem 3rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.auth-main h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.25rem;
+}
+.auth-card {
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  padding: 1.5rem;
+  background: hsl(var(--popover));
+  box-shadow: var(--shadow-card);
+  width: 100%;
+  max-width: 30rem;
+}
+.auth-card p {
+  font-size: 0.8125rem;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.55;
+}
+.auth-card a {
+  font-weight: 600;
+  color: hsl(var(--brand-secondary-hover));
+  text-underline-offset: 3px;
+}
+.auth-card a:hover {
+  text-decoration: underline;
+}
