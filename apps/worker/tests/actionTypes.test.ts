@@ -1,4 +1,8 @@
-import { isKnownActionType, KNOWN_ACTION_TYPES, KNOWN_ACTION_PREFIXES } from '../src/utils/actionTypes';
+import {
+  isKnownActionType,
+  KNOWN_ACTION_TYPES,
+  KNOWN_ACTION_PREFIXES,
+} from '../src/utils/actionTypes';
 
 /**
  * The action-type guard is what turns "unimplemented action" from a silent
