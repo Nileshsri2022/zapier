@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import client from '@repo/db';
 import kafka from '@repo/kafka';
+import { isDuplicateEvent } from './dedup';
 
 interface TelegramMessage {
   message_id: number;
@@ -114,6 +115,11 @@ async function processMessage(message: TelegramMessage): Promise<void> {
     });
 
     if (!zap) continue;
+
+    // Dedup: Telegram redelivers on missed ACKs; one message must fire the Zap once
+    if (await isDuplicateEvent('telegram', `${zap.id}:${message.message_id}`)) {
+      continue;
+    }
 
     // Create ZapRun with comprehensive message metadata
     const zapRun = await client.zapRun.create({
