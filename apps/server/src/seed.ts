@@ -115,7 +115,7 @@ async function seedDatabase() {
         },
         {
           type: 'Solana',
-          image: '/apps/Solena.svg',
+          image: '/apps/Solana.svg',
         },
         {
           type: 'Gmail Send Email',

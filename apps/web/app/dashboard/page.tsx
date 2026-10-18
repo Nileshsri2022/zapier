@@ -11,6 +11,7 @@ import Link from 'next/link';
 import Tooltip from '@/components/Tooltip';
 import { API_URL, HOOKS_URL } from '@/lib/config';
 import ZapRunHistory from '@/components/ZapRunHistory';
+import { appIcon } from '@/lib/appIcon';
 
 interface TZap {
   id: string;
@@ -217,7 +218,7 @@ export default function Page() {
                       <Tooltip tooltipText={zap.trigger.trigger.type}>
                         <img
                           className="w-6 border p-[3px] border-gray-500"
-                          src={zap.trigger.trigger.image}
+                          src={appIcon(zap.trigger.trigger.type, zap.trigger.trigger.image)}
                         />
                       </Tooltip>
                       {zap.actions.map((a, i) => (
@@ -226,7 +227,7 @@ export default function Page() {
                             <img
                               key={i}
                               className="w-6 p-[3px] border border-gray-500"
-                              src={a.action.image}
+                              src={appIcon(a.action.type, a.action.image)}
                             />
                           </Tooltip>
                         </div>
@@ -408,7 +409,7 @@ export default function Page() {
                     <span className="text-xs text-gray-500 mr-1">Flow:</span>
                     <img
                       className="w-5 h-5 border p-[2px] border-gray-400 rounded"
-                      src={zap.trigger.trigger.image}
+                      src={appIcon(zap.trigger.trigger.type, zap.trigger.trigger.image)}
                       alt={zap.trigger.trigger.type}
                     />
                     <span className="text-gray-400">→</span>
@@ -416,7 +417,7 @@ export default function Page() {
                       <img
                         key={i}
                         className="w-5 h-5 p-[2px] border border-gray-400 rounded"
-                        src={a.action.image}
+                        src={appIcon(a.action.type, a.action.image)}
                         alt={a.action.type}
                       />
                     ))}

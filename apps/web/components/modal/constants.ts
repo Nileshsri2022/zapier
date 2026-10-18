@@ -28,7 +28,7 @@ export const APPS: App[] = [
   {
     id: 'solana',
     name: 'Solana',
-    icon: '/apps/Solena.svg',
+    icon: '/apps/Solana.svg',
     exact: 'Solana',
   },
   {
