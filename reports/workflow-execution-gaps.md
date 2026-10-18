@@ -9,7 +9,7 @@
 | **Scope** | Trigger → action execution pipeline: `apps/hooks`, `apps/processor`, `apps/worker`, `apps/server` (schedule/cron routes), `packages/db` schema |
 | **Method** | Static read of all trigger handlers, the Kafka consumer, the action dispatcher, the Prisma schema, and the seed catalog. Each finding below is reproducible from the cited file/line. |
 
-> **Status:** §1–§3 are the **as-found audit**. §4 lists the fixes carried in this branch, §5 the open follow-ups. The completion marks in **§6 — read this first** track everything to done.
+> **Status:** §1–§3 are the **as-found audit** (as of `5753c0a`). §4's fixes **F1–F3 are landed in this branch** (commits cited in §6); §5's follow-ups (F4–F6) remain open. Verification: worker jest 28/28, server jest 135/135, `tsc --noEmit` on `apps/hooks` shows only the 6 pre-existing sandbox errors (unbuilt workspace `dist` + prisma engine download blocked), prettier clean on all touched files.
 
 Legend — ✅ fixed in this branch, commit cited · 🟡 partly done, gap named · ⬜ not started.
 
@@ -135,12 +135,12 @@ Why duplicates arrive: WhatsApp/Meta and Google both redeliver when the consumer
 
 | # | Item | Status | Evidence |
 |---|---|---|---|
-| D1 | Dual execution path removed | ⬜ | — |
-| D2 | Dispatcher fails loudly; no fake success | ⬜ | — |
-| D3 | Webhook event dedup (WhatsApp, Telegram, Calendar, generic) | ⬜ | — |
-| F1 | Dedup helper + wiring | ⬜ | — |
-| F2 | Hooks → Kafka; legacy executors deleted | ⬜ | — |
-| F3 | Worker guard + jest test | ⬜ | — |
-| F4 | Gmail action executors (or catalog removal) | ⬜ | deferred (§5) |
+| D1 | Dual execution path removed | ✅ | `6306134` — legacy inline executors deleted; all triggers queue to Kafka → worker |
+| D2 | Dispatcher fails loudly; no fake success | ✅ | `854b00a` — unknown action throws; Solana missing-key throws; 28/28 worker tests |
+| D3 | Webhook event dedup (WhatsApp, Telegram, Calendar, generic) | ✅ | `134d487` — `SET NX PX` dedup wired into all four trigger paths |
+| F1 | Dedup helper + wiring | ✅ | `134d487` — `apps/hooks/src/dedup.ts` + 4 handler call sites |
+| F2 | Hooks → Kafka; legacy executors deleted | ✅ | `6306134` — single `enqueueZapRun` path; hooks no longer executes actions |
+| F3 | Worker guard + jest test | ✅ | `854b00a` — `utils/actionTypes.ts` registry + `tests/actionTypes.test.ts` |
+| F4 | Gmail action executors (or catalog removal) | ⬜ | deferred (§5) — now fails loudly instead of fake success |
 | F5 | Generic webhook signature verification | ⬜ | deferred (§5) |
 | F6 | Schedule runs via outbox (no orphans) | ⬜ | deferred (§5) |
