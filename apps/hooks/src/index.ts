@@ -6,6 +6,7 @@ import { verifyWhatsAppWebhook, handleWhatsAppWebhook } from './whatsappHandler'
 import { handleTelegramWebhook } from './telegramHandler';
 import { handleGoogleCalendarWebhook } from './googleCalendarHandler';
 import { isDuplicateEvent } from './dedup';
+import { verifyWebhookRequest } from './webhookAuth';
 
 dotenv.config();
 
@@ -18,7 +19,10 @@ const TOPIC_NAME = 'zap-events';
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Content-Type, X-Webhook-Signature, X-Webhook-Secret, Authorization'
+  );
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -69,8 +73,18 @@ app.post('/hooks/:userId/:zapId', async (req: Request, res: Response): Promise<a
   try {
     const zap = await client.zap.findUnique({
       where: { id: zapId },
-      include: { actions: true },
+      include: { actions: true, trigger: true },
     });
+
+    // F5: verify webhook signature/secret when WEBHOOK_SECRET or per-trigger
+    // metadata.secret is configured (before dedup or ZapRun creation so
+    // unauthenticated requests cannot pollute dedup keys or run history).
+    const auth = verifyWebhookRequest(req.headers, triggerPayload, zap?.trigger?.metadata);
+    if (!auth.authorized) {
+      return res.status(auth.status ?? 401).json({
+        message: auth.message ?? 'Unauthorized',
+      });
+    }
 
     // Dedup: webhook clients are encouraged to include an `event_id` (or
     // `eventId`) in the body so redeliveries can be dropped. Without one the
@@ -154,44 +168,6 @@ app.post('/api/webhooks/telegram', handleTelegramWebhook);
 // Google Calendar Webhook Routes (Push Notifications)
 // ============================================
 app.post('/api/webhooks/google-calendar', handleGoogleCalendarWebhook);
-
-// ============================================
-// Schedule Webhook Routes (from cron service)
-// ============================================
-app.post('/api/webhooks/schedule', async (req: Request, res: Response) => {
-  const { zapRunId } = req.body;
-
-  if (!zapRunId) {
-    return res.status(400).json({ error: 'zapRunId is required' });
-  }
-
-  console.log(`📅 Schedule webhook received for ZapRun: ${zapRunId}`);
-
-  try {
-    const zapRun = await client.zapRun.findUnique({
-      where: { id: zapRunId },
-    });
-
-    if (!zapRun) {
-      return res.status(404).json({ error: 'ZapRun not found' });
-    }
-
-    // Queue stage 1 for the worker (single execution engine)
-    await enqueueZapRun(zapRunId);
-
-    res.status(200).json({
-      success: true,
-      message: 'Schedule queued for processing',
-      zapRunId,
-    });
-  } catch (error: any) {
-    console.error('Schedule webhook error:', error);
-    return res.status(500).json({
-      message: 'Schedule processing failed',
-      error: error.message,
-    });
-  }
-});
 
 // JSON parsing error handler (must be after routes)
 app.use((err: any, req: any, res: any, next: NextFunction) => {

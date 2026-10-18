@@ -22,12 +22,27 @@ describe('isKnownActionType', () => {
     }
   );
 
-  it.each(['Gmail Send Email', 'Gmail Reply', 'Slack Message', '', 'email', 'WEBHOOK'])(
-    'rejects unimplemented or mistyped action %s',
+  it.each(['Email', 'Solana', 'WhatsApp Send Message', 'Telegram Send Message', 'Webhook'])(
+    'accepts every seeded action type from apps/server/src/seed.ts (%s)',
     (type) => {
-      expect(isKnownActionType(type)).toBe(false);
+      expect(isKnownActionType(type)).toBe(true);
     }
   );
+
+  it.each([
+    'Gmail Send Email',
+    'Gmail Reply',
+    'Gmail Add Label',
+    'Gmail Remove Label',
+    'Gmail Mark as Read',
+    'Gmail Archive',
+    'Slack Message',
+    '',
+    'email',
+    'WEBHOOK',
+  ])('rejects unimplemented or mistyped action %s', (type) => {
+    expect(isKnownActionType(type)).toBe(false);
+  });
 
   it('keeps the prefix registry a strict superset of exact matches', () => {
     // Guard against the two registries drifting: a prefix should never collide

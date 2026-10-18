@@ -9,6 +9,10 @@ import {
   verifyGmailWebhookSignature,
 } from '../../src/controllers/GmailWebhookController';
 import { handleWebhook, verifyWebhookSignature } from '../../src/controllers/TriggerController';
+import {
+  verifyWebhookRequest,
+  verifyWebhookSignature as verifyHooksSignature,
+} from '../../../hooks/src/webhookAuth';
 
 /**
  * Regression tests for the fail-open security findings in
@@ -176,5 +180,137 @@ describe('Security - Cron endpoints fail closed', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toHaveProperty('success', true);
+  });
+
+  it('writes ZapRunOutbox for due schedules so runs are never orphaned in pending (F6)', async () => {
+    process.env.CRON_SECRET = 'cron-secret';
+    (client.scheduledTrigger.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'sched-1',
+        zapId: 'zap-1',
+        scheduleType: 'minutely',
+        minute: 0,
+        timezone: 'UTC',
+        zap: { id: 'zap-1', name: 'Minute Zap', isActive: true },
+      },
+    ]);
+    (client.zapRun.create as jest.Mock).mockResolvedValue({ id: 'run-sched-1' });
+    (client.zapRunOutbox.create as jest.Mock).mockResolvedValue({
+      id: 'outbox-1',
+      zapRunId: 'run-sched-1',
+    });
+    (client.scheduledTrigger.update as jest.Mock).mockResolvedValue({});
+
+    const response = await request(cronApp)
+      .get('/api/cron/process-schedules')
+      .set('x-cron-secret', 'cron-secret');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        success: true,
+        processed: 1,
+      })
+    );
+    expect(client.zapRun.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          zapId: 'zap-1',
+          metadata: expect.objectContaining({
+            triggerType: 'schedule',
+            scheduleType: 'minutely',
+          }),
+        }),
+      })
+    );
+    expect(client.zapRunOutbox.create).toHaveBeenCalledWith({
+      data: { zapRunId: 'run-sched-1' },
+    });
+    expect(client.scheduledTrigger.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'sched-1' },
+      })
+    );
+  });
+});
+
+describe('Security - Hooks generic webhook authentication (F5)', () => {
+  const payload = { event_id: 'evt-1', amount: 42 };
+
+  it('requires a signature or secret when WEBHOOK_SECRET is configured', () => {
+    process.env.WEBHOOK_SECRET = 'hooks-secret';
+
+    const result = verifyWebhookRequest({}, payload);
+
+    expect(result).toEqual({
+      authorized: false,
+      status: 401,
+      message: 'Webhook signature required',
+    });
+  });
+
+  it('rejects an invalid HMAC signature or wrong shared secret', () => {
+    process.env.WEBHOOK_SECRET = 'hooks-secret';
+
+    expect(verifyWebhookRequest({ 'x-webhook-signature': 'sha256=bad' }, payload)).toEqual({
+      authorized: false,
+      status: 401,
+      message: 'Invalid webhook signature',
+    });
+
+    expect(verifyWebhookRequest({ 'x-webhook-secret': 'wrong-secret' }, payload)).toEqual({
+      authorized: false,
+      status: 401,
+      message: 'Invalid webhook signature',
+    });
+  });
+
+  it('accepts a valid HMAC-SHA256 x-webhook-signature header', () => {
+    process.env.WEBHOOK_SECRET = 'hooks-secret';
+    const sig = `sha256=${crypto
+      .createHmac('sha256', 'hooks-secret')
+      .update(JSON.stringify(payload))
+      .digest('hex')}`;
+
+    expect(verifyWebhookRequest({ 'x-webhook-signature': sig }, payload)).toEqual({
+      authorized: true,
+    });
+  });
+
+  it('accepts a valid x-webhook-secret or Bearer token', () => {
+    process.env.WEBHOOK_SECRET = 'hooks-secret';
+
+    expect(verifyWebhookRequest({ 'x-webhook-secret': 'hooks-secret' }, payload)).toEqual({
+      authorized: true,
+    });
+    expect(verifyWebhookRequest({ authorization: 'Bearer hooks-secret' }, payload)).toEqual({
+      authorized: true,
+    });
+  });
+
+  it('honors per-trigger metadata.secret over WEBHOOK_SECRET', () => {
+    process.env.WEBHOOK_SECRET = 'global-secret';
+    const triggerMeta = { secret: 'per-zap-secret' };
+
+    expect(
+      verifyWebhookRequest({ 'x-webhook-secret': 'global-secret' }, payload, triggerMeta)
+    ).toEqual({
+      authorized: false,
+      status: 401,
+      message: 'Invalid webhook signature',
+    });
+
+    expect(
+      verifyWebhookRequest({ 'x-webhook-secret': 'per-zap-secret' }, payload, triggerMeta)
+    ).toEqual({
+      authorized: true,
+    });
+  });
+
+  it('allows capability-URL requests when neither trigger nor env secret is set, without using a default key', () => {
+    delete process.env.WEBHOOK_SECRET;
+
+    expect(verifyWebhookRequest({}, payload)).toEqual({ authorized: true });
+    expect(verifyHooksSignature(JSON.stringify(payload), 'sha256=anything')).toBe(false);
   });
 });
