@@ -54,3 +54,6 @@ ehthumbs.db
 
 learnings/*
 artifacts/*
+
+.turbo/
+reports/*

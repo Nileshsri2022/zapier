@@ -4,6 +4,7 @@ import React, { type Dispatch, type SetStateAction, useState, useEffect } from '
 import Button from './Button';
 import { usePathname, useRouter } from 'next/navigation';
 import clsx from 'clsx';
+import { API_URL } from '@/lib/config';
 
 const Navbar = ({
   dropdownVisible,
@@ -72,7 +73,7 @@ const Navbar = ({
                 onClick={async () => {
                   // Call logout API to clear httpOnly cookie
                   try {
-                    await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/auth/logout`, {
+                    await fetch(`${API_URL}/api/auth/logout`, {
                       method: 'POST',
                       credentials: 'include',
                     });
