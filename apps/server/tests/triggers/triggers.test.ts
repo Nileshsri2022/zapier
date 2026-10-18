@@ -127,39 +127,10 @@ describe('TriggerController - Handle Webhook', () => {
   });
 });
 
-describe('TriggerController - Handle Gmail Trigger', () => {
-  let mockRequest: Partial<Request>;
-  let mockResponse: Partial<Response>;
-  let jsonMock: jest.Mock;
-  let statusMock: jest.Mock;
-
-  beforeEach(() => {
-    jsonMock = jest.fn();
-    statusMock = jest.fn().mockReturnValue({ json: jsonMock });
-    mockResponse = {
-      status: statusMock,
-      json: jsonMock,
-    };
-  });
-
-  describe('handleGmailTrigger', () => {
-    it('should return 400 if zapId is missing', async () => {
-      mockRequest = {
-        params: {},
-        body: { messageId: 'msg-123' },
-      };
-
-      await TriggerController.handleGmailTrigger(mockRequest as Request, mockResponse as Response);
-
-      expect(statusMock).toHaveBeenCalledWith(400);
-      expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'Zap ID is required',
-        })
-      );
-    });
-  });
-});
+// NOTE: the former "Handle Gmail Trigger" suite pinned TriggerController's
+// handleGmailTrigger, which was exported but mounted on no route (dead
+// code). It was deleted in gmail-worker-routing-spec P2; Gmail dispatch
+// behavior is now covered by tests/gmail/dispatch.test.ts.
 
 describe('TriggerController - Verify Webhook Signature', () => {
   describe('verifyWebhookSignature', () => {

@@ -2,7 +2,6 @@ import { CreateZapSchema } from '@repo/types';
 import { Request, Response } from 'express';
 import { formatZodError } from '../helper';
 import client from '@repo/db';
-import { executeAction } from './ActionsController';
 
 export const createZap = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -269,108 +268,11 @@ export const fetchZapWithId = async (req: Request, res: Response): Promise<any> 
   }
 };
 
-/**
- * Run a zap's actions in order and record the outcome on a ZapRun.
- *
- * A run in which any action failed is recorded as `failed` with the reasons
- * in `errorMessage`. Previously per-action errors were swallowed and the run
- * was always written as a success, so a Zap whose every step failed still
- * looked healthy in the history.
- *
- * Deliberately does not throw: these functions are called from webhook
- * handlers (Gmail push, inbound webhooks) where a 5xx response would make the
- * provider retry and re-run the actions. The failure signal belongs in the
- * run record and the logs.
- */
-const executeZapActions = async (
-  zap: { id: string; actions: { action: { type: string }; metadata: any }[] },
-  payload: any
-) => {
-  const failures: string[] = [];
-
-  for (const zapAction of zap.actions) {
-    try {
-      await executeAction(zapAction.action.type, zapAction.metadata, payload);
-      console.log(`Executed action ${zapAction.action.type} successfully`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      failures.push(`${zapAction.action.type}: ${message}`);
-      console.error(`Failed to execute action ${zapAction.action.type}:`, error);
-    }
-  }
-
-  await client.zapRun.create({
-    data: {
-      zapId: zap.id,
-      metadata: payload,
-      status: failures.length > 0 ? 'failed' : 'completed',
-      errorMessage: failures.length > 0 ? failures.join('; ') : null,
-      completedAt: new Date(),
-    },
-  });
-
-  if (failures.length > 0) {
-    console.error(
-      `Zap ${zap.id}: ${failures.length}/${zap.actions.length} action(s) failed - ${failures.join('; ')}`
-    );
-  }
-};
-
-export const processWebhookTrigger = async (zapId: string, payload: any) => {
-  try {
-    const zap = await client.zap.findUnique({
-      where: { id: zapId, isActive: true },
-      include: {
-        actions: {
-          include: { action: true },
-          orderBy: { sortingOrder: 'asc' },
-        },
-      },
-    });
-
-    if (!zap) {
-      console.log(`Zap ${zapId} not found or inactive`);
-      return;
-    }
-
-    console.log(`Processing webhook for zap ${zapId} with ${zap.actions.length} actions`);
-
-    await executeZapActions(zap, payload);
-
-    console.log(`Webhook processing finished for zap ${zapId}`);
-  } catch (error) {
-    console.error(`Error processing webhook for zap ${zapId}:`, error);
-    throw error;
-  }
-};
-
-export const processGmailTrigger = async (zapId: string, emailData: any) => {
-  try {
-    const zap = await client.zap.findUnique({
-      where: { id: zapId, isActive: true },
-      include: {
-        actions: {
-          include: { action: true },
-          orderBy: { sortingOrder: 'asc' },
-        },
-      },
-    });
-
-    if (!zap) {
-      console.log(`Zap ${zapId} not found or inactive`);
-      return;
-    }
-
-    console.log(`Processing Gmail trigger for zap ${zapId} with ${zap.actions.length} actions`);
-
-    await executeZapActions(zap, emailData);
-
-    console.log(`Gmail trigger processing finished for zap ${zapId}`);
-  } catch (error) {
-    console.error(`Error processing Gmail trigger for zap ${zapId}:`, error);
-    throw error;
-  }
-};
+// The server-inline action executor (executeZapActions /
+// processWebhookTrigger / executeGmailZapInline) lived here until
+// gmail-worker-routing-spec P5. All trigger ingresses now enqueue
+// ZapRun + ZapRunOutbox and apps/worker is the single execution
+// engine — see TriggerController.handleWebhook and services/GmailDispatch.
 
 export const deleteZapWithId = async (req: Request, res: Response): Promise<any> => {
   try {

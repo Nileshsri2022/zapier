@@ -7,18 +7,19 @@ const envSchema = z.object({
   PORT: z.string().default('5000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
-  // Optional SMTP settings - live config, not legacy residue: the Email action
-  // (ActionsController) sends through nodemailer using these. SMTP_PASS is the
-  // name the code reads; the docs used to call it SMTP_PASSWORD and
-  // ActionsController now accepts either. The worker sends via Resend instead
-  // and does not use this block.
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.string().optional(),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
+  // No SMTP block: the server-inline nodemailer Email executor was deleted
+  // in gmail-worker-routing-spec P5. The Email action sends from
+  // apps/worker via Resend (RESEND_API_KEY there); this server never sends
+  // action email. Setting SMTP_* has no effect.
 
   // Optional webhook secret
   WEBHOOK_SECRET: z.string().optional(),
+
+  // Gmail Pub/Sub push OIDC verification (spec §4.4). Both are optional in
+  // schema but SHOULD be set in production: the audience expected on the
+  // push JWT and the service-account email allowed to deliver to us.
+  GMAIL_PUBSUB_AUDIENCE: z.string().optional(),
+  GMAIL_PUBSUB_SERVICE_ACCOUNT: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

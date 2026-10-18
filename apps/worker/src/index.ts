@@ -7,6 +7,7 @@ import { withRetry, RetryResult } from './utils/retry';
 import { sendSol, getSolanaPrivateKey } from './sendSolana';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
 import { isKnownActionType } from './utils/actionTypes';
+import { replaceKeys } from './utils/replaceKeys';
 
 dotenv.config();
 
@@ -21,24 +22,6 @@ const validateEmail = (email: string) => {
   const regex = /^\S+@\S+\.\S+$/;
   return regex.test(email);
 };
-
-function replaceKeys(template: string, replacements: Record<string, any>): string {
-  return template.replace(/{(.*?)}/g, (_, key) => {
-    // Support nested keys like {previousOutput.amount} or {data.user.email}
-    const keys = key.split('.');
-    let value: any = replacements;
-
-    for (const k of keys) {
-      if (value && typeof value === 'object' && k in value) {
-        value = value[k];
-      } else {
-        return `{${key}}`; // Key not found, return placeholder
-      }
-    }
-
-    return value !== undefined && value !== null ? String(value) : `{${key}}`;
-  });
-}
 
 // Initialize Kafka
 async function initKafka() {
@@ -96,9 +79,14 @@ async function executeActionWithRetry(
 
         console.log('📧 [Worker] Sending email to:', emailReceiver);
         const emailBody = replaceKeys(body, zapRunMetadata);
+        // Template the subject like the body. It previously went out raw, so
+        // "{previousOutput.…}" in a subject was delivered literally (the
+        // server-side inline Email executor templated all three fields —
+        // see reports/gmail-worker-routing-spec.md D8).
+        const emailSubject = subject ? replaceKeys(String(subject), zapRunMetadata) : subject;
         console.log('  - Processed body (first 100 chars):', emailBody?.substring(0, 100));
 
-        const result = await sendEmailWithTextBody(emailReceiver, subject, emailBody);
+        const result = await sendEmailWithTextBody(emailReceiver, emailSubject, emailBody);
         console.log('📧 [Worker] Email send result:', JSON.stringify(result));
 
         // @ts-ignore - Handle both success and error response types
@@ -110,7 +98,7 @@ async function executeActionWithRetry(
         return {
           success: true,
           message: `Email sent to ${emailReceiver}`,
-          output: { to: emailReceiver, subject, sentAt: new Date().toISOString() },
+          output: { to: emailReceiver, subject: emailSubject, sentAt: new Date().toISOString() },
         };
       }
 
