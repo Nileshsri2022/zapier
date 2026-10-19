@@ -25,7 +25,9 @@
     "@swc/core": "^1.15.8",
     "bs58": "^6.0.0",
     "dotenv": "^16.4.7",
-    "express": "^4.21.1"
+    "express": "^4.21.1",
+    "@repo/ai": "*",
+    "@repo/ai-connections": "*"
   },
   "devDependencies": {
     "@types/bs58": "^4.0.4",

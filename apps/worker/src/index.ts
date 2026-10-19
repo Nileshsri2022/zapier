@@ -8,8 +8,15 @@ import { sendSol, getSolanaPrivateKey } from './sendSolana';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
 import { isKnownActionType } from './utils/actionTypes';
 import { replaceKeys } from './utils/replaceKeys';
+import { readAiPolicy } from '@repo/ai';
+import { validateAiConnectionEnvironment } from '@repo/ai-connections';
+import type { AiActionContext } from './executeAiAction';
 
 dotenv.config();
+
+// Optional AI credentials stay optional; malformed configured policy must fail startup.
+readAiPolicy();
+validateAiConnectionEnvironment();
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -43,8 +50,13 @@ async function executeActionWithRetry(
   actionType: string,
   metadata: any,
   zapRunMetadata: any,
-  previousOutputs?: Record<number, any> // Outputs from previous steps
+  previousOutputs?: Record<number, any>, // Outputs from previous steps
+  context?: AiActionContext
 ): Promise<RetryResult<{ success: boolean; message: string; output?: any }>> {
+  if (actionType === 'AI Transform') {
+    const { executeAiAction } = await import('./executeAiAction.js');
+    return executeAiAction(metadata, zapRunMetadata, previousOutputs, context);
+  }
   return withRetry(
     async () => {
       // Fail loudly for actions the worker cannot execute. Previously an unknown
@@ -136,7 +148,7 @@ async function executeActionWithRetry(
         const resolvedMessage = replaceKeys(message, zapRunMetadata);
 
         // Dynamic imports for sendWhatsApp
-        const { sendWhatsAppMessage } = await import('./sendWhatsApp');
+        const { sendWhatsAppMessage } = await import('./sendWhatsApp.js');
 
         const result = await sendWhatsAppMessage(
           phoneNumberId,
@@ -163,7 +175,7 @@ async function executeActionWithRetry(
         const resolvedMessage = replaceKeys(message, zapRunMetadata);
 
         // Dynamic imports for sendTelegram
-        const { sendTelegramMessage } = await import('./sendTelegram');
+        const { sendTelegramMessage } = await import('./sendTelegram.js');
 
         const result = await sendTelegramMessage(botToken, resolvedChatId, resolvedMessage);
 
@@ -185,7 +197,7 @@ async function executeActionWithRetry(
         const resolvedBody = body ? replaceKeys(JSON.stringify(body), zapRunMetadata) : null;
 
         // Dynamic import for sendWebhook
-        const { sendWebhook } = await import('./sendWebhook');
+        const { sendWebhook } = await import('./sendWebhook.js');
 
         const result = await sendWebhook({
           url: resolvedUrl,
@@ -202,7 +214,7 @@ async function executeActionWithRetry(
         return {
           success: true,
           message: `Webhook sent to ${resolvedUrl}`,
-          output: { url: resolvedUrl, statusCode: result.statusCode, response: result.data },
+          output: { url: resolvedUrl, statusCode: result.statusCode, response: result.response },
         };
       }
 
@@ -302,7 +314,8 @@ async function processMessage(message: any) {
     currentAction.action.type,
     currentAction.metadata,
     { ...zapMetadata, stepOutputs, previousOutput },
-    stepOutputs
+    stepOutputs,
+    { userId: zapRunDetails!.zap.userId, zapRunId, stage }
   );
 
   console.log(
