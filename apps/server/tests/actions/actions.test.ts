@@ -75,7 +75,7 @@ describe('ActionsController - Fetch Available Actions', () => {
 describe('Seed Catalog - F4 / Gap D2 alignment', () => {
   it('seeds only worker-executable action types, including AI Transform', () => {
     const { isKnownActionType } = require('../../../worker/src/utils/actionTypes');
-    expect(SEEDED_ACTION_TYPES).toHaveLength(6);
+    expect(SEEDED_ACTION_TYPES).toHaveLength(7);
     expect(SEEDED_ACTION_TYPES.every(isKnownActionType)).toBe(true);
   });
   it('excludes unimplemented Gmail actions from SEEDED_ACTION_TYPES', () => {
@@ -88,6 +88,7 @@ describe('Seed Catalog - F4 / Gap D2 alignment', () => {
       'Solana',
       'WhatsApp Send Message',
       'Telegram Send Message',
+      'Discord Send Message',
       'Webhook',
     ]);
   });

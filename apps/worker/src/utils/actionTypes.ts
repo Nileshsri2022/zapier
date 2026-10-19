@@ -12,8 +12,8 @@
 /** Exact action-type matches. */
 export const KNOWN_ACTION_TYPES = ['Email', 'Solana', 'Webhook', 'AI Transform'] as const;
 
-/** Prefix matches — e.g. 'WhatsApp Send Message', 'Telegram Send Message'. */
-export const KNOWN_ACTION_PREFIXES = ['WhatsApp', 'Telegram'] as const;
+/** Prefix matches — e.g. 'WhatsApp Send Message', 'Telegram Send Message', 'Discord Send Message'. */
+export const KNOWN_ACTION_PREFIXES = ['WhatsApp', 'Telegram', 'Discord'] as const;
 
 export function isKnownActionType(actionType: string): boolean {
   if ((KNOWN_ACTION_TYPES as readonly string[]).includes(actionType)) {

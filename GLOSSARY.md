@@ -35,3 +35,9 @@ The edge that verifies and hydrates a provider event before handing it to run
 intake: hooks webhooks, Telegram, WhatsApp, Google Calendar push, the server
 webhook and Gmail routes, cron schedules, GitHub webhooks, and integration
 pollers.
+
+## Discord Action
+
+An executable action step (`AvailableActions.type = "Discord Send Message"`) that posts plain text or rich embed messages to a Discord channel via an incoming webhook URL.
+_Avoid_: Discord bot, Discord integration step.
+

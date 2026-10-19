@@ -21,6 +21,7 @@ import {
   GoogleCalendarMetaData,
   ScheduleMetaData,
   GitHubMetaData,
+  DiscordMetaData,
 } from './metadata';
 
 // APPS and types are now imported from ./modal/
@@ -212,6 +213,7 @@ const Modal = ({
       selectedItem.type === 'Email' ||
       selectedItem.type === 'Solana' ||
       selectedItem.type === 'AI Transform' ||
+      selectedItem.type.startsWith('Discord') ||
       selectedItem.type.startsWith('Schedule'); // Add Schedule
 
     if (needsMetadata) {
@@ -624,6 +626,8 @@ const Modal = ({
             <SolanaMetaData handleClick={handleSaveMetaData} />
           ) : selectedItem?.type?.includes('Gmail') ? (
             <GmailMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} />
+          ) : selectedItem?.type?.includes('Discord') ? (
+            <DiscordMetaData handleClick={handleSaveMetaData} />
           ) : (
             <div className="modal-notice">No configuration needed</div>
           )}

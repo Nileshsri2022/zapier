@@ -57,6 +57,12 @@ export const APPS: App[] = [
     prefix: 'Telegram',
   },
   {
+    id: 'discord',
+    name: 'Discord',
+    icon: '/apps/discord.svg',
+    prefix: 'Discord',
+  },
+  {
     id: 'schedule',
     name: 'Schedule',
     icon: '/apps/schedule.svg',

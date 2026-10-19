@@ -15,14 +15,14 @@ describe('isKnownActionType', () => {
     expect(isKnownActionType(type)).toBe(true);
   });
 
-  it.each(['WhatsApp Send Message', 'WhatsApp', 'Telegram Send Message', 'Telegram'])(
+  it.each(['WhatsApp Send Message', 'WhatsApp', 'Telegram Send Message', 'Telegram', 'Discord Send Message', 'Discord'])(
     'accepts prefix match %s',
     (type) => {
       expect(isKnownActionType(type)).toBe(true);
     }
   );
 
-  it.each(['Email', 'Solana', 'WhatsApp Send Message', 'Telegram Send Message', 'Webhook'])(
+  it.each(['Email', 'Solana', 'WhatsApp Send Message', 'Telegram Send Message', 'Webhook', 'Discord Send Message'])(
     'accepts every seeded action type from apps/server/src/seed.ts (%s)',
     (type) => {
       expect(isKnownActionType(type)).toBe(true);

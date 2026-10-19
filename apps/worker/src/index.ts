@@ -193,6 +193,42 @@ async function executeActionWithRetry(
         };
       }
 
+      if (actionType.startsWith('Discord')) {
+        const { webhookUrl, content, message, username, avatarUrl, embed, embeds } = metadata;
+        const rawContent = content || message || '';
+        const resolvedWebhookUrl = replaceKeys(webhookUrl || '', zapRunMetadata);
+        const resolvedContent = rawContent ? replaceKeys(rawContent, zapRunMetadata) : undefined;
+        const resolvedUsername = username ? replaceKeys(username, zapRunMetadata) : undefined;
+        const resolvedAvatarUrl = avatarUrl ? replaceKeys(avatarUrl, zapRunMetadata) : undefined;
+
+        // Dynamic import for sendDiscord
+        const { sendDiscordMessage, resolveDiscordPlaceholders } = await import('./sendDiscord.js');
+
+        const resolvedOptions = resolveDiscordPlaceholders(
+          {
+            content: rawContent || undefined,
+            username: username || undefined,
+            avatarUrl: avatarUrl || undefined,
+            embed,
+            embeds,
+          },
+          zapRunMetadata
+        );
+
+        const result = await sendDiscordMessage(resolvedWebhookUrl, resolvedOptions);
+
+        if (!result.success) {
+          throw new Error(`Discord send failed: ${result.error}`);
+        }
+
+        console.log(`✅ Discord message sent via webhook`);
+        return {
+          success: true,
+          message: `Discord message delivered`,
+          output: { webhookUrl: resolvedWebhookUrl, messageId: result.messageId, sentAt: new Date().toISOString() },
+        };
+      }
+
       if (actionType === 'Webhook') {
         const { url, method = 'POST', headers = {}, body } = metadata;
         const resolvedUrl = replaceKeys(url, zapRunMetadata);

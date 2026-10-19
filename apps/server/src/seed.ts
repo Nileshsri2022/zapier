@@ -28,6 +28,10 @@ export const SEEDED_ACTIONS = [
     image: '/apps/telegram.svg',
   },
   {
+    type: 'Discord Send Message',
+    image: '/apps/discord.svg',
+  },
+  {
     type: 'Webhook',
     image: '/apps/webhook.svg',
   },

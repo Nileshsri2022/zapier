@@ -15,6 +15,7 @@ const BY_KEYWORD: Array<[RegExp, string]> = [
   [/github/, '/apps/github.svg'],
   [/whatsapp/, '/apps/whatsapp.svg'],
   [/telegram/, '/apps/telegram.svg'],
+  [/discord/, '/apps/discord.svg'],
   [/solana/, '/apps/Solana.svg'],
   [/schedule/, '/apps/schedule.svg'],
   [/webhook/, '/apps/webhook.svg'],
