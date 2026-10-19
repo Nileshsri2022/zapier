@@ -228,12 +228,12 @@ Connection IDs are untrusted references: enforce owner and active-state checks o
 
 ### 4.9 Prerequisite (separate PR): route Gmail triggers through the outbox
 
-For the "summarize incoming emails" use case with Gmail triggers. Sketch (full treatment in its own change):
+**Repository status (2026-10-19): the separate routing implementation is already present in the base checkout.** `services/GmailDispatch.ts` hydrates mail, builds a stable payload and transactionally enqueues `ZapRun` + `ZapRunOutbox`; processor → Kafka → worker is the sole execution path. Legacy inline executors and the routing toggle are deleted. Do not recreate them or add another AI engine.
 
-- In the Gmail trigger fan-out (`GmailTriggersController.processGmailTrigger` → `ZapController.processGmailTrigger`), replace `executeZapActions(zap, emailData)` with: create `ZapRun { zapId, metadata: emailData, status: "pending" }` + `ZapRunOutbox` (the F6 pattern from `CronRoutes`). The processor already drains outbox → Kafka → worker.
-- `emailData` keys come from `GmailService` (e.g. `subject`, `snippet`, sender fields — implementer must pin the exact shape and keep it stable, since AI `input` templates will reference it, e.g. `"{subject}\n\n{snippet}"`, plus body text if present).
-- **Blast radius to handle in that PR:** Gmail-triggered Zaps gain all worker actions (WhatsApp/Telegram/Webhook/AI) and chaining/conditions; they lose the server-only `Email`-via-SMTP/`Gmail*` inline execution. Before flipping, audit existing `Action` rows on Gmail-triggered Zaps for types the worker rejects (they would start failing loudly — which is honest, but must be communicated). The inline `Solana` placeholder in `ActionsController` currently _pretends_ to send SOL for Gmail Zaps — routing to the worker makes it real; call this out to users explicitly.
-- Non-Gmail triggers are unaffected; §5 Examples 1–2 are written against webhook/WhatsApp so they ship before this prerequisite.
+- Payload keys are pinned by Gmail tests and include `subject`, `snippet`, `body` (capped text), `from`, `to`, `messageId`, labels and dates. AI input `"{subject}\n\n{snippet}"` is compatible with that contract.
+- Separate implementation/operational evidence: [Gmail routing spec](gmail-worker-routing-spec.md), [workflow gaps](workflow-execution-gaps.md), `tests/gmail/dispatch.test.ts`, `tests/zaps/run-status.test.ts`.
+- **PG implementation is complete, not production accepted.** Production migration/backfill, real ingress/GCP probe, existing-Zap blast-radius audit, watch-renewal cron, sender-policy review and live-mail/rollout observation remain owner-operated gates. Existing Gmail-only actions and Solana transfers must be audited before rollout. There is no inline env rollback after the cleanup; use the documented revert/redeploy procedure.
+- Non-Gmail examples ship independently of these Gmail operational gates.
 
 ### 4.10 Web editor
 
@@ -495,19 +495,25 @@ Phase labels preserve previous references; P3 intentionally precedes P2 exposure
 
 ## 13. Completion checklist
 
-Implementation progress (2026-10-19): PC foundation added: additive migration, shared encrypted-connection service, owner-scoped Bearer-only CRUD, bounded pinned-IP transport, key-rotation CLI and mocked tests. See `reports/ai-connection-operations.md`. PC is not production-accepted until staging DB and live egress verification pass. Probe/preview, affected-Zap reporting, budgets and editor CSRF integration remain for later phases. Provider execution/catalog exposure remain disabled.
+**2026-10-19 — all implementation phases complete and committed.** Checkmarks below mean code/documentation and local checks, **not** live-service or production acceptance. Full evidence and commit map: [completion report](ai-implementation-completion.md); deployment, test and rollback procedures: [operations](ai-connection-operations.md).
 
+- [x] P0 — Revised four-provider spec (Puter and OpenAI-compatible included)
+- [x] PC — Additive migration, encrypted owner-scoped connections, safe egress and rotation tooling
+- [x] P1 — Shared adapters/executor, worker retry/replay, fail-closed shared budgets and mocked tests
+- [x] P3 — Canonical save validation, model/test APIs, cookie CSRF and budgeted probes
+- [x] P2 — Exact executable catalog entry/icon; six-action worker-registry invariant
+- [x] P4 — Four-provider/mode editor, write-only connection management, sample tests, disclosure and saved-setting round trip
+- [x] P4 integration — Persisted per-action conditions make classification routing buildable; skipped final actions complete runs
+- [x] P5 — Gated real provider/DB/Redis harnesses, final probe/replay-key regressions, deployment/billing/security/rotation/rollback docs and completion marks
+- [x] PG implementation — Existing separate Gmail outbox/single-engine code verified in checkout; payload contract compatible; closure docs reconciled
 
-- [x] Original spec authored; revised for Puter and OpenAI-compatible connections
-P1 progress: `@repo/ai` adapters/executor, per-attempt atomic Redis reservations, retry predicate, saved-output replay and worker integration are implemented with mocked tests. Puter SDK 2.6.4 is isolated and disabled by default; live verification is outstanding. Shared owner-scoped Prisma adapter now lives in `@repo/ai-connections`. Platform model IDs/allowlists require explicit operator configuration rather than unverified defaults. Failed repair dispatches are fatal and never retried. P1 acceptance is not complete until gated provider tests pass. P3 precedes catalog exposure.
+### External acceptance — intentionally not marked complete
 
-- [ ] Owner approves decisions and applicable production gates
-- [ ] PC — Migration, encrypted connections, APIs, rotation and safe egress
-- [ ] P1 — Shared adapters, worker, retry/replay, budgets and tests
-- [x] P3 — Metadata validation, models/test endpoints, CSRF and budgeted connection probes; mocked tests pass
-- [x] P2 — Seed/icon after worker and server support; six-action registry invariant tested
-- [x] P4 — Four-provider editor, fields, connection management, protected billable tests and disclosure; component tests/build pass
-- [ ] P5 — Gated E2E and documentation
-- [ ] Puter verification complete before production activation
-- [ ] Compatible SSRF/transport verification complete before activation
-- [ ] PG — Separate Gmail routing prerequisite implemented
+- [ ] Owner approves applicable privacy/retention/billing/model/host policies and controlled production rollout
+- [ ] Real PostgreSQL migration/CRUD/restore and key-rotation rehearsals
+- [ ] Live Redis concurrency and deployed outage checks
+- [ ] Real enabled-provider workflows and compatible TLS/egress/profile review
+- [ ] Puter runtime/account/lifecycle/billing/normalization/cap verification **before enabling**
+- [ ] PG production audit/migration/backfill/GCP/watch-renewal/live-mail and rollout checks
+
+No production migration, paid provider call, Gmail live probe or production enablement was performed. Gated tests are skipped by default and do not count as passed acceptance. Puter remains disabled by default; compatible access remains denied without explicit approved hosts and encryption configuration.

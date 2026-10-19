@@ -4,7 +4,7 @@ import { AiConnectionError, CAPABILITY_PROFILES } from '@repo/ai-connections';
 import { authMiddleware } from '../middlewares';
 import { aiCsrf, aiOwner } from '../middlewares/aiCsrf';
 import { previewAi } from '../services/ai';
-import { AiStepError } from '@repo/ai';
+import { AiStepError, readAiPolicy } from '@repo/ai';
 import client from '@repo/db';
 import { getAiConnectionService } from '../services/aiConnections';
 
@@ -120,16 +120,15 @@ router.post('/:id/test', async (req, res) => {
         model: model.data,
         mode: 'summarize',
         input: 'Connection test: reply with OK.',
+        maxOutputTokens: Math.min(64, readAiPolicy().maxOutputTokens),
       },
       aiOwner(req)
     );
     res.json(output);
   } catch (error) {
-    res
-      .status(error instanceof AiStepError && error.retryable ? 503 : 400)
-      .json({
-        message: error instanceof AiStepError ? error.message : 'AI connection test failed',
-      });
+    res.status(error instanceof AiStepError && error.retryable ? 503 : 400).json({
+      message: error instanceof AiStepError ? error.message : 'AI connection test failed',
+    });
   }
 });
 export default router;

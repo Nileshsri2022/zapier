@@ -7,6 +7,7 @@ import { withRetry, RetryResult } from './utils/retry';
 import { sendSol, getSolanaPrivateKey } from './sendSolana';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
 import { isKnownActionType } from './utils/actionTypes';
+import { prepareRunMetadata } from './utils/runMetadata';
 import { advanceSkippedStage } from './utils/skipStage';
 import { replaceKeys } from './utils/replaceKeys';
 import { readAiPolicy } from '@repo/ai';
@@ -246,10 +247,13 @@ async function processMessage(message: any) {
     },
   });
 
+  // Drop untrusted ingress replay keys on first execution; persisted later outputs remain reusable.
+  const freshRun = zapRunDetails?.status === 'pending';
+  const zapMetadata = prepareRunMetadata(zapRunDetails?.metadata, freshRun);
   // Update status to running
   await client.zapRun.update({
     where: { id: zapRunId },
-    data: { status: 'running' },
+    data: { status: 'running', ...(freshRun ? { metadata: zapMetadata as any } : {}) },
   });
 
   const lastStage = zapRunDetails?.zap?.actions?.length || 1;
@@ -259,7 +263,7 @@ async function processMessage(message: any) {
   if (stage === 1) {
     const filterConditions =
       ((zapRunDetails?.zap as any)?.filterConditions as FilterCondition[]) || [];
-    const triggerData = zapRunDetails?.metadata || {};
+    const triggerData = zapMetadata;
 
     if (!evaluateFilters(filterConditions, triggerData)) {
       console.log(`🚫 Filters blocked ZapRun ${zapRunId} - skipping all actions`);
@@ -282,8 +286,7 @@ async function processMessage(message: any) {
   }
 
   // Get previous step outputs from metadata (for chaining)
-  const zapMetadata = (zapRunDetails?.metadata || {}) as Record<string, any>;
-  const stepOutputs: Record<number, any> = zapMetadata.stepOutputs || {};
+  const stepOutputs = (zapMetadata.stepOutputs || {}) as Record<number, any>;
   const previousOutput = stepOutputs[stage - 1] || {};
 
   // Evaluate step conditions (skip action if conditions not met)

@@ -1,6 +1,8 @@
 import express from 'express';
 import request from 'supertest';
 import client from '@repo/db';
+import redis from '@repo/redis';
+import { CredentialVault, requestCompatible } from '@repo/ai-connections';
 import router from '../../src/routes/AiConnectionsRoutes';
 import { sanitizeInput } from '../../src/middlewares/sanitize';
 
@@ -12,6 +14,15 @@ jest.mock('../../src/middlewares', () => ({
     } else res.status(403).json({ message: 'Not authenticated' });
   },
 }));
+jest.mock('@repo/redis', () => ({
+  __esModule: true,
+  default: { eval: jest.fn().mockResolvedValue(1) },
+}));
+jest.mock('@repo/ai-connections', () => ({
+  ...jest.requireActual('@repo/ai-connections'),
+  requestCompatible: jest.fn(),
+}));
+
 jest.mock('node:dns/promises', () => ({
   lookup: jest.fn().mockResolvedValue([{ address: '8.8.8.8', family: 4 }]),
 }));
@@ -161,4 +172,38 @@ test('sanitizes internal failures instead of echoing DB/crypto details', async (
   const unconfigured = await request(app).get(endpoint).set('Authorization', 'Bearer user-one');
   expect(unconfigured.status).toBe(503);
   expect(JSON.stringify(unconfigured.body)).not.toContain('malformed secret');
+});
+
+test('connection probe respects reduced operator token cap and shared fail-closed budget', async () => {
+  const oldCap = process.env.AI_MAX_OUTPUT_TOKENS;
+  process.env.AI_MAX_OUTPUT_TOKENS = '32';
+  const identity = { id, userId: 1, provider: 'openai_compatible' as const };
+  db.aiConnection.findFirst.mockResolvedValue(
+    row(CredentialVault.fromEnv().encrypt(valid.apiKey, identity))
+  );
+  (redis.eval as jest.Mock).mockResolvedValue(1);
+  (requestCompatible as jest.Mock).mockResolvedValue({
+    status: 200,
+    body: JSON.stringify({ choices: [{ message: { content: 'OK' } }] }),
+  });
+  try {
+    const response = await request(app)
+      .post(`${endpoint}/${id}/test`)
+      .set('Authorization', 'Bearer user-one')
+      .send({ model: 'test-compatible' });
+    expect(response.status).toBe(200);
+    expect(response.body.output).toBe('OK');
+    expect((requestCompatible as jest.Mock).mock.calls[0][0].body.max_tokens).toBe(32);
+    expect(redis.eval).toHaveBeenCalledTimes(1);
+    (redis.eval as jest.Mock).mockResolvedValue(0);
+    const blocked = await request(app)
+      .post(`${endpoint}/${id}/test`)
+      .set('Authorization', 'Bearer user-one')
+      .send({ model: 'test-compatible' });
+    expect(blocked.status).toBe(400);
+    expect(requestCompatible).toHaveBeenCalledTimes(1);
+  } finally {
+    if (oldCap === undefined) delete process.env.AI_MAX_OUTPUT_TOKENS;
+    else process.env.AI_MAX_OUTPUT_TOKENS = oldCap;
+  }
 });

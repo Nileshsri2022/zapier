@@ -28,8 +28,10 @@ export default function AiMetaData({
   handleClick,
   initialData,
 }: MetaDataFormProps & { initialData?: unknown }) {
-  const parsedInitial = AiActionMetaDataSchema.safeParse(initialData);
-  const initial = parsedInitial.success ? parsedInitial.data : undefined;
+  const [initial] = useState(() => {
+    const parsed = AiActionMetaDataSchema.safeParse(initialData);
+    return parsed.success ? parsed.data : undefined;
+  });
   const [discovery, setDiscovery] = useState<AiDiscovery>();
   const [connections, setConnections] = useState<AiConnectionView[]>([]);
   const [provider, setProvider] = useState<string>(initial?.provider || 'openai');
@@ -88,7 +90,7 @@ export default function AiMetaData({
     return () => {
       alive = false;
     };
-  }, []);
+  }, [initial]);
 
   const selected = discovery?.providers.find((p) => p.id === provider);
   const compatible = provider === 'openai_compatible';

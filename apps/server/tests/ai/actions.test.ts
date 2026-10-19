@@ -271,3 +271,49 @@ test('step condition schema rejects unsupported operators and prototype paths', 
       .success
   ).toBe(false);
 });
+
+test('model discovery does not invent a default when only an explicit allowlist is configured', async () => {
+  delete process.env.AI_DEFAULT_MODEL_OPENAI;
+  const response = await request(app)
+    .get('/api/actions/ai/models')
+    .set('Authorization', 'Bearer valid');
+  expect(response.body.providers.find((p: any) => p.id === 'openai')).toEqual(
+    expect.objectContaining({ configured: true, defaultModel: '', models: ['test-model'] })
+  );
+  expect(
+    (
+      await request(app)
+        .post('/api/actions/ai/test')
+        .set('Authorization', 'Bearer valid')
+        .send({ ...config, model: 'test-model' })
+    ).status
+  ).toBe(200);
+});
+
+test('update stores canonical AI metadata and step conditions after ownership validation', async () => {
+  db.zap.findFirst.mockResolvedValue({ id: 'zap', userId: 1 });
+  const update = jest.fn().mockResolvedValue({ id: 'zap' });
+  const deleteMany = jest.fn();
+  db.$transaction.mockImplementation(async (fn: any) =>
+    fn({ action: { deleteMany }, zap: { update } })
+  );
+  const conditions = [
+    { field: 'previousOutput.fields.category', operator: 'equals', value: 'yes' },
+  ];
+  const response = await request(app)
+    .put('/api/zaps/zap')
+    .set('Authorization', 'Bearer valid')
+    .send({
+      actions: [
+        {
+          availableActionId: 'ai',
+          actionMetaData: { ...config, apiKey: 'NEVER_STORE' },
+          stepConditions: conditions,
+        },
+      ],
+    });
+  expect(response.status).toBe(201);
+  expect(update.mock.calls[0][0].data.actions.create[0].stepConditions).toEqual(conditions);
+  expect(update.mock.calls[0][0].data.actions.create[0].metadata).not.toHaveProperty('apiKey');
+  expect(deleteMany).toHaveBeenCalledWith({ where: { zapId: 'zap' } });
+});
