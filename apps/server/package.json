@@ -14,7 +14,8 @@
     "build": "npx swc src -d dist --copy-files",
     "start": "node dist/src/index.js",
     "dev": "nodemon --exec tsx src/index.ts",
-    "seed": "npx ts-node src/seed.ts"
+    "seed": "npx ts-node src/seed.ts",
+    "test:ai:e2e": "node --test tests/e2e/*.e2e.cjs"
   },
   "keywords": [],
   "author": "",
@@ -48,7 +49,9 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "xss": "^1.0.15",
-    "zod": "^4.3.5"
+    "zod": "^4.3.5",
+    "@repo/ai-connections": "*",
+    "@repo/ai": "*"
   },
   "devDependencies": {
     "@types/compression": "^1.8.1",

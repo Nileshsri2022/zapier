@@ -3,6 +3,7 @@
  */
 
 export interface RetryConfig {
+  shouldRetry?: (error: Error) => boolean;
   maxRetries: number;
   initialDelayMs: number;
   maxDelayMs: number;
@@ -31,7 +32,7 @@ export async function withRetry<T>(
   fn: () => Promise<T>,
   config: Partial<RetryConfig> = {}
 ): Promise<RetryResult<T>> {
-  const { maxRetries, initialDelayMs, maxDelayMs, backoffMultiplier } = {
+  const { maxRetries, initialDelayMs, maxDelayMs, backoffMultiplier, shouldRetry } = {
     ...DEFAULT_RETRY_CONFIG,
     ...config,
   };
@@ -54,6 +55,8 @@ export async function withRetry<T>(
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
       console.error(`Attempt ${attempt}/${maxRetries} failed:`, lastError.message);
+
+      if (shouldRetry && !shouldRetry(lastError)) break;
 
       if (attempt < maxRetries) {
         const delay = Math.min(

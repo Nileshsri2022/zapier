@@ -150,3 +150,10 @@ Why duplicates arrive: WhatsApp/Meta and Google both redeliver when the consumer
 | F4 | Gmail action catalog alignment + cleanup | ✅ | `dfa502f` — `seed.ts` removes 6 unimplemented Gmail actions + prunes/deactivates; pinned in `actionTypes.test.ts` & `actions.test.ts` |
 | F5 | Generic webhook signature verification | ✅ | `3b66af3` — `apps/hooks/src/webhookAuth.ts` wired into `POST /hooks/:userId/:zapId` + 6 unit tests in `webhook-security.test.ts` |
 | F6 | Schedule runs via outbox (no orphans) | ✅ | `3b66af3` — `CronRoutes /process-schedules` writes `ZapRunOutbox`; `/api/webhooks/schedule` dropped + outbox test in `webhook-security.test.ts` |
+
+
+## 7. AI/Gmail closure addendum (2026-10-19)
+
+AI Transform preserves the earlier D1 single-engine closure: Gmail and legacy webhooks enqueue outbox runs; AI executes only in `apps/worker` through the shared server/worker provider package. Existing `GmailDispatch` payload fields support AI `{subject}\n\n{snippet}` / `{body}` templates. The separate Gmail spec's P6 documentation closure and AI spec's **PG implementation** are now marked complete; live Gmail production gates are explicitly still open.
+
+The AI integration also connects per-action conditions across shared schemas, create/update persistence and editor controls. A skipped final action now completes its run, enabling classify → conditional notify without a stuck run. Saved AI settings survive editing. Evidence: commit `75183e1`, component/API/worker regressions, and [AI completion report](ai-implementation-completion.md). No new inline executor, automatic paid-provider fallback or production rollout is introduced.

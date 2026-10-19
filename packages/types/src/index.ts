@@ -16,6 +16,36 @@ const SigninSchema = z.object({
 
 type TSignin = z.infer<typeof SigninSchema>;
 
+// Per-action conditions use the existing worker evaluator (AND semantics).
+export const StepConditionSchema = z.object({
+  field: z
+    .string()
+    .min(1)
+    .max(200)
+    .regex(/^[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)*$/)
+    .refine(
+      (path) =>
+        !path.split('.').some((part) => ['__proto__', 'prototype', 'constructor'].includes(part))
+    ),
+  operator: z.enum([
+    'equals',
+    'not_equals',
+    'contains',
+    'not_contains',
+    'greater_than',
+    'less_than',
+    'greater_than_or_equals',
+    'less_than_or_equals',
+    'is_empty',
+    'is_not_empty',
+    'starts_with',
+    'ends_with',
+  ]),
+  value: z.string().max(1000).default(''),
+});
+export type StepCondition = z.infer<typeof StepConditionSchema>;
+const stepConditions = z.array(StepConditionSchema).max(20).optional();
+
 // ZapSchemas
 const CreateZapSchema = z.object({
   availableTriggerId: z.string(),
@@ -24,6 +54,7 @@ const CreateZapSchema = z.object({
     .object({
       availableActionId: z.string(),
       actionMetaData: z.any().optional(),
+      stepConditions,
     })
     .array(),
 });
@@ -42,6 +73,7 @@ const SelectedActionSchema = z.object({
   availableActionId: z.string(),
   actionType: z.string(),
   actionMetaData: z.any().optional(),
+  stepConditions,
 });
 
 type TSelectedAction = z.infer<typeof SelectedActionSchema>;
@@ -64,6 +96,7 @@ const UpdateZapActionsSchema = z.object({
     z.object({
       availableActionId: z.string(),
       actionMetaData: z.any().optional(),
+      stepConditions,
     })
   ),
 });
@@ -130,3 +163,5 @@ export type {
   TConnectWhatsApp,
   TPaginationQuery,
 };
+
+export * from './ai';

@@ -8,9 +8,11 @@ import { redirectToOAuth, savePendingSelection } from '@/lib/oauth';
 // Import types and constants from modal/
 import { App, AvailableItem } from './modal/types';
 import { APPS } from './modal/constants';
+import type { TSelectedAction } from '@repo/types';
 
 // Import metadata components
 import {
+  AiMetaData,
   EmailMetaData,
   SolanaMetaData,
   WebhookMetaData,
@@ -27,16 +29,20 @@ const Modal = ({
   isVisible,
   setIsVisible,
   onClick,
+  initialAiAction,
 }: {
+  initialAiAction?: TSelectedAction;
   isVisible: number;
   setIsVisible: Dispatch<SetStateAction<number>>;
   onClick?: (selectedItem: any) => void;
 }) => {
   const [availableItems, setAvailableItems] = useState<AvailableItem[]>([]);
-  const [selectedItem, setSelectedItem] = useState<any>();
+  const [selectedItem, setSelectedItem] = useState<any>(
+    initialAiAction ? { id: initialAiAction.availableActionId, type: 'AI Transform' } : undefined
+  );
 
   // New state for 3-step flow
-  const [step, setStep] = useState<1 | 2 | 3>(1); // 1=App select, 2=Config, 3=Metadata
+  const [step, setStep] = useState<1 | 2 | 3>(initialAiAction ? 3 : 1); // 1=App select, 2=Config, 3=Metadata
   const [selectedApp, setSelectedApp] = useState<App | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<string>('');
 
@@ -190,6 +196,7 @@ const Modal = ({
       selectedItem.type.includes('Gmail') ||
       selectedItem.type === 'Email' ||
       selectedItem.type === 'Solana' ||
+      selectedItem.type === 'AI Transform' ||
       selectedItem.type.startsWith('Schedule'); // Add Schedule
 
     if (needsMetadata) {
@@ -373,11 +380,7 @@ const Modal = ({
               <img className="modal-app-icon" alt={selectedApp?.name} src={selectedApp?.icon} />
               <span className="modal-app-name">{selectedApp?.name}</span>
             </div>
-            <button
-              type="button"
-              onClick={() => setStep(1)}
-              className="modal-change-btn"
-            >
+            <button type="button" onClick={() => setStep(1)} className="modal-change-btn">
               Change
             </button>
           </div>
@@ -492,14 +495,13 @@ const Modal = ({
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <div className="modal-app-pill" style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}>
+                <div
+                  className="modal-app-pill"
+                  style={{ color: 'hsl(var(--muted-foreground))', fontSize: '0.875rem' }}
+                >
                   Connect {selectedApp?.name}
                 </div>
-                <button
-                  type="button"
-                  onClick={handleSignIn}
-                  className="modal-btn-primary"
-                >
+                <button type="button" onClick={handleSignIn} className="modal-btn-primary">
                   Sign in
                 </button>
               </div>
@@ -512,14 +514,11 @@ const Modal = ({
           {!canContinue() ? (
             <div className="modal-notice">
               Choose an event
-              {needsAccount && connectedServers.length === 0 ? ' and connect your account' : ''} to continue
+              {needsAccount && connectedServers.length === 0 ? ' and connect your account' : ''} to
+              continue
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={handleContinue}
-              className="modal-btn-continue"
-            >
+            <button type="button" onClick={handleContinue} className="modal-btn-continue">
               Continue
             </button>
           )}
@@ -534,11 +533,7 @@ const Modal = ({
       // Trigger metadata forms
       return (
         <div className="modal-step3">
-          <button
-            type="button"
-            onClick={() => setStep(2)}
-            className="modal-back-btn"
-          >
+          <button type="button" onClick={() => setStep(2)} className="modal-back-btn">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 20 20"
@@ -587,11 +582,7 @@ const Modal = ({
       // Action metadata forms
       return (
         <div className="modal-step3">
-          <button
-            type="button"
-            onClick={() => setStep(2)}
-            className="modal-back-btn"
-          >
+          <button type="button" onClick={() => setStep(2)} className="modal-back-btn">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 20 20"
@@ -607,7 +598,12 @@ const Modal = ({
             </svg>
             Back to action selection
           </button>
-          {selectedItem?.type === 'Email' ? (
+          {selectedItem?.type === 'AI Transform' ? (
+            <AiMetaData
+              handleClick={handleSaveMetaData}
+              initialData={initialAiAction?.actionMetaData}
+            />
+          ) : selectedItem?.type === 'Email' ? (
             <EmailMetaData handleClick={handleSaveMetaData} />
           ) : selectedItem?.type === 'Solana' ? (
             <SolanaMetaData handleClick={handleSaveMetaData} />

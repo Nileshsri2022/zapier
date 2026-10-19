@@ -18,6 +18,7 @@ const BY_KEYWORD: Array<[RegExp, string]> = [
   [/solana/, '/apps/Solana.svg'],
   [/schedule/, '/apps/schedule.svg'],
   [/webhook/, '/apps/webhook.svg'],
+  [/^ai\b|openai|anthropic|claude|puter/, '/apps/ai.svg'],
   [/email|mail/, '/apps/email.svg'],
 ];
 

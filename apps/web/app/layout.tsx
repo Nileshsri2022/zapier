@@ -12,6 +12,7 @@ import '../styles/components/tooltip.css';
 import '../styles/components/navbar.css';
 import '../styles/components/zap-cell.css';
 import '../styles/components/modal.css';
+import '../styles/components/ai-form.css';
 import '../styles/components/publish-zap.css';
 import '../styles/components/run-history.css';
 import '../styles/components/filter-builder.css';

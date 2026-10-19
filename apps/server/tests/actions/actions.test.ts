@@ -73,11 +73,17 @@ describe('ActionsController - Fetch Available Actions', () => {
 // (guarded by worker tests/actionTypes.test.ts).
 
 describe('Seed Catalog - F4 / Gap D2 alignment', () => {
+  it('seeds only worker-executable action types, including AI Transform', () => {
+    const { isKnownActionType } = require('../../../worker/src/utils/actionTypes');
+    expect(SEEDED_ACTION_TYPES).toHaveLength(6);
+    expect(SEEDED_ACTION_TYPES.every(isKnownActionType)).toBe(true);
+  });
   it('excludes unimplemented Gmail actions from SEEDED_ACTION_TYPES', () => {
     for (const gmailAction of UNIMPLEMENTED_GMAIL_ACTIONS) {
       expect(SEEDED_ACTION_TYPES).not.toContain(gmailAction);
     }
     expect(SEEDED_ACTION_TYPES).toEqual([
+      'AI Transform',
       'Email',
       'Solana',
       'WhatsApp Send Message',
@@ -88,7 +94,7 @@ describe('Seed Catalog - F4 / Gap D2 alignment', () => {
 
   it('prunes unreferenced Gmail actions and deactivates armed Zaps referencing them', async () => {
     (client.availableTriggers.createMany as jest.Mock).mockResolvedValue({ count: 23 });
-    (client.availableActions.createMany as jest.Mock).mockResolvedValue({ count: 5 });
+    (client.availableActions.createMany as jest.Mock).mockResolvedValue({ count: 6 });
     (client.trigger.findMany as jest.Mock).mockResolvedValue([]);
     (client.availableTriggers.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
     (client.action.findMany as jest.Mock).mockResolvedValue([

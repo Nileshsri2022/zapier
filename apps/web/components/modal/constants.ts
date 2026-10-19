@@ -1,6 +1,7 @@
 import { App } from './types';
 
 export const APPS: App[] = [
+  { id: 'ai', name: 'AI Transform', icon: '/apps/ai.svg', exact: 'AI Transform' },
   {
     id: 'gmail',
     name: 'Gmail',

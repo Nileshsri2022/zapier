@@ -7,14 +7,12 @@ export const API_URL =
   rawApiUrl && !rawApiUrl.includes('zapier-fd68')
     ? rawApiUrl
     : process.env.NODE_ENV === 'production'
-    ? 'https://zapier-ibsy.onrender.com'
-    : 'http://localhost:5000';
+      ? 'https://zapier-ibsy.onrender.com'
+      : ''; // Development API calls are same-origin through the Next rewrite.
 
 const rawHooksUrl = process.env.NEXT_PUBLIC_HOOKS_URL || '';
-export const HOOKS_URL =
-  rawHooksUrl
-    ? rawHooksUrl
-    : process.env.NODE_ENV === 'production'
+export const HOOKS_URL = rawHooksUrl
+  ? rawHooksUrl
+  : process.env.NODE_ENV === 'production'
     ? 'https://zapier-hooks-bqyy.onrender.com'
     : 'http://localhost:8000';
-
