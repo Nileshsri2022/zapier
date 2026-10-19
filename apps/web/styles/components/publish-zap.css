@@ -147,7 +147,7 @@
   height: 3rem;
   border-radius: var(--radius-full);
   background-color: hsl(var(--brand-primary));
-  color: #fff;
+  color: hsl(var(--primary-foreground));
   border: none;
   cursor: pointer;
   box-shadow: var(--shadow-card);

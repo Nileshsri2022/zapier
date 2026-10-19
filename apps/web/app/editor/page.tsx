@@ -19,9 +19,7 @@ function EditorContent() {
 
 export default function Page() {
   return (
-    <Suspense
-      fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}
-    >
+    <Suspense fallback={<div className="editor-loading">Loading...</div>}>
       <EditorContent />
     </Suspense>
   );

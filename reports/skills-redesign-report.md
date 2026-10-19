@@ -1,9 +1,17 @@
 # ZapMate Skills Adoption & Redesign Report
 
-> **Skills Applied:** `responsive-design` & `tailwind-design-system`  
+> **Skills Applied:** `responsive-design` & `tailwind-design-system`, with
+> `frontend-design`, `karpathy-guidelines` and `ponytail` governing the second pass  
 > **Target Package:** `apps/web` (Next.js 14 App Router)  
 > **Monorepo Architecture:** Separation of Concerns (Logic in `.tsx`, Styles in `styles/`)  
 > **Status:** Fully Integrated, Typechecked (`0` errors), and Committed Locally
+>
+> **Two passes are documented here.** Sections 1–4 are the original redesign.
+> [Section 5](#5-second-pass--strip-phase-completion) is the follow-up pass that
+> finished the strip phase: the AI Transform form was rebuilt on tokens and every
+> remaining off-system screen (metadata forms, Gmail screens, dashboard, profile, 404,
+> PWA banner) was migrated. Current verification lives in
+> [§5.6](#56-verification-second-pass); §4 keeps the first-pass evidence for the record.
 
 ---
 
@@ -43,6 +51,7 @@ flowchart TD
 ## 2. Quantitative Skill Adoption by File
 
 The table below breaks down the percentage of styling and structural influence contributed by each skill, alongside functional business logic.
+It reflects the **first pass**; the files migrated in the second pass are tabulated in [§5.2](#52-new-and-rewritten-stylesheets).
 
 | File Path | Role | `tailwind-design-system` (%) | `responsive-design` (%) | Functional / Logic (%) | Primary Patterns Implemented |
 |:---|:---|:---:|:---:|:---:|:---|
@@ -218,3 +227,135 @@ Verified via Chrome DevTools Mobile Emulation at $360\times 800$ (Compact Phone)
 }
 ```
 **Zero horizontal scrollbars or element cutoffs detected across all tested viewports.**
+
+---
+
+## 5. Second Pass — Strip Phase Completion
+
+> **Trigger:** the AI Transform step form (`components/metadata/AiMetaData.tsx` +
+> `styles/components/ai-form.css`) shipped after the first pass and visibly broke the
+> design system: 15 hard-coded hex values in a single stylesheet, an off-brand violet
+> palette, and a field list that ignored the fluid scale, container queries and touch
+> targets every other screen had already adopted.
+> **Scope:** AI Transform form first, then every remaining off-system screen.
+> **Skills:** `tailwind-design-system` (token hierarchy, decoupling), `responsive-design`
+> (fluid scale, container queries, intrinsic grids, touch targets), `frontend-design`
+> (colour restraint, one accent, honest copy), `karpathy-guidelines` (surgical diffs,
+> verifiable success criteria), `ponytail` (reuse what exists, delete dead code).
+
+### 5.1. AI Transform form — defects found and fixed
+
+| # | Symptom | Root cause | Fix |
+|:--|:--------|:-----------|:----|
+| 1 | Form looked foreign next to the rest of the app | 15 raw hex literals (`#5938c7`, `#9580dc`, `#4930a6`, `#ef4444`, `#22c55e`, `#eab308`, `#c72f39`) — a violet accent that exists nowhere in the brand palette | All values replaced with tokens: `hsl(var(--brand-secondary))` for accents, `hsl(var(--destructive) / α)`, `hsl(var(--success) / α)`, `hsl(var(--warning) / α)` for status surfaces. `styles/**` now contains **zero** raw colours outside `tokens.css` |
+| 2 | Labels read as floating captions, not as part of a field | `fieldset { gap: 0.65rem }` spaced every child evenly, so a label sat as far from its own input as from the field above | `gap: var(--space-xs)` between a label and its control, `label { margin-top: var(--space-sm) }` from the previous field — pairing without restructuring the JSX |
+| 3 | Type and spacing did not scale between phone and desktop | Fixed `rem` values (`0.8rem`, `0.85rem`, `0.65rem` gap, `0.9rem` padding) | Fluid tokens: `--text-xs/sm/base/lg`, `--space-xs…xl`, `--radius-*`, `--shadow-*`, `--transition-*` |
+| 4 | iOS Safari zoomed the viewport on focus | Input font-size `0.85rem` = 13.6 px, below the 16 px zoom threshold | Explicit 16 px floor on every input, select and textarea (`/* 16px floor: below it, iOS Safari zooms the viewport on focus */`) |
+| 5 | One output field = six stacked rows, unusably tall with several fields | `.ai-field-row` was a single-column flex stack at every width | Intrinsic grid `repeat(auto-fit, minmax(min(11rem, 100%), 1fr))` — label beside its control as soon as the row fits two 11rem tracks, stacked on phones. No breakpoints, no `nth-child` guessing |
+| 6 | Focus ring colour differed from the rest of the app | `outline: 2px solid #9580dc` overrode the global `:focus-visible` ring | `border-color: hsl(var(--ring))` + `box-shadow: 0 0 0 2px hsl(var(--ring) / 0.25)` |
+| 7 | Error/success/notice surfaces could not follow a theme change, and the base hues failed AA on a tint | Hard-coded red/green/amber text on 6–12 % tints | Token tint + new `--status-danger-ink / --status-success-ink / --status-warning-ink / --status-info-ink` inks (raw values still only in `tokens.css`) |
+| 8 | No component-level responsiveness | No containment context | `container: ai-form / inline-size` + `@container ai-form (…)` for the button row and the parsed-result definition list |
+| 9 | Preview panel cramped on narrow containers | Fixed two-column `dl` grid | `@container ai-form (max-width: 24rem)` collapses it to one column |
+
+**Also fixed in the same stylesheet:** `.ai-step-conditions` / `.ai-condition-row`
+(`StepConditionsEditor.tsx`) were tokenised and given 44 px targets and 16 px inputs —
+they are the editor-side twin of the AI form and carried the same defects.
+
+### 5.2. New and rewritten stylesheets
+
+| File | Role | `tailwind-design-system` (%) | `responsive-design` (%) | Functional / Logic (%) | Primary patterns |
+|:---|:---|:---:|:---:|:---:|:---|
+| **`styles/components/ai-form.css`** *(rewritten)* | AI Transform form + step conditions | **50 %** | **50 %** | 0 % | Full tokenization, label/control pairing, intrinsic field grid, `container: ai-form / inline-size`, 16 px input floor, status inks |
+| **`styles/components/metadata-form.css`** *(new)* | All step metadata forms | **45 %** | **55 %** | 0 % | Status tints + inks, intrinsic `auto-fit` pickers, `container: meta-form`, 44 px controls |
+| **`styles/components/gmail.css`** *(new)* | Gmail integration screens | **50 %** | **50 %** | 0 % | `data-tone` / `data-selected` / `data-active` hooks, intrinsic metric grids, `container: gmail-panel` |
+| **`styles/components/pwa-banner.css`** *(new)* | Install banner | **55 %** | **45 %** | 0 % | Fixed bottom sheet, safe-area aware, token-backed inverse surface |
+| **`styles/pages/app.css`** *(extended)* | Dashboard table/cells/switch/row menu, editor fallback, 404, profile | **45 %** | **55 %** | 0 % | Semantic switch replacing the `peer-*` utility chain, responsive table↔card swap, fluid profile card |
+| **`styles/tokens.css`** *(extended)* | Token core | **60 %** | **40 %** | 0 % | `--warning`, `--info`, and four accessible `--status-*-ink` values |
+| **`styles/components/run-history.css`** *(extended)* | Run history spinner | **40 %** | **60 %** | 0 % | `.history-spinner` keyframes, `.history-loading` layout |
+| **`styles/components/modal.css`**, **`navbar.css`**, **`publish-zap.css`**, **`filter-builder.css`** | Last raw values | **100 %** | 0 % | 0 % | 5 × `color: #fff` → `hsl(var(--primary-foreground) / --secondary-foreground)` |
+
+### 5.3. Markup migrated to the design system (21 files)
+
+Conditional colour strings are the structural change: a class cannot be conditionally
+computed without either hard-coding colours in TSX or shipping every variant to the
+browser, so state now travels as a `data-*` hook and the mapping lives in CSS
+(`tailwind-design-system`: *UI logic communicates state through data attributes*).
+
+| File | Before | After |
+|:---|:---|:---|
+| `GmailStatusMonitor.tsx` | `getStatusColor()` returned `'bg-green-100 text-green-800'` … | `getStatusTone()` returns `'ok' \| 'alert' \| 'warn' \| 'idle'` + `data-tone`; metric tiles carry `data-tone="info\|success\|secondary\|warning"` |
+| `GmailServerConfig.tsx` | `server.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'` | `data-tone={server.isActive ? 'ok' : 'alert'}` |
+| `GmailTriggerConfig.tsx`, `GmailActionConfig.tsx` | `isSelected ? 'bg-blue-100 border-blue-300 text-blue-800' : '…'` | `data-selected={…}` on `.gmail-chip` |
+| `GmailDashboard.tsx` | 6-class ternary on each tab | `data-active={activeTab === tab.id}` on `.gmail-tab` |
+| `app/dashboard/page.tsx` | `sr-only peer` + 14 `peer-checked:*` / `after:*` utilities for the Live/Paused switch | `.dash-switch` / `.dash-switch__input` / `.dash-switch__track` (3 classes, ~40 lines of CSS) |
+| `app/dashboard/page.tsx` | `hidden md:table` on the zap table | `.dash-table { display: none }` + `@media (min-width: 768px) { display: table }` |
+| `metadata/*.tsx` (8 files, `AiMetaData.tsx` already used semantic classes) | `my-4 flex flex-col gap-4 text-secondary-500`, `bg-blue-50 …`, `bg-purple-600 …` | `.meta-form`, `.meta-form__panel/__warning/__summary`, `.meta-form__btn-primary/__ghost/__block-btn` |
+| `app/profile/page.tsx` | Utility-styled card, inline spinner div | `.profile-*` + semantic `<dl>` rows, vendored `Spinner` |
+| `PWAInstaller.tsx` | Utility banner (`bg-white/20`, `min-h-[32px]`) | `.pwa-banner`, `.pwa-banner__btn(--primary)` |
+| `app/not-found.tsx`, `app/editor/page.tsx` | Utility wrappers | `.not-found*`, `.editor-loading` |
+| `ZapRunHistory.tsx`, `FilterBuilder.tsx`, `AuthForm.tsx` | `animate-spin`, inline `style={{ color: … }}`, `mr-2` | `.history-spinner`, `.history-loading`, `.filter-builder__chevron`, `.auth-btn-label` |
+
+**Reuse over reinvention** (`ponytail`): the four Gmail loading blocks and the profile
+loader now use the vendored `components/ui/spinner.tsx` instead of a hand-rolled animated
+`div`, and the Gmail tone is set with one rule (`.gmail-empty .spinner { color: … }`).
+
+### 5.4. New tokens
+
+```css
+/* styles/tokens.css — the only file allowed to hold raw values (spec §7.6) */
+--warning: 38 92% 50%;
+--warning-foreground: 20 20% 8%;
+--info: 217 91% 60%;
+--info-foreground: 0 0% 100%;
+
+/* Accessible ink for text sitting on 8–12 % tinted status surfaces:
+ * the base status hues are tuned for solid fills and fall under AA on a tint. */
+--status-danger-ink: 0 74% 34%;
+--status-success-ink: 152 72% 24%;
+--status-warning-ink: 30 90% 30%;
+--status-info-ink: 217 78% 34%;
+```
+
+### 5.5. Deletions
+
+- 15 raw hex values from `ai-form.css`, 5 × `#fff` from four component stylesheets.
+- The `peer-*` utility chain and `hidden md:table` from the dashboard.
+- Per-component `prefers-reduced-motion` blocks written during this pass — `base.css`
+  already neutralises every transition and animation with `!important`, so the copies
+  were dead code. Reduced motion is handled **once**, globally.
+- Inline `style={{ … }}` colour/layout objects in `ZapRunHistory.tsx` and
+  `FilterBuilder.tsx` (the one in `GmailStatusMonitor.tsx` stays: it is a data-driven
+  meter width, not styling).
+
+### 5.6. Verification (second pass)
+
+| Check | Command | Result |
+|:---|:---|:---|
+| Production build | `npx next build` (Next 16.1.1, Turbopack) | ✅ Compiled in 7.2 s, 8/8 routes prerendered |
+| TypeScript | `npx tsc --noEmit` (also run by `next build`) | ✅ 0 errors |
+| Lint | `npx eslint .` | ✅ 0 errors (87 pre-existing `no-explicit-any` warnings, unchanged) |
+| Unit + guard tests | `npm test` | ✅ **25/25** (was 22 — 3 new design-system guards) |
+| Raw colours | `tests/design-system.test.cjs` | ✅ 0 hex literals in `styles/**` outside `tokens.css` |
+| Utility strings | `tests/design-system.test.cjs` | ✅ 0 Tailwind utilities in first-party markup (`components/ui/**` is the documented vendored exception) |
+| Orphan classes | `tests/design-system.test.cjs` | ✅ every `block__element` / `block--modifier` name resolves to a rule |
+| Emitted CSS | `grep '5938c7' .next/static/chunks/*.css` | ✅ 0 hits — the off-brand violet is gone from the bundle |
+
+The three guards in `apps/web/tests/design-system.test.cjs` assert the invariants of
+this report from source, so a pasted utility string or a stray hex fails CI instead of
+quietly re-entering the codebase.
+
+### 5.7. Known remaining gaps
+
+Deliberately **not** changed — each is pre-existing, larger than this pass, and none is
+a visual defect:
+
+1. `Modal.tsx` (6) and `PublishZap.tsx` (1) still carry inline `style={{ … }}` layout
+   objects in the step-2 dynamic rendering. They work; migrating them means restructuring
+   conditional JSX that this pass does not touch.
+2. `components/ui/spinner.tsx` keeps its Tailwind ring classes — the documented vendored
+   shadcn exception (`spec D2`), already noted in §3.1.C.
+3. The `tailwind.config.ts` legacy brand aliases (`primary-500`, `base-100`, …) are now
+   unreferenced by first-party markup and can be dropped once the vendor layer is
+   audited; they are harmless until then.
+4. No dark theme exists yet — `--warning` / `--info` are defined at `:root` only, so a
+   future `.dark` block must override them like the other semantic tokens.

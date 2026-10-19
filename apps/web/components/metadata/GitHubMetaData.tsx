@@ -62,80 +62,70 @@ export const GitHubMetaData: React.FC<GitHubMetaDataProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="meta-form__section">
       {/* Header */}
-      <div className="border-b pb-4">
-        <h3 className="text-lg font-semibold text-gray-800">GitHub Webhook Setup</h3>
-        <p className="text-sm text-gray-500 mt-1">
+      <div className="meta-form__header">
+        <h3 className="meta-form__title">GitHub Webhook Setup</h3>
+        <p className="meta-form__subtitle">
           Configure your GitHub repository to send {getEventLabel().toLowerCase()} to this webhook.
         </p>
       </div>
 
       {/* Webhook URL */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Webhook URL</label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={webhookUrl}
-            readOnly
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 text-sm"
-          />
+        <label className="meta-form__label">Webhook URL</label>
+        <div className="meta-form__row">
+          <input type="text" value={webhookUrl} readOnly className="meta-form__readonly" />
           <button
             onClick={() => copyToClipboard(webhookUrl, 'url')}
             disabled={!zapId}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+            className="meta-form__btn-primary"
           >
             {copied === 'url' ? '✓ Copied' : 'Copy'}
           </button>
         </div>
         {!zapId && (
-          <p className="text-xs text-amber-600 mt-1">Save the Zap first to get the webhook URL</p>
+          <p className="meta-form__hint-warning">Save the Zap first to get the webhook URL</p>
         )}
       </div>
 
       {/* Optional Webhook Secret */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Webhook Secret (Optional)
-        </label>
-        <div className="flex gap-2">
+        <label className="meta-form__label">Webhook Secret (Optional)</label>
+        <div className="meta-form__row">
           <input
             type="text"
             value={webhookSecret}
             onChange={(e) => setWebhookSecret(e.target.value)}
             placeholder="Enter or generate a secret"
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            className="meta-form__input"
           />
-          <button
-            onClick={generateSecret}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
-          >
+          <button onClick={generateSecret} className="meta-form__btn-ghost">
             Generate
           </button>
           {webhookSecret && (
             <button
               onClick={() => copyToClipboard(webhookSecret, 'secret')}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
+              className="meta-form__btn-primary"
             >
               {copied === 'secret' ? '✓ Copied' : 'Copy'}
             </button>
           )}
         </div>
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="meta-form__hint">
           Add this secret in GitHub webhook settings for signature verification
         </p>
       </div>
 
       {/* Setup Instructions */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-medium text-blue-800 mb-2">Setup Instructions</h4>
-        <ol className="text-sm text-blue-700 space-y-2 list-decimal list-inside">
+      <div className="meta-form__panel">
+        <h4 className="meta-form__panel-title">Setup Instructions</h4>
+        <ol className="meta-form__steps">
           <li>Go to your GitHub repository → Settings → Webhooks</li>
           <li>Click &quot;Add webhook&quot;</li>
           <li>Paste the webhook URL above</li>
           <li>
-            Set Content type to <code className="bg-blue-100 px-1 rounded">application/json</code>
+            Set Content type to <code className="meta-form__code">application/json</code>
           </li>
           {webhookSecret && <li>Add the secret key for signature verification</li>}
           <li>
@@ -146,18 +136,13 @@ export const GitHubMetaData: React.FC<GitHubMetaDataProps> = ({
       </div>
 
       {/* Event Type Badge */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-600">Listening for:</span>
-        <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
-          {getEventLabel()}
-        </span>
+      <div className="meta-form__row">
+        <span className="meta-form__text">Listening for:</span>
+        <span className="meta-form__pill">{getEventLabel()}</span>
       </div>
 
       {/* Save Button */}
-      <button
-        onClick={handleSave}
-        className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
-      >
+      <button onClick={handleSave} className="meta-form__block-btn">
         Save Configuration
       </button>
     </div>

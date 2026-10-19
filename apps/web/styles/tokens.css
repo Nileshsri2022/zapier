@@ -56,6 +56,18 @@
 :root {
   --success: 152 69% 31%;
   --success-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 20 20% 8%;
+  --info: 217 91% 60%;
+  --info-foreground: 0 0% 100%;
+
+  /* Accessible ink for text sitting on 8–12% tinted status surfaces.
+   * The base status hues above are tuned for solid fills; on a tint they fall
+   * under WCAG AA, so tint backgrounds pair with these darker inks instead. */
+  --status-danger-ink: 0 74% 34%;
+  --status-success-ink: 152 72% 24%;
+  --status-warning-ink: 30 90% 30%;
+  --status-info-ink: 217 78% 34%;
 
   /* Fluid typography scale (clamp: min -> max via viewport width) */
   --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.8125rem);

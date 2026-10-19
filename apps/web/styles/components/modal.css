@@ -325,7 +325,7 @@
   padding: 0.5rem 1rem;
   min-height: var(--touch-target-min);
   background-color: hsl(var(--brand-primary));
-  color: #fff;
+  color: hsl(var(--primary-foreground));
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
@@ -387,7 +387,7 @@
   padding: 0.75rem;
   min-height: var(--touch-target-min);
   background-color: hsl(var(--brand-primary));
-  color: #fff;
+  color: hsl(var(--primary-foreground));
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);

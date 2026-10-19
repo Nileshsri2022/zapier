@@ -61,7 +61,7 @@ export const SignupForm = () => {
         <p>By signing up, you agree to ZapMate's terms of service and privacy policy.</p>
         <div className="auth-form__actions">
           <Button variant="primary" size="lg" onClick={handleSubmit}>
-            <span className="mr-2">Get started for free</span>{' '}
+            <span className="auth-btn-label">Get started for free</span>{' '}
             {loading && <Spinner color="white" />}
           </Button>
           <Link href={'/login'}>Already have an account? Login</Link>
@@ -133,7 +133,7 @@ export const LoginForm = () => {
         <p>By signing up, you agree to ZapMate's terms of service and privacy policy.</p>
         <div className="auth-form__actions">
           <Button variant="primary" size="lg" onClick={handleSubmit}>
-            <span className="mr-2">Continue</span> {loading && <Spinner color="white" />}
+            <span className="auth-btn-label">Continue</span> {loading && <Spinner color="white" />}
           </Button>
           <Link href={'/sign-up'}>Don't have an account? Signup</Link>
         </div>

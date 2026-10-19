@@ -66,24 +66,24 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
   };
 
   return (
-    <div className="my-4 flex flex-col gap-4 text-secondary-500">
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-        <p className="font-medium text-purple-800 flex items-center gap-2">
+    <div className="meta-form">
+      <div className="meta-form__summary">
+        <p className="meta-form__summary-title">
           <span>📅</span> Schedule: {scheduleType.replace('every', 'Every ')}
         </p>
-        <p className="text-sm text-purple-600 mt-1">{getScheduleDescription()}</p>
+        <p className="meta-form__summary-note">{getScheduleDescription()}</p>
       </div>
 
       {/* Time Picker (for daily, weekly, monthly - NOT for everyminute or everyhour) */}
       {scheduleType !== 'everyhour' && scheduleType !== 'everyminute' && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="meta-form__grid">
           <div>
-            <label className="block text-sm font-medium mb-1">Hour</label>
+            <label className="meta-form__label">Hour</label>
             <select
               name="hour"
               value={formData.hour}
               onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              className="meta-form__input"
             >
               {Array.from({ length: 24 }, (_, i) => (
                 <option key={i} value={i}>
@@ -93,12 +93,12 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Minute</label>
+            <label className="meta-form__label">Minute</label>
             <select
               name="minute"
               value={formData.minute}
               onChange={handleChange}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              className="meta-form__input"
             >
               {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
                 <option key={m} value={m}>
@@ -113,12 +113,12 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
       {/* Minute only for hourly */}
       {scheduleType === 'everyhour' && (
         <div>
-          <label className="block text-sm font-medium mb-1">Run at minute</label>
+          <label className="meta-form__label">Run at minute</label>
           <select
             name="minute"
             value={formData.minute}
             onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            className="meta-form__input"
           >
             {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
               <option key={m} value={m}>
@@ -132,12 +132,12 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
       {/* Day of Week (for weekly) */}
       {scheduleType === 'everyweek' && (
         <div>
-          <label className="block text-sm font-medium mb-1">Day of Week</label>
+          <label className="meta-form__label">Day of Week</label>
           <select
             name="dayOfWeek"
             value={formData.dayOfWeek}
             onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            className="meta-form__input"
           >
             {daysOfWeek.map((day) => (
               <option key={day.value} value={day.value}>
@@ -151,12 +151,12 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
       {/* Day of Month (for monthly) */}
       {scheduleType === 'everymonth' && (
         <div>
-          <label className="block text-sm font-medium mb-1">Day of Month</label>
+          <label className="meta-form__label">Day of Month</label>
           <select
             name="dayOfMonth"
             value={formData.dayOfMonth}
             onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            className="meta-form__input"
           >
             {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
               <option key={day} value={day}>
@@ -165,19 +165,19 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
               </option>
             ))}
           </select>
-          <p className="text-xs text-gray-500 mt-1">Limited to 1-28 for all months</p>
+          <p className="meta-form__hint">Limited to 1-28 for all months</p>
         </div>
       )}
 
       {/* Timezone (not needed for everyminute) */}
       {scheduleType !== 'everyminute' && (
         <div>
-          <label className="block text-sm font-medium mb-1">Timezone</label>
+          <label className="meta-form__label">Timezone</label>
           <select
             name="timezone"
             value={formData.timezone}
             onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+            className="meta-form__input"
           >
             <option value="UTC">UTC</option>
             <option value="Asia/Kolkata">India (IST)</option>

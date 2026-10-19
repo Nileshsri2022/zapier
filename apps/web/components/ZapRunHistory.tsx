@@ -164,7 +164,7 @@ export function ZapRunHistory({ zapId, zapName, isOpen, onClose }: ZapRunHistory
             >
               {loading ? (
                 <>
-                  <Loader2 className="animate-spin" size={16} />
+                  <Loader2 className="history-spinner" size={16} />
                   Loading...
                 </>
               ) : (
@@ -174,8 +174,8 @@ export function ZapRunHistory({ zapId, zapName, isOpen, onClose }: ZapRunHistory
           )}
 
           {loading && runs.length === 0 && (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
-              <Loader2 className="animate-spin" size={32} style={{ color: 'hsl(var(--brand-primary))' }} />
+            <div className="history-loading">
+              <Loader2 className="history-spinner" size={32} />
             </div>
           )}
         </div>

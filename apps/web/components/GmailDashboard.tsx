@@ -33,21 +33,21 @@ const GmailDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="gmail-dashboard">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+      <div className="gmail-dashboard__bar">
+        <div className="gmail-shell">
+          <div className="gmail-dashboard__head">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Gmail Integration</h1>
-              <p className="mt-1 text-sm text-gray-600">
+              <h1 className="gmail-dashboard__title">Gmail Integration</h1>
+              <p className="gmail-dashboard__subtitle">
                 Connect your Gmail accounts and create powerful email automations
               </p>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">Gmail MCP Server</p>
-                <p className="text-xs text-gray-500">Real-time email automation</p>
+            <div className="gmail-dashboard__meta">
+              <div className="gmail-dashboard__meta-block">
+                <p className="gmail-dashboard__meta-title">Gmail MCP Server</p>
+                <p className="gmail-dashboard__meta-note">Real-time email automation</p>
               </div>
             </div>
           </div>
@@ -55,20 +55,17 @@ const GmailDashboard = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8">
+      <div className="gmail-tabs-bar">
+        <div className="gmail-shell">
+          <nav className="gmail-tabs">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className="gmail-tab"
+                data-active={activeTab === tab.id}
               >
-                <span className="mr-2">{tab.icon}</span>
+                <span className="gmail-tab__icon">{tab.icon}</span>
                 {tab.label}
               </button>
             ))}
@@ -77,21 +74,21 @@ const GmailDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6">{renderContent()}</main>
+      <main className="gmail-shell gmail-main">{renderContent()}</main>
 
       {/* Footer */}
-      <footer className="bg-white border-t mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <footer className="gmail-footer">
+        <div className="gmail-shell gmail-footer__inner">
+          <div className="gmail-footer__grid">
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Gmail Integration</h3>
-              <p className="text-xs text-gray-600">
+              <h3 className="gmail-footer__title">Gmail Integration</h3>
+              <p className="gmail-footer__text">
                 Connect your Gmail accounts to create powerful email automation workflows.
               </p>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Features</h3>
-              <ul className="text-xs text-gray-600 space-y-1">
+              <h3 className="gmail-footer__title">Features</h3>
+              <ul className="gmail-footer__list">
                 <li>• Real-time email triggers</li>
                 <li>• Advanced email actions</li>
                 <li>• Rate limiting & error handling</li>
@@ -99,14 +96,14 @@ const GmailDashboard = () => {
               </ul>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Support</h3>
-              <p className="text-xs text-gray-600">
+              <h3 className="gmail-footer__title">Support</h3>
+              <p className="gmail-footer__text">
                 Gmail API integration with comprehensive monitoring and error handling.
               </p>
             </div>
           </div>
-          <div className="mt-8 pt-8 border-t border-gray-200">
-            <p className="text-xs text-gray-500 text-center">
+          <div className="gmail-footer__bottom">
+            <p className="gmail-footer__note">
               © 2024 ZapMate Gmail Integration. Built with Gmail API.
             </p>
           </div>

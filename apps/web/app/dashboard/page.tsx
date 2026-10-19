@@ -154,13 +154,13 @@ export default function Page() {
                 : 'Zaps you create will show up here.'}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="dash-head__actions">
             <Button variant="primary" onClick={handleCreateClick}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
-                fill="#FFFFFF"
-                className="size-5"
+                fill="currentColor"
+                className="dash-icon"
               >
                 <path
                   fillRule="evenodd"
@@ -168,21 +168,21 @@ export default function Page() {
                   clipRule="evenodd"
                 />
               </svg>
-              <span className="mx-1 font-medium">Create</span>
+              <span className="dash-btn-label">Create</span>
             </Button>
           </div>
         </div>
 
-        {/* Desktop Table - Hidden on mobile */}
-        <table className="dash-table hidden md:table">
+        {/* Desktop Table - cards take over below 768px (see .dash-table in styles/pages/app.css) */}
+        <table className="dash-table">
           <thead>
-            <tr className="border-b border-gray-200">
-              <th className="font-normal py-3 text-start w-40">Name</th>
-              <th className="font-normal py-3 text-start w-40">Flow</th>
-              <th className="font-normal py-3 text-start">Webhook URL</th>
-              <th className="font-normal py-3 text-start">Created At</th>
-              <th className="font-normal py-3 text-center w-20">Status</th>
-              <th className="font-normal py-3 text-start"></th>
+            <tr>
+              <th className="dash-th">Name</th>
+              <th className="dash-th">Flow</th>
+              <th className="dash-th">Webhook URL</th>
+              <th className="dash-th">Created At</th>
+              <th className="dash-th dash-th--center">Status</th>
+              <th className="dash-th"><span className="u-sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody>
@@ -192,8 +192,8 @@ export default function Page() {
                 const url = `${HOOKS_URL}/hooks/${session?.user?.id}/${zap.id}`;
 
                 return (
-                  <tr key={zap.id} className="border-b border-gray-200">
-                    <td className="font-normal mr-1 py-3 text-start">
+                  <tr key={zap.id}>
+                    <td className="dash-td">
                       {loading ? (
                         <Spinner color="primary" />
                       ) : index === renameEnabled ? (
@@ -202,21 +202,21 @@ export default function Page() {
                           autoFocus={renameEnabled === index}
                           onBlur={(e) => handleRenameBlur(e, zap)}
                           type="text"
-                          className="rounded-md w-full max-w-32 px-2 py-1 bg-white"
+                          className="dash-rename"
                         />
                       ) : (
                         <Link
-                          className="font-medium hover:underline underline-offset-2 text-foreground hover:text-primary-500 transition-colors"
+                          className="dash-link"
                           href={{ pathname: '/editor', query: { zapId: zap.id } }}
                         >
                           {zap.name}
                         </Link>
                       )}
                     </td>
-                    <td className="font-normal py-3 text-start flex">
+                    <td className="dash-td dash-td--flow">
                       <Tooltip tooltipText={zap.trigger.trigger.type}>
                         <img
-                          className="w-6 border p-[3px] border-gray-500"
+                          className="dash-app-icon"
                           src={appIcon(zap.trigger.trigger.type, zap.trigger.trigger.image)}
                         />
                       </Tooltip>
@@ -225,24 +225,24 @@ export default function Page() {
                           <Tooltip tooltipText={a.action.type}>
                             <img
                               key={i}
-                              className="w-6 p-[3px] border border-gray-500"
+                              className="dash-app-icon"
                               src={appIcon(a.action.type, a.action.image)}
                             />
                           </Tooltip>
                         </div>
                       ))}
                     </td>
-                    <td className="font-normal py-3 text-start">
-                      <div className="flex gap-10">
+                    <td className="dash-td">
+                      <div className="dash-url-row">
                         <span className="dash-url">{url}</span>
                         <svg
                           onClick={() => handleUrlCopy(url)}
                           xmlns="http://www.w3.org/2000/svg"
                           viewBox="0 0 24 24"
                           strokeWidth={1.5}
-                          fill="#FFFFFF"
-                          stroke="#695BE8"
-                          className="size-6 cursor-pointer"
+                          fill="none"
+                          stroke="currentColor"
+                          className="dash-copy"
                         >
                           <path
                             strokeLinecap="round"
@@ -252,18 +252,18 @@ export default function Page() {
                         </svg>
                       </div>
                     </td>
-                    <td className="font-normal py-3 text-start">
+                    <td className="dash-td">
                       {formatDateTimeToCustomString(zap.createdDate)}
                     </td>
-                    <td className="font-normal py-3 text-center">
-                      <label className="inline-flex items-center cursor-pointer">
+                    <td className="dash-td dash-td--center">
+                      <label className="dash-switch">
                         <input
                           type="checkbox"
                           checked={zap.isActive}
                           onChange={(e) => toggleZapExecution(e, zap)}
-                          className="sr-only peer"
+                          className="dash-switch__input"
                         />
-                        <div className="relative z-10 w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-success"></div>
+                        <span className="dash-switch__track" aria-hidden="true" />
                       </label>
                       <div><span className="dash-status" data-on={zap.isActive}>{zap.isActive ? 'Live' : 'Paused'}</span></div>
                     </td>
@@ -272,13 +272,13 @@ export default function Page() {
                         selectedRow === -1 ? setSelectedRow(index) : setSelectedRow(-1)
                       }
                       id={index.toString()}
-                      className="font-normal py-4 text-start w-5 cursor-pointer flex relative"
+                      className="dash-td dash-td--menu"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 24 24"
                         fill="currentColor"
-                        className="size-6"
+                        className="dash-menu-toggle"
                       >
                         <path
                           fillRule="evenodd"
@@ -287,10 +287,10 @@ export default function Page() {
                         />
                       </svg>
                       {index === selectedRow && (
-                        <div className="absolute bg-white px-3 py-2 flex flex-col gap-2 right-5 -top-1 border border-gray-300 rounded-md z-[999]">
+                        <div className="dash-menu">
                           <div
                             onClick={() => setRenameEnabled(index)}
-                            className="hover:bg-violet-100 flex items-center gap-1 text-secondary-500 py-1 px-2 rounded-md"
+                            className="dash-menu__item"
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -298,7 +298,7 @@ export default function Page() {
                               viewBox="0 0 24 24"
                               strokeWidth={1.5}
                               stroke="currentColor"
-                              className="size-5"
+                              className="dash-menu__icon"
                             >
                               <path
                                 strokeLinecap="round"
@@ -313,7 +313,7 @@ export default function Page() {
                               setHistoryZap(zap);
                               setSelectedRow(-1);
                             }}
-                            className="hover:bg-blue-100 flex items-center gap-1 text-blue-600 py-1 px-2 rounded-md"
+                            className="dash-menu__item dash-menu__item--info"
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -321,7 +321,7 @@ export default function Page() {
                               viewBox="0 0 24 24"
                               strokeWidth={1.5}
                               stroke="currentColor"
-                              className="size-5"
+                              className="dash-menu__icon"
                             >
                               <path
                                 strokeLinecap="round"
@@ -333,7 +333,7 @@ export default function Page() {
                           </div>
                           <div
                             onClick={() => handleZapDelete(zap)}
-                            className="hover:bg-red-100 flex items-center gap-1 text-red-600 py-1 px-2 rounded-md"
+                            className="dash-menu__item dash-menu__item--danger"
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
@@ -341,7 +341,7 @@ export default function Page() {
                               viewBox="0 0 24 24"
                               strokeWidth={1.5}
                               stroke="currentColor"
-                              className="size-5"
+                              className="dash-menu__icon"
                             >
                               <path
                                 strokeLinecap="round"
@@ -388,14 +388,14 @@ export default function Page() {
                     >
                       {zap.name}
                     </Link>
-                    <label className="inline-flex items-center cursor-pointer">
+                    <label className="dash-switch">
                       <input
                         type="checkbox"
                         checked={zap.isActive}
                         onChange={(e) => toggleZapExecution(e, zap)}
-                        className="sr-only peer"
+                        className="dash-switch__input"
                       />
-                      <div className="relative w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-success after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                      <span className="dash-switch__track" aria-hidden="true" />
                     </label>
                   </div>
 
