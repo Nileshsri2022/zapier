@@ -1,0 +1,12 @@
+{
+  "//": "Repro-harness tsconfig: the monorepo base uses module=NodeNext, which makes ts-jest emit real dynamic import() calls that Jest's CJS runtime cannot execute ('A dynamic import callback was invoked without --experimental-vm-modules'). Several action branches in apps/worker/src/index.ts are reached only through `await import('./x.js')`, so the harness downlevels to CommonJS.",
+  "extends": "../apps/worker/tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "verbatimModuleSyntax": false,
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": false
+  }
+}

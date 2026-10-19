@@ -21,7 +21,15 @@
     "no-console": "off",
     "prefer-const": "warn"
   },
-  "ignorePatterns": ["node_modules/", "dist/", ".turbo/", ".next/", "*.config.js", "*.config.ts"],
+  "ignorePatterns": [
+    "node_modules/",
+    "dist/",
+    ".turbo/",
+    ".next/",
+    "*.config.js",
+    "*.config.ts",
+    "bug-repros/"
+  ],
   "env": {
     "node": true,
     "es2022": true,
