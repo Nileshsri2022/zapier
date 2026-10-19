@@ -10,6 +10,7 @@ import client from '@repo/db';
  * `reports/workflow-execution-gaps.md`.
  */
 export const SEEDED_ACTIONS = [
+  { type: 'AI Transform', image: '/apps/ai.svg' },
   {
     type: 'Email',
     image: '/apps/email.svg',

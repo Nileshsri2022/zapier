@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-toastify';
 import Spinner from './Spinner';
 import Modal from './Modal';
+import StepConditionsEditor from './StepConditionsEditor';
 import FilterBuilder, { FilterCondition } from './FilterBuilder';
 import { API_URL } from '@/lib/config';
 import { getPendingSelection } from '@/lib/oauth';
@@ -153,11 +154,14 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
           setSelectedTrigger({
             availableTriggerId: zap.trigger?.trigger?.id,
             triggerType: zap.trigger?.trigger?.type,
+            triggerMetaData: zap.trigger?.metadata || {},
           });
           setSelectedActions(
             zap.actions?.map((a: any) => ({
               availableActionId: a.action?.id,
               actionType: a.action?.type,
+              actionMetaData: a.metadata || {},
+              stepConditions: a.stepConditions || [],
             })) || [emptyAction]
           );
           // Load filter conditions
@@ -193,6 +197,7 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
       actions: selectedActions.map((action) => ({
         availableActionId: action.availableActionId,
         actionMetaData: action.actionMetaData,
+        stepConditions: action.stepConditions || [],
       })),
     };
 
@@ -237,6 +242,7 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
           a.map((action, i) =>
             i + 2 === modalVisibilityFor
               ? {
+                  ...action,
                   actionType: selectedItem?.type,
                   availableActionId: selectedItem?.id,
                   actionMetaData: selectedItem?.metadata,
@@ -316,11 +322,7 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
             name={selectedTrigger ? selectedTrigger.triggerType : 'Trigger'}
             onClick={() => handleCellClick(1)}
           />
-          {sheetsConnected && (
-            <div className="editor-connected-badge">
-              ✓ Connected
-            </div>
-          )}
+          {sheetsConnected && <div className="editor-connected-badge">✓ Connected</div>}
         </div>
 
         {/* Filter Builder - shown when editing existing Zap */}
@@ -341,6 +343,19 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
               onClick={() => handleCellClick(index + 2)}
               handleDelete={handleActionDelete}
             />
+            {action.availableActionId && (
+              <StepConditionsEditor
+                step={index + 1}
+                conditions={action.stepConditions || []}
+                onChange={(conditions) =>
+                  setSelectedActions((current) =>
+                    current.map((entry, i) =>
+                      i === index ? { ...entry, stepConditions: conditions } : entry
+                    )
+                  )
+                }
+              />
+            )}
           </div>
         ))}
       </div>
@@ -372,6 +387,11 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
           isVisible={modalVisibilityFor}
           setIsVisible={setModalVisibilityFor}
           onClick={handleTriggerOrActionSelection}
+          initialAiAction={
+            selectedActions[modalVisibilityFor - 2]?.actionType === 'AI Transform'
+              ? selectedActions[modalVisibilityFor - 2]
+              : undefined
+          }
         />
       )}
     </>

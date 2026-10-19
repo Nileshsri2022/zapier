@@ -1,0 +1,25 @@
+{
+  "name": "@repo/ai",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test tests/*.test.cjs"
+  },
+  "dependencies": {
+    "@repo/ai-connections": "*",
+    "@heyputer/puter.js": "2.6.4"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.28",
+    "typescript": "5.5.4"
+  }
+}

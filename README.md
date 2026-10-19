@@ -32,6 +32,21 @@
 
 ---
 
+## AI Transform
+
+The workflow editor includes **AI → AI Transform** with OpenAI, Anthropic/Claude, experimental Puter, and approved OpenAI-compatible BYOK connections. Summarize, classify, extract typed fields, or use custom instructions; chain results into later actions and add per-action conditions (for example, notify only when `previousOutput.fields.category` equals `negative`).
+
+API keys stay out of action metadata. Compatible credentials are encrypted, owned and revocable; endpoint egress is restricted. Preview/probe calls are **billable** and share worker quotas. Providers require operator configuration; **Puter is disabled by default**. Implementation is complete, but live-service/production verification is not claimed.
+
+- [Setup, limits, privacy/billing, migration, gated tests and rollback](reports/ai-connection-operations.md)
+- [Phase completion and verification evidence](reports/ai-implementation-completion.md)
+- [Detailed design and external acceptance checklist](reports/ai-reasoning-step-spec.md#13-completion-checklist)
+- [Separate Gmail routing and production prerequisites](reports/gmail-worker-routing-spec.md)
+
+Offline tests: `npm test -w @repo/ai-connections`, `npm test -w @repo/ai`, and the server/worker/web test suites. Gated real-service tests: `npm run test:ai:e2e -w server` (skipped until explicitly enabled; see operations). No production migration is run automatically.
+
+---
+
 ## 🛠️ Tech Stack
 
 <div align="center">

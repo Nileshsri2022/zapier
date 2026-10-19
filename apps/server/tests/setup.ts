@@ -34,12 +34,19 @@ jest.mock('@repo/email', () => ({
 jest.mock('@repo/db', () => ({
   __esModule: true,
   default: {
+    aiConnection: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      updateMany: jest.fn(),
+    },
     user: {
       findUnique: jest.fn(),
       create: jest.fn(),
       findFirst: jest.fn(),
     },
     zap: {
+      count: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),

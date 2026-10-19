@@ -88,6 +88,7 @@ export const corsOptions: CorsOptions = {
     'Authorization',
     'Cache-Control',
     'X-CSRF-Token',
+    'X-AI-CSRF',
     'X-Requested-With',
   ],
   // Let the browser read rate-limit and download headers cross-origin.

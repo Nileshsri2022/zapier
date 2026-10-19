@@ -7,9 +7,18 @@ import { withRetry, RetryResult } from './utils/retry';
 import { sendSol, getSolanaPrivateKey } from './sendSolana';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
 import { isKnownActionType } from './utils/actionTypes';
+import { prepareRunMetadata } from './utils/runMetadata';
+import { advanceSkippedStage } from './utils/skipStage';
 import { replaceKeys } from './utils/replaceKeys';
+import { readAiPolicy } from '@repo/ai';
+import { validateAiConnectionEnvironment } from '@repo/ai-connections';
+import type { AiActionContext } from './executeAiAction';
 
 dotenv.config();
+
+// Optional AI credentials stay optional; malformed configured policy must fail startup.
+readAiPolicy();
+validateAiConnectionEnvironment();
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -43,8 +52,13 @@ async function executeActionWithRetry(
   actionType: string,
   metadata: any,
   zapRunMetadata: any,
-  previousOutputs?: Record<number, any> // Outputs from previous steps
+  previousOutputs?: Record<number, any>, // Outputs from previous steps
+  context?: AiActionContext
 ): Promise<RetryResult<{ success: boolean; message: string; output?: any }>> {
+  if (actionType === 'AI Transform') {
+    const { executeAiAction } = await import('./executeAiAction.js');
+    return executeAiAction(metadata, zapRunMetadata, previousOutputs, context);
+  }
   return withRetry(
     async () => {
       // Fail loudly for actions the worker cannot execute. Previously an unknown
@@ -136,7 +150,7 @@ async function executeActionWithRetry(
         const resolvedMessage = replaceKeys(message, zapRunMetadata);
 
         // Dynamic imports for sendWhatsApp
-        const { sendWhatsAppMessage } = await import('./sendWhatsApp');
+        const { sendWhatsAppMessage } = await import('./sendWhatsApp.js');
 
         const result = await sendWhatsAppMessage(
           phoneNumberId,
@@ -163,7 +177,7 @@ async function executeActionWithRetry(
         const resolvedMessage = replaceKeys(message, zapRunMetadata);
 
         // Dynamic imports for sendTelegram
-        const { sendTelegramMessage } = await import('./sendTelegram');
+        const { sendTelegramMessage } = await import('./sendTelegram.js');
 
         const result = await sendTelegramMessage(botToken, resolvedChatId, resolvedMessage);
 
@@ -185,7 +199,7 @@ async function executeActionWithRetry(
         const resolvedBody = body ? replaceKeys(JSON.stringify(body), zapRunMetadata) : null;
 
         // Dynamic import for sendWebhook
-        const { sendWebhook } = await import('./sendWebhook');
+        const { sendWebhook } = await import('./sendWebhook.js');
 
         const result = await sendWebhook({
           url: resolvedUrl,
@@ -202,7 +216,7 @@ async function executeActionWithRetry(
         return {
           success: true,
           message: `Webhook sent to ${resolvedUrl}`,
-          output: { url: resolvedUrl, statusCode: result.statusCode, response: result.data },
+          output: { url: resolvedUrl, statusCode: result.statusCode, response: result.response },
         };
       }
 
@@ -233,10 +247,13 @@ async function processMessage(message: any) {
     },
   });
 
+  // Drop untrusted ingress replay keys on first execution; persisted later outputs remain reusable.
+  const freshRun = zapRunDetails?.status === 'pending';
+  const zapMetadata = prepareRunMetadata(zapRunDetails?.metadata, freshRun);
   // Update status to running
   await client.zapRun.update({
     where: { id: zapRunId },
-    data: { status: 'running' },
+    data: { status: 'running', ...(freshRun ? { metadata: zapMetadata as any } : {}) },
   });
 
   const lastStage = zapRunDetails?.zap?.actions?.length || 1;
@@ -246,10 +263,14 @@ async function processMessage(message: any) {
   if (stage === 1) {
     const filterConditions =
       ((zapRunDetails?.zap as any)?.filterConditions as FilterCondition[]) || [];
-    const triggerData = zapRunDetails?.metadata || {};
+    const triggerData = zapMetadata;
 
     if (!evaluateFilters(filterConditions, triggerData)) {
       console.log(`🚫 Filters blocked ZapRun ${zapRunId} - skipping all actions`);
+      await client.zapRun.update({
+        where: { id: zapRunId },
+        data: { status: 'completed', completedAt: new Date() },
+      });
       return {
         success: true,
         reason: 'filtered',
@@ -265,8 +286,7 @@ async function processMessage(message: any) {
   }
 
   // Get previous step outputs from metadata (for chaining)
-  const zapMetadata = (zapRunDetails?.metadata || {}) as Record<string, any>;
-  const stepOutputs: Record<number, any> = zapMetadata.stepOutputs || {};
+  const stepOutputs = (zapMetadata.stepOutputs || {}) as Record<number, any>;
   const previousOutput = stepOutputs[stage - 1] || {};
 
   // Evaluate step conditions (skip action if conditions not met)
@@ -279,13 +299,20 @@ async function processMessage(message: any) {
         `⏭️ Skipping action ${stage} (${currentAction.action.type}) - step conditions not met`
       );
 
-      // Queue next stage even though this one was skipped
-      if (stage !== lastStage) {
-        await producer.send({
-          topic: TOPIC_NAME,
-          messages: [{ value: JSON.stringify({ zapRunId, stage: stage + 1 }) }],
-        });
-      }
+      await advanceSkippedStage(
+        stage,
+        lastStage,
+        () =>
+          producer.send({
+            topic: TOPIC_NAME,
+            messages: [{ value: JSON.stringify({ zapRunId, stage: stage + 1 }) }],
+          }),
+        () =>
+          client.zapRun.update({
+            where: { id: zapRunId },
+            data: { status: 'completed', completedAt: new Date() },
+          })
+      );
 
       return {
         success: true,
@@ -302,7 +329,8 @@ async function processMessage(message: any) {
     currentAction.action.type,
     currentAction.metadata,
     { ...zapMetadata, stepOutputs, previousOutput },
-    stepOutputs
+    stepOutputs,
+    { userId: zapRunDetails!.zap.userId, zapRunId, stage }
   );
 
   console.log(

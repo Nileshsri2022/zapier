@@ -13,6 +13,8 @@ COPY package.json bun.lock ./
 # Copy workspace package.jsons
 COPY apps/worker/package.json ./apps/worker/
 COPY packages/db/package.json ./packages/db/
+COPY packages/ai-connections/package.json ./packages/ai-connections/
+COPY packages/ai/package.json ./packages/ai/
 COPY packages/email/package.json ./packages/email/
 COPY packages/kafka/package.json ./packages/kafka/
 COPY packages/redis/package.json ./packages/redis/
@@ -30,6 +32,12 @@ COPY apps/worker ./apps/worker
 RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 
 # Build workspace packages
+WORKDIR /app/packages/ai-connections
+RUN bun run build
+
+WORKDIR /app/packages/ai
+RUN bun run build
+
 WORKDIR /app/packages/email
 RUN bun run build
 
@@ -62,6 +70,14 @@ COPY --from=builder /app/packages/db ./packages/db
 COPY --from=builder /app/node_modules ./node_modules
 
 # Fix workspace symlinks
+RUN rm -rf ./node_modules/@repo/ai-connections && mkdir -p ./node_modules/@repo/ai-connections
+COPY --from=builder /app/packages/ai-connections/dist ./node_modules/@repo/ai-connections/dist
+COPY --from=builder /app/packages/ai-connections/package.json ./node_modules/@repo/ai-connections/package.json
+
+RUN rm -rf ./node_modules/@repo/ai && mkdir -p ./node_modules/@repo/ai
+COPY --from=builder /app/packages/ai/dist ./node_modules/@repo/ai/dist
+COPY --from=builder /app/packages/ai/package.json ./node_modules/@repo/ai/package.json
+
 RUN rm -rf ./node_modules/@repo/kafka 2>/dev/null || true
 RUN mkdir -p ./node_modules/@repo/kafka
 COPY --from=builder /app/packages/kafka/dist ./node_modules/@repo/kafka/dist
