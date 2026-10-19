@@ -198,7 +198,7 @@ async function executeActionWithRetry(
         const resolvedWebhookUrl = replaceKeys(webhookUrl || '', zapRunMetadata);
 
         // Dynamic import for sendDiscord
-        const { sendDiscordMessage, resolveDiscordPlaceholders } = await import('./sendDiscord.js');
+        const { sendDiscordMessage, resolveDiscordPlaceholders, maskDiscordWebhookUrl } = await import('./sendDiscord.js');
 
         const resolvedOptions = resolveDiscordPlaceholders(
           {
@@ -224,7 +224,7 @@ async function executeActionWithRetry(
           success: true,
           message: `Discord message delivered`,
           output: {
-            webhookUrl: resolvedWebhookUrl,
+            webhookUrl: maskDiscordWebhookUrl(resolvedWebhookUrl),
             messageId: result.messageId,
             timestamp: result.timestamp || new Date().toISOString(),
             sentAt: new Date().toISOString(),

@@ -98,6 +98,14 @@ export function resolveDiscordPlaceholders(
 }
 
 /**
+ * Mask the webhook secret token from a Discord incoming webhook URL to prevent credential leakage.
+ */
+export function maskDiscordWebhookUrl(url: string): string {
+  if (!url || typeof url !== 'string') return '';
+  return url.replace(/\/webhooks\/(\d+)\/([A-Za-z0-9_-]+)/, '/webhooks/$1/****');
+}
+
+/**
  * Send a message or rich embed via Discord Incoming Webhook.
  */
 export async function sendDiscordMessage(
@@ -107,6 +115,7 @@ export async function sendDiscordMessage(
   if (!isValidDiscordWebhookUrl(webhookUrl)) {
     return {
       success: false,
+      isFatal: true,
       error: 'Invalid Discord webhook URL. Must match https://discord.com/api/webhooks/{id}/{token}',
     };
   }
@@ -134,6 +143,7 @@ export async function sendDiscordMessage(
   if (!hasContent && !hasEmbeds) {
     return {
       success: false,
+      isFatal: true,
       error: 'Either content or embed is required to send a Discord message.',
     };
   }
@@ -193,7 +203,7 @@ export async function sendDiscordMessage(
         error.message ||
         'Unknown Discord error';
 
-      const isFatal = status === 400 || status === 404;
+      const isFatal = status === 400 || status === 404 || (status === 429 && attempt >= maxAttempts);
 
       if (status === 429 && attempt < maxAttempts) {
         // Parse retry_after in seconds from body or headers (spec: Math.ceil(retry_after * 1000) + 100ms)
@@ -220,6 +230,7 @@ export async function sendDiscordMessage(
 
   return {
     success: false,
+    isFatal: true,
     error: `Discord webhook delivery failed: ${lastErrorMsg}`,
   };
 }

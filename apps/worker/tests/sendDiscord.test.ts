@@ -4,7 +4,11 @@ jest.mock('axios', () => ({
 }));
 
 import axios from 'axios';
-import { sendDiscordMessage, resolveDiscordPlaceholders } from '../src/sendDiscord';
+import {
+  sendDiscordMessage,
+  resolveDiscordPlaceholders,
+  maskDiscordWebhookUrl,
+} from '../src/sendDiscord';
 
 const post = axios.post as jest.Mock;
 
@@ -43,20 +47,22 @@ describe('sendDiscordMessage', () => {
     expect(calledConfig.timeout).toBeLessThanOrEqual(15_000);
   });
 
-  it('fails gracefully when webhook URL is missing or invalid', async () => {
+  it('fails gracefully and flags fatal when webhook URL is missing or invalid', async () => {
     const result = await sendDiscordMessage('not-a-valid-url', {
       content: 'Hello',
     });
 
     expect(result.success).toBe(false);
+    expect(result.isFatal).toBe(true);
     expect(result.error).toMatch(/Invalid Discord webhook URL/i);
     expect(post).not.toHaveBeenCalled();
   });
 
-  it('fails gracefully when neither content nor embed is provided', async () => {
+  it('fails gracefully and flags fatal when neither content nor embed is provided', async () => {
     const result = await sendDiscordMessage(validWebhookUrl, {});
 
     expect(result.success).toBe(false);
+    expect(result.isFatal).toBe(true);
     expect(result.error).toMatch(/content or embed is required/i);
     expect(post).not.toHaveBeenCalled();
   });
@@ -172,7 +178,7 @@ describe('sendDiscordMessage', () => {
 
     const unresolvedOptions = {
       content: 'Incoming transfer of {trigger.data.amount} SOL',
-      username: '{trigger.data.user} Bot',
+      username: '{trigger.data.user} Alerts',
       embed: {
         title: 'TX {trigger.data.txHash}',
         description: 'Transferred {trigger.data.amount} SOL by {trigger.data.user}',
@@ -185,7 +191,7 @@ describe('sendDiscordMessage', () => {
     const resolved = resolveDiscordPlaceholders(unresolvedOptions, zapRunMetadata);
 
     expect(resolved.content).toBe('Incoming transfer of 2.5 SOL');
-    expect(resolved.username).toBe('Alice Bot');
+    expect(resolved.username).toBe('Alice Alerts');
     expect(resolved.embed?.title).toBe('TX 5K2b...9a1');
     expect(resolved.embed?.description).toBe('Transferred 2.5 SOL by Alice');
     expect(resolved.embed?.fields?.[0].value).toBe('Alice');
@@ -215,7 +221,7 @@ describe('sendDiscordMessage', () => {
     expect(post).toHaveBeenCalledTimes(2);
   });
 
-  it('fails with rate limit error if HTTP 429 persists through all retry attempts', async () => {
+  it('fails with rate limit error and flags isFatal if HTTP 429 persists through all retry attempts', async () => {
     // 3 successive 429s
     for (let i = 0; i < 3; i++) {
       post.mockRejectedValueOnce({
@@ -231,8 +237,15 @@ describe('sendDiscordMessage', () => {
     });
 
     expect(result.success).toBe(false);
+    expect(result.isFatal).toBe(true);
     expect(result.error).toContain('You are being rate limited');
     expect(post).toHaveBeenCalledTimes(3);
+  });
+
+  it('masks the sensitive webhook token in Discord webhook URLs', () => {
+    const raw = 'https://discord.com/api/webhooks/123456789/abcdef_secret-token';
+    const masked = maskDiscordWebhookUrl(raw);
+    expect(masked).toBe('https://discord.com/api/webhooks/123456789/****');
   });
 });
 

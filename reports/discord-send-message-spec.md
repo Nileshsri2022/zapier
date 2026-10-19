@@ -21,7 +21,7 @@ Introduce a native **Discord Send Message** action (`AvailableActions.type = "Di
 Users configure their action by pasting an incoming Discord Webhook URL and drafting their message. The action supports:
 1. **Standard Messages**: Plain text markdown messages (up to 2,000 characters) with dynamic template placeholders (e.g. `New transaction of {trigger.data.amount} SOL received!`).
 2. **Rich Embeds**: Optional structured embed cards featuring a title, description, accent color hex, URL, and timestamp.
-3. **Identity Overrides**: Optional custom bot name (`username`) and avatar URL to match the Zap's purpose.
+3. **Identity Overrides**: Optional custom sender name (`username`) and avatar URL to match the Zap's purpose.
 4. **Resilient Delivery**: Automatic retry backoff respecting Discord's HTTP 429 `retry_after` response headers to prevent dropped messages under burst conditions.
 
 ---
@@ -91,7 +91,7 @@ interface DiscordActionMetadata {
   - Input field for Discord Webhook URL with URL pattern validation.
   - Textarea for message content with dynamic variable pill inserter and live 2,000-character counter.
   - Collapsible "Rich Embed" toggle with fields for Title, Description, Color picker/hex input, and URL.
-  - Collapsible "Bot Identity" override for custom username and avatar URL.
+  - Collapsible "Sender Identity" override for custom username and avatar URL.
   - "Send Test Message" button to verify the webhook directly before saving.
 
 ---
