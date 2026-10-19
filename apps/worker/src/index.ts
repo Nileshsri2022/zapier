@@ -195,18 +195,14 @@ async function executeActionWithRetry(
 
       if (actionType.startsWith('Discord')) {
         const { webhookUrl, content, message, username, avatarUrl, embed, embeds } = metadata;
-        const rawContent = content || message || '';
         const resolvedWebhookUrl = replaceKeys(webhookUrl || '', zapRunMetadata);
-        const resolvedContent = rawContent ? replaceKeys(rawContent, zapRunMetadata) : undefined;
-        const resolvedUsername = username ? replaceKeys(username, zapRunMetadata) : undefined;
-        const resolvedAvatarUrl = avatarUrl ? replaceKeys(avatarUrl, zapRunMetadata) : undefined;
 
         // Dynamic import for sendDiscord
         const { sendDiscordMessage, resolveDiscordPlaceholders } = await import('./sendDiscord.js');
 
         const resolvedOptions = resolveDiscordPlaceholders(
           {
-            content: rawContent || undefined,
+            content: content || message || undefined,
             username: username || undefined,
             avatarUrl: avatarUrl || undefined,
             embed,
@@ -218,14 +214,21 @@ async function executeActionWithRetry(
         const result = await sendDiscordMessage(resolvedWebhookUrl, resolvedOptions);
 
         if (!result.success) {
-          throw new Error(`Discord send failed: ${result.error}`);
+          const err = new Error(`Discord send failed: ${result.error}${result.isFatal ? ' [FATAL]' : ''}`);
+          (err as any).isFatal = result.isFatal;
+          throw err;
         }
 
         console.log(`✅ Discord message sent via webhook`);
         return {
           success: true,
           message: `Discord message delivered`,
-          output: { webhookUrl: resolvedWebhookUrl, messageId: result.messageId, sentAt: new Date().toISOString() },
+          output: {
+            webhookUrl: resolvedWebhookUrl,
+            messageId: result.messageId,
+            timestamp: result.timestamp || new Date().toISOString(),
+            sentAt: new Date().toISOString(),
+          },
         };
       }
 
@@ -260,7 +263,11 @@ async function executeActionWithRetry(
       // but never report success for an unimplemented action.
       throw new Error(`Unknown action: ${actionType}`);
     },
-    { maxRetries: 3, initialDelayMs: 1000 }
+    {
+      maxRetries: 3,
+      initialDelayMs: 1000,
+      shouldRetry: (error: Error) => !(error as any).isFatal && !error.message.includes('[FATAL]'),
+    }
   );
 }
 

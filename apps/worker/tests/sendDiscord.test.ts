@@ -21,6 +21,7 @@ describe('sendDiscordMessage', () => {
         id: '987654321',
         channel_id: '123456789',
         content: 'Hello from ZapMate!',
+        timestamp: '2026-10-20T00:00:00.000Z',
       },
     });
 
@@ -30,6 +31,7 @@ describe('sendDiscordMessage', () => {
 
     expect(result.success).toBe(true);
     expect(result.messageId).toBe('987654321');
+    expect(result.timestamp).toBe('2026-10-20T00:00:00.000Z');
     expect(post).toHaveBeenCalledTimes(1);
 
     const [calledUrl, calledBody, calledConfig] = post.mock.calls[0];
@@ -59,7 +61,7 @@ describe('sendDiscordMessage', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
-  it('captures Discord HTTP error responses and returns success: false with description', async () => {
+  it('captures Discord HTTP 400 error and fails immediately without retrying', async () => {
     post.mockRejectedValueOnce({
       response: {
         status: 400,
@@ -73,6 +75,24 @@ describe('sendDiscordMessage', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('Invalid Webhook Token');
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  it('captures Discord HTTP 404 Unknown Webhook and fails immediately without retrying', async () => {
+    post.mockRejectedValueOnce({
+      response: {
+        status: 404,
+        data: { message: 'Unknown Webhook', code: 10015 },
+      },
+    });
+
+    const result = await sendDiscordMessage(validWebhookUrl, {
+      content: 'Testing 404',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Unknown Webhook');
+    expect(post).toHaveBeenCalledTimes(1);
   });
 
   it('posts rich embed with hex color converted to decimal integer and identity overrides', async () => {

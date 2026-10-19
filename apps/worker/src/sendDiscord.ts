@@ -33,6 +33,8 @@ export interface DiscordMessageOptions {
 export interface DiscordMessageResult {
   success: boolean;
   messageId?: string;
+  timestamp?: string;
+  isFatal?: boolean;
   error?: string;
 }
 
@@ -73,15 +75,15 @@ export function resolveDiscordPlaceholders(
     avatarUrl: options.avatarUrl ? replaceKeys(options.avatarUrl, metadata) : undefined,
   };
 
-  const resolveEmbed = (em: DiscordEmbed): DiscordEmbed => ({
-    ...em,
-    title: em.title ? replaceKeys(em.title, metadata) : undefined,
-    description: em.description ? replaceKeys(em.description, metadata) : undefined,
-    url: em.url ? replaceKeys(em.url, metadata) : undefined,
-    fields: em.fields?.map((f) => ({
-      name: replaceKeys(f.name, metadata),
-      value: replaceKeys(f.value, metadata),
-      inline: f.inline,
+  const resolveEmbed = (embed: DiscordEmbed): DiscordEmbed => ({
+    ...embed,
+    title: embed.title ? replaceKeys(embed.title, metadata) : undefined,
+    description: embed.description ? replaceKeys(embed.description, metadata) : undefined,
+    url: embed.url ? replaceKeys(embed.url, metadata) : undefined,
+    fields: embed.fields?.map((field) => ({
+      name: replaceKeys(field.name, metadata),
+      value: replaceKeys(field.value, metadata),
+      inline: field.inline,
     })),
   });
 
@@ -176,9 +178,11 @@ export async function sendDiscordMessage(
       });
 
       const messageId = response.data?.id ? String(response.data.id) : undefined;
+      const timestamp = response.data?.timestamp ? String(response.data.timestamp) : undefined;
       return {
         success: true,
         messageId,
+        timestamp,
       };
     } catch (error: any) {
       const status = error.response?.status;
@@ -189,8 +193,10 @@ export async function sendDiscordMessage(
         error.message ||
         'Unknown Discord error';
 
+      const isFatal = status === 400 || status === 404;
+
       if (status === 429 && attempt < maxAttempts) {
-        // Parse retry_after in seconds from body or headers
+        // Parse retry_after in seconds from body or headers (spec: Math.ceil(retry_after * 1000) + 100ms)
         const retryAfterSeconds =
           errorData?.retry_after ??
           (error.response?.headers?.['retry-after']
@@ -198,14 +204,15 @@ export async function sendDiscordMessage(
             : undefined) ??
           0.5;
 
-        // Convert to ms, add 50ms buffer, cap at 5,000ms
-        const delayMs = Math.min(5000, Math.max(10, Math.ceil(retryAfterSeconds * 1000) + 50));
+        // Convert to ms, add 100ms safety buffer
+        const delayMs = Math.max(10, Math.ceil(retryAfterSeconds * 1000) + 100);
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       }
 
       return {
         success: false,
+        isFatal,
         error: `Discord webhook delivery failed: ${lastErrorMsg}`,
       };
     }
