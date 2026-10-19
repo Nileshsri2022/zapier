@@ -196,7 +196,7 @@
   min-height: var(--touch-target-min);
   padding: 0.5rem 1rem;
   background-color: hsl(var(--brand-secondary));
-  color: #fff;
+  color: hsl(var(--secondary-foreground));
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--text-xs);
@@ -225,4 +225,8 @@
   color: hsl(var(--muted-foreground));
   margin: 0;
   line-height: 1.4;
+}
+
+.filter-builder__chevron {
+  color: hsl(var(--muted-foreground));
 }

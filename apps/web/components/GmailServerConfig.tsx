@@ -4,6 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import FormInput from './FormInput';
 import Button from './Button';
+import { Spinner } from './ui/spinner';
 import { API_URL } from '@/lib/config';
 import { redirectToOAuth } from '@/lib/oauth';
 
@@ -132,19 +133,19 @@ const GmailServerConfig = () => {
   }, []);
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Gmail Servers</h2>
+    <div className="gmail-panel">
+      <div className="gmail-panel__head">
+        <h2 className="gmail-panel__title">Gmail Servers</h2>
         <Button variant="primary" onClick={() => setShowAddForm(!showAddForm)}>
           {showAddForm ? 'Cancel' : 'Add Gmail Server'}
         </Button>
       </div>
 
       {showAddForm && (
-        <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-          <h3 className="text-lg font-semibold mb-4">Connect Gmail Account</h3>
-          <div className="flex gap-4 items-end">
-            <div className="flex-1">
+        <div className="gmail-form-card">
+          <h3 className="gmail-card__title">Connect Gmail Account</h3>
+          <div className="gmail-form-row">
+            <div className="gmail-form-row__field">
               <FormInput
                 label="Server Name"
                 name="serverName"
@@ -156,48 +157,46 @@ const GmailServerConfig = () => {
               Connect Gmail
             </Button>
           </div>
-          <p className="text-sm text-gray-600 mt-2">
+          <p className="gmail-card__note">
             This will redirect you to Gmail to authorize access to your account.
           </p>
         </div>
       )}
 
       {isLoading ? (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading Gmail servers...</p>
+        <div className="gmail-empty">
+          <Spinner color="primary" />
+          <p className="gmail-empty__text">Loading Gmail servers...</p>
         </div>
       ) : servers.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="gmail-empty">
           <p>No Gmail servers configured yet.</p>
-          <p className="text-sm mt-2">Add a Gmail server to start creating email automations.</p>
+          <p className="gmail-empty__text">
+            Add a Gmail server to start creating email automations.
+          </p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="gmail-list">
           {servers.map((server) => (
-            <div key={server.id} className="bg-white p-6 rounded-lg shadow-md">
-              <div className="flex justify-between items-start mb-4">
+            <div key={server.id} className="gmail-card">
+              <div className="gmail-card__head">
                 <div>
-                  <h3 className="text-lg font-semibold">{server.name}</h3>
-                  <p className="text-sm text-gray-600">
+                  <h3 className="gmail-card__title">{server.name}</h3>
+                  <p className="gmail-card__meta">
                     Created: {new Date(server.createdAt).toLocaleDateString()}
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="gmail-card__meta">
                     Triggers: {server.gmailTriggers.length} | Actions: {server.gmailActions.length}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`px-2 py-1 text-xs rounded-full ${
-                      server.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}
-                  >
+                <div className="gmail-card__actions">
+                  <span className="gmail-pill" data-tone={server.isActive ? 'ok' : 'alert'}>
                     {server.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="gmail-card__footer">
                 <Button variant="outline" size="md" onClick={() => testGmailConnection(server.id)}>
                   Test Connection
                 </Button>

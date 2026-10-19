@@ -125,18 +125,18 @@ const GoogleCalendarMetaData = ({
 
   if (loading) {
     return (
-      <div className="my-4 flex flex-col gap-4 text-secondary-500">
-        <p className="text-sm">Loading...</p>
+      <div className="meta-form">
+        <p className="meta-form__text">Loading...</p>
       </div>
     );
   }
 
   if (servers.length === 0) {
     return (
-      <div className="my-4 flex flex-col gap-4 text-secondary-500">
-        <div className="bg-yellow-50 border border-yellow-200 rounded p-4 text-sm text-yellow-700">
-          <p className="font-medium">📅 Connect Google Calendar</p>
-          <p className="mt-1 text-xs">
+      <div className="meta-form">
+        <div className="meta-form__warning">
+          <p className="meta-form__panel-title">📅 Connect Google Calendar</p>
+          <p className="meta-form__panel-note">
             You need to connect your Google account to use Google Calendar triggers.
           </p>
         </div>
@@ -148,15 +148,15 @@ const GoogleCalendarMetaData = ({
   }
 
   return (
-    <div className="my-4 flex flex-col gap-4 text-secondary-500">
+    <div className="meta-form">
       {servers.length > 1 && (
         <div>
-          <label className="block text-sm font-medium mb-1">Google Account</label>
+          <label className="meta-form__label">Google Account</label>
           <select
             name="serverId"
             value={formData.serverId}
             onChange={handleFormDataChange}
-            className="w-full p-2 border rounded text-sm"
+            className="meta-form__input"
           >
             {servers.map((server: any) => (
               <option key={server.id} value={server.id}>
@@ -168,15 +168,15 @@ const GoogleCalendarMetaData = ({
       )}
 
       <div>
-        <label className="block text-sm font-medium mb-1">Calendar</label>
+        <label className="meta-form__label">Calendar</label>
         {loadingCalendars ? (
-          <p className="text-xs text-gray-500">Loading calendars...</p>
+          <p className="meta-form__hint">Loading calendars...</p>
         ) : (
           <select
             name="calendarId"
             value={formData.calendarId}
             onChange={handleFormDataChange}
-            className="w-full p-2 border rounded text-sm"
+            className="meta-form__input"
           >
             <option value="primary">Primary Calendar</option>
             {calendars.map((cal: any) => (
@@ -190,7 +190,7 @@ const GoogleCalendarMetaData = ({
 
       {showReminderMinutes && (
         <div>
-          <label className="block text-sm font-medium mb-1">Reminder (minutes before)</label>
+          <label className="meta-form__label">Reminder (minutes before)</label>
           <input
             type="number"
             name="reminderMinutes"
@@ -198,9 +198,9 @@ const GoogleCalendarMetaData = ({
             onChange={handleFormDataChange}
             min={1}
             max={1440}
-            className="w-full p-2 border rounded text-sm"
+            className="meta-form__input"
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="meta-form__hint">
             Trigger will fire this many minutes before the event starts
           </p>
         </div>
@@ -208,24 +208,22 @@ const GoogleCalendarMetaData = ({
 
       {showSearchQuery && (
         <div>
-          <label className="block text-sm font-medium mb-1">Search Query</label>
+          <label className="meta-form__label">Search Query</label>
           <input
             type="text"
             name="searchQuery"
             value={formData.searchQuery}
             onChange={handleFormDataChange}
             placeholder="e.g. meeting, standup, sync"
-            className="w-full p-2 border rounded text-sm"
+            className="meta-form__input"
           />
-          <p className="text-xs text-gray-500 mt-1">
-            Trigger fires for events matching this search term
-          </p>
+          <p className="meta-form__hint">Trigger fires for events matching this search term</p>
         </div>
       )}
 
-      <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-700">
-        <p className="font-medium">📅 {selectedType}</p>
-        <p className="mt-1 text-xs">
+      <div className="meta-form__panel">
+        <p className="meta-form__panel-title">📅 {selectedType}</p>
+        <p className="meta-form__panel-note">
           {triggerType === 'new_event' && 'Fires when a new event is created in your calendar.'}
           {triggerType === 'event_updated' && 'Fires when an existing event is modified.'}
           {triggerType === 'event_start' && 'Fires before an event starts (reminder style).'}

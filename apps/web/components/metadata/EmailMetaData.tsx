@@ -19,11 +19,11 @@ const EmailMetaData = ({ handleClick }: MetaDataFormProps) => {
   };
 
   return (
-    <div className="my-4 flex flex-col gap-4 text-secondary-500">
+    <div className="meta-form">
       <FormInput label="To" name="to" onChange={handleFormDataChange} />
       <FormInput label="Subject" name="subject" onChange={handleFormDataChange} />
       <textarea
-        className="text-black rounded-sm border border-gray-400 p-2 bg-base-100"
+        className="meta-form__textarea"
         placeholder="Email content..."
         rows={8}
         name="body"

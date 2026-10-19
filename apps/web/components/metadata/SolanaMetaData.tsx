@@ -18,7 +18,7 @@ const SolanaMetaData = ({ handleClick }: MetaDataFormProps) => {
   };
 
   return (
-    <div className="my-4 flex flex-col gap-4 text-secondary-500">
+    <div className="meta-form">
       <FormInput label="Address" name="address" onChange={handleFormDataChange} />
       <FormInput label="Amount" name="amount" onChange={handleFormDataChange} />
       <Button variant="secondary" onClick={() => handleClick(formData)}>

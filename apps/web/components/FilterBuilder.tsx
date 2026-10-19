@@ -113,9 +113,9 @@ export function FilterBuilder({ zapId, initialConditions = [], onSave }: FilterB
             <span className="filter-builder__empty-hint">No filters - all triggers run</span>
           )}
           {isExpanded ? (
-            <ChevronUp size={18} style={{ color: 'hsl(var(--muted-foreground))' }} />
+            <ChevronUp size={18} className="filter-builder__chevron" />
           ) : (
-            <ChevronDown size={18} style={{ color: 'hsl(var(--muted-foreground))' }} />
+            <ChevronDown size={18} className="filter-builder__chevron" />
           )}
         </div>
       </div>
