@@ -39,19 +39,13 @@ export default function PWAInstaller() {
   if (!showInstallBanner) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-primary-500 text-white p-3 flex justify-between items-center z-50 safe-area-bottom">
-      <span className="text-sm">Install ZapMate for quick access!</span>
-      <div className="flex gap-2">
-        <button
-          onClick={() => setShowInstallBanner(false)}
-          className="text-xs px-3 py-1 bg-white/20 rounded min-h-[32px]"
-        >
+    <div className="pwa-banner safe-area-bottom">
+      <span className="pwa-banner__text">Install ZapMate for quick access!</span>
+      <div className="pwa-banner__actions">
+        <button className="pwa-banner__btn" onClick={() => setShowInstallBanner(false)}>
           Later
         </button>
-        <button
-          onClick={handleInstall}
-          className="text-xs px-3 py-1 bg-white text-primary-500 rounded font-medium min-h-[32px]"
-        >
+        <button className="pwa-banner__btn pwa-banner__btn--primary" onClick={handleInstall}>
           Install
         </button>
       </div>

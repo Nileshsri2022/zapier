@@ -19,7 +19,7 @@ const WebhookMetaData = ({ handleClick }: MetaDataFormProps) => {
   };
 
   return (
-    <div className="my-4 flex flex-col gap-4 text-secondary-500">
+    <div className="meta-form">
       <FormInput
         label="Webhook URL"
         name="url"
@@ -27,12 +27,12 @@ const WebhookMetaData = ({ handleClick }: MetaDataFormProps) => {
         onChange={handleFormDataChange}
       />
       <div>
-        <label className="block text-sm font-medium mb-1">Method</label>
+        <label className="meta-form__label">Method</label>
         <select
           name="method"
           value={formData.method}
           onChange={handleFormDataChange}
-          className="w-full p-2 border border-gray-300 rounded-md"
+          className="meta-form__input"
         >
           <option value="POST">POST</option>
           <option value="GET">GET</option>

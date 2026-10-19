@@ -83,18 +83,18 @@ const GoogleSheetsMetaData = ({
 
   if (loading) {
     return (
-      <div className="my-4 flex flex-col gap-4 text-secondary-500">
-        <p className="text-sm">Loading...</p>
+      <div className="meta-form">
+        <p className="meta-form__text">Loading...</p>
       </div>
     );
   }
 
   if (servers.length === 0) {
     return (
-      <div className="my-4 flex flex-col gap-4 text-secondary-500">
-        <div className="bg-yellow-50 border border-yellow-200 rounded p-4 text-sm text-yellow-700">
-          <p className="font-medium">📊 Connect Google Sheets</p>
-          <p className="mt-1 text-xs">
+      <div className="meta-form">
+        <div className="meta-form__warning">
+          <p className="meta-form__panel-title">📊 Connect Google Sheets</p>
+          <p className="meta-form__panel-note">
             You need to connect your Google account to use Google Sheets triggers.
           </p>
         </div>
@@ -106,15 +106,15 @@ const GoogleSheetsMetaData = ({
   }
 
   return (
-    <div className="my-4 flex flex-col gap-4 text-secondary-500">
+    <div className="meta-form">
       {servers.length > 1 && (
         <div>
-          <label className="block text-sm font-medium mb-1">Google Account</label>
+          <label className="meta-form__label">Google Account</label>
           <select
             name="serverId"
             value={formData.serverId}
             onChange={handleFormDataChange}
-            className="w-full p-2 border rounded text-sm"
+            className="meta-form__input"
           >
             {servers.map((server: any) => (
               <option key={server.id} value={server.id}>
@@ -130,7 +130,7 @@ const GoogleSheetsMetaData = ({
         placeholder="Enter the ID from the spreadsheet URL"
         onChange={handleFormDataChange}
       />
-      <p className="text-xs text-gray-500">
+      <p className="meta-form__hint">
         Find the ID in the URL: docs.google.com/spreadsheets/d/<strong>SPREADSHEET_ID</strong>/edit
       </p>
       <FormInput
@@ -139,9 +139,9 @@ const GoogleSheetsMetaData = ({
         placeholder="Sheet1"
         onChange={handleFormDataChange}
       />
-      <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-700">
-        <p className="font-medium">📊 {selectedType}</p>
-        <p className="mt-1 text-xs">
+      <div className="meta-form__panel">
+        <p className="meta-form__panel-title">📊 {selectedType}</p>
+        <p className="meta-form__panel-note">
           This trigger fires when an existing row is modified. First poll seeds the state,
           subsequent polls detect changes.
         </p>

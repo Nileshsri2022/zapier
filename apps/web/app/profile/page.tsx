@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { API_URL } from '@/lib/config';
+import { Spinner } from '@/components/ui/spinner';
 
 interface UserData {
   id: number;
@@ -49,58 +50,57 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center pt-14">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+      <div className="profile-center">
+        <Spinner color="primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-base-100 pt-20 px-6">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold tracking-tight mb-8">My Profile</h1>
+    <div className="profile-page">
+      <div className="profile-shell">
+        <h1 className="profile-title">My Profile</h1>
 
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 rounded-full bg-primary-500 flex items-center justify-center">
-              <span className="text-white text-2xl font-bold">
-                {user?.name?.charAt(0)?.toUpperCase() || 'U'}
-              </span>
+        <section className="profile-card">
+          <div className="profile-card__head">
+            <div className="profile-avatar" aria-hidden="true">
+              {user?.name?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">{user?.name || 'User'}</h2>
-              <p className="text-gray-600">{user?.email || 'No email'}</p>
+              <h2 className="profile-name">{user?.name || 'User'}</h2>
+              <p className="profile-email">{user?.email || 'No email'}</p>
             </div>
           </div>
 
-          <div className="border-t pt-4">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">Account Details</h3>
+          <div className="profile-section">
+            <h3 className="profile-section__title">Account Details</h3>
 
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Name</span>
-                <span className="text-gray-900 font-medium">{user?.name}</span>
+            <dl className="profile-rows">
+              <div className="profile-row">
+                <dt>Name</dt>
+                <dd>{user?.name}</dd>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Email</span>
-                <span className="text-gray-900 font-medium">{user?.email}</span>
+              <div className="profile-row">
+                <dt>Email</dt>
+                <dd>{user?.email}</dd>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">User ID</span>
-                <span className="text-gray-900 font-medium">#{user?.id}</span>
+              <div className="profile-row">
+                <dt>User ID</dt>
+                <dd>#{user?.id}</dd>
               </div>
-            </div>
+            </dl>
           </div>
 
-          <div className="mt-6 pt-4 border-t">
+          <div className="profile-actions">
             <button
+              type="button"
+              className="profile-back"
               onClick={() => router.push('/dashboard')}
-              className="w-full py-2 px-4 bg-primary-500 text-white rounded-md hover:bg-primary-600 transition"
             >
               Back to Dashboard
             </button>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

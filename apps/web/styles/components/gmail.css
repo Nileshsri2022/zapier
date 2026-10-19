@@ -1,0 +1,577 @@
+/**
+ * Gmail integration screens (components/Gmail*.tsx) — semantic classes, token-backed (spec §7).
+ *
+ * Replaces the utility strings these screens shipped with: `bg-gray-50`, `bg-white …
+ * shadow-md`, `bg-blue-50`, `animate-spin … border-primary-500`, and the conditional
+ * colour strings (`bg-green-100 text-green-800`) that are now `data-tone` hooks.
+ * Raw color values live in styles/tokens.css only (spec §7.6).
+ */
+
+/* ---- Dashboard shell ---- */
+.gmail-dashboard {
+  min-block-size: 100dvh;
+  background: hsl(var(--brand-base-muted));
+}
+
+.gmail-dashboard__bar,
+.gmail-tabs-bar,
+.gmail-footer {
+  background: hsl(var(--card));
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.gmail-footer {
+  border-bottom: 0;
+  border-top: 1px solid hsl(var(--border));
+  margin-top: var(--space-xl);
+}
+
+.gmail-shell {
+  inline-size: 100%;
+  max-inline-size: 80rem;
+  margin-inline: auto;
+  padding-inline: var(--space-md);
+}
+
+.gmail-dashboard__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-block: var(--space-lg);
+}
+
+.gmail-dashboard__title {
+  margin: 0;
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: hsl(var(--foreground));
+}
+
+.gmail-dashboard__subtitle {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-sm);
+  color: hsl(var(--muted-foreground));
+}
+
+.gmail-dashboard__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.gmail-dashboard__meta-block {
+  text-align: right;
+}
+
+.gmail-dashboard__meta-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.gmail-dashboard__meta-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: hsl(var(--muted-foreground));
+}
+
+/* ---- Tabs ---- */
+.gmail-tabs {
+  display: flex;
+  gap: var(--space-md);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.gmail-tab {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--touch-target-min);
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: hsl(var(--muted-foreground));
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.gmail-tab:hover {
+  color: hsl(var(--foreground));
+  border-bottom-color: hsl(var(--border));
+}
+
+.gmail-tab[data-active='true'] {
+  color: hsl(var(--brand-primary));
+  border-bottom-color: hsl(var(--brand-primary));
+}
+
+.gmail-tab__icon {
+  margin-inline-end: 0.5rem;
+}
+
+.gmail-main {
+  padding-block: var(--space-lg);
+}
+
+/* ---- Panels & cards ---- */
+.gmail-panel {
+  padding: var(--space-md);
+  container-type: inline-size;
+  container-name: gmail-panel;
+}
+
+.gmail-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.gmail-panel__title {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.gmail-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.gmail-card,
+.gmail-form-card {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-xl);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-card);
+}
+
+.gmail-form-card {
+  margin-bottom: var(--space-md);
+}
+
+.gmail-list {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.gmail-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.gmail-card__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 650;
+}
+
+.gmail-card__title--cap {
+  text-transform: capitalize;
+}
+
+.gmail-card__meta {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-sm);
+  color: hsl(var(--muted-foreground));
+}
+
+.gmail-card__note {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-sm);
+  color: hsl(var(--muted-foreground));
+}
+
+.gmail-card__actions,
+.gmail-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.gmail-card--wide {
+  grid-column: 1 / -1;
+}
+
+/* ---- Forms ---- */
+.gmail-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-sm);
+}
+
+.gmail-form-row__field {
+  flex: 1 1 12rem;
+  min-inline-size: 0;
+}
+
+.gmail-label {
+  display: block;
+  margin-bottom: var(--space-xs);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.gmail-input,
+.gmail-select,
+.gmail-textarea {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: var(--touch-target-min);
+  box-sizing: border-box;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-md);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  /* 16px floor: below it, iOS Safari zooms the viewport on focus. */
+  font-size: 1rem;
+  font-family: inherit;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.gmail-input:focus-visible,
+.gmail-select:focus-visible,
+.gmail-textarea:focus-visible {
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.25);
+}
+
+.gmail-select {
+  inline-size: auto;
+}
+
+.gmail-textarea {
+  resize: vertical;
+  min-block-size: 7rem;
+}
+
+.gmail-hint {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-xs);
+  line-height: 1.55;
+  color: hsl(var(--muted-foreground));
+}
+
+.gmail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  gap: var(--space-md);
+}
+
+.gmail-grid--spaced {
+  margin-bottom: var(--space-sm);
+}
+
+.gmail-grid--pair {
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+  gap: var(--space-sm);
+}
+
+.gmail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.gmail-block {
+  margin-top: var(--space-sm);
+}
+
+.gmail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+}
+
+.gmail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.gmail-chip {
+  min-block-size: 2rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-full);
+  background: hsl(var(--muted) / 0.7);
+  color: hsl(var(--foreground));
+  font-size: var(--text-xs);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.gmail-chip:hover {
+  border-color: hsl(var(--brand-secondary));
+}
+
+.gmail-chip[data-selected='true'] {
+  background: hsl(var(--brand-secondary) / 0.14);
+  border-color: hsl(var(--brand-secondary));
+  color: hsl(var(--brand-secondary));
+}
+
+.gmail-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-sm);
+}
+
+.gmail-checkbox {
+  inline-size: 1.1rem;
+  block-size: 1.1rem;
+  accent-color: hsl(var(--brand-secondary));
+}
+
+/* ---- Status, empty & loading ---- */
+.gmail-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.gmail-pill[data-tone='ok'] {
+  background: hsl(var(--success) / 0.14);
+  color: hsl(var(--status-success-ink));
+}
+
+.gmail-pill[data-tone='alert'] {
+  background: hsl(var(--destructive) / 0.12);
+  color: hsl(var(--status-danger-ink));
+}
+
+.gmail-pill[data-tone='warn'] {
+  background: hsl(var(--warning) / 0.16);
+  color: hsl(var(--status-warning-ink));
+}
+
+.gmail-pill[data-tone='idle'] {
+  background: hsl(var(--muted) / 0.8);
+  color: hsl(var(--muted-foreground));
+}
+
+.gmail-empty {
+  padding-block: var(--space-lg);
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+}
+
+.gmail-empty__text {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-sm);
+}
+
+/* Loading state reuses the vendored Spinner (components/ui/spinner.tsx); only the
+ * tone is mapped here — the ring itself is a vendor-layer concern. */
+.gmail-empty .spinner {
+  color: hsl(var(--brand-primary));
+}
+
+.gmail-updated {
+  margin-top: var(--space-sm);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: hsl(var(--muted-foreground));
+}
+
+/* ---- Metrics ---- */
+.gmail-meter {
+  inline-size: 100%;
+  block-size: 0.5rem;
+  border-radius: var(--radius-full);
+  background: hsl(var(--muted));
+  overflow: hidden;
+}
+
+.gmail-meter__fill {
+  block-size: 100%;
+  border-radius: var(--radius-full);
+  background: hsl(var(--info));
+  transition: width var(--transition-normal);
+}
+
+.gmail-meter__label {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-xs);
+  font-size: var(--text-sm);
+}
+
+.gmail-stats,
+.gmail-metrics {
+  display: grid;
+  gap: var(--space-sm);
+  text-align: center;
+}
+
+.gmail-stats {
+  grid-template-columns: repeat(auto-fit, minmax(min(6rem, 100%), 1fr));
+}
+
+.gmail-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+}
+
+.gmail-stat__value {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: hsl(var(--info));
+}
+
+.gmail-stat__value[data-tone='success'] {
+  color: hsl(var(--success));
+}
+
+.gmail-stat__value[data-tone='secondary'] {
+  color: hsl(var(--brand-secondary));
+}
+
+.gmail-stat__label {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-xs);
+  color: hsl(var(--muted-foreground));
+}
+
+.gmail-metric {
+  padding: var(--space-sm);
+  border-radius: var(--radius-lg);
+  background: hsl(var(--info) / 0.1);
+}
+
+.gmail-metric[data-tone='success'] {
+  background: hsl(var(--success) / 0.12);
+}
+
+.gmail-metric[data-tone='secondary'] {
+  background: hsl(var(--brand-secondary) / 0.12);
+}
+
+.gmail-metric[data-tone='warning'] {
+  background: hsl(var(--warning) / 0.14);
+}
+
+.gmail-metric__value {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+}
+
+.gmail-metric__label {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-sm);
+  color: hsl(var(--muted-foreground));
+}
+
+.gmail-metric__note {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-xs);
+  color: hsl(var(--muted-foreground));
+}
+
+.gmail-metric__note--cap {
+  text-transform: capitalize;
+}
+
+.gmail-data__label {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: hsl(var(--muted-foreground));
+}
+
+.gmail-data__value {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 650;
+}
+
+/* ---- Footer ---- */
+.gmail-footer__inner {
+  padding-block: var(--space-lg);
+}
+
+.gmail-footer__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+  gap: var(--space-lg);
+}
+
+.gmail-footer__title {
+  margin: 0 0 var(--space-xs);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+.gmail-footer__text {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: hsl(var(--muted-foreground));
+}
+
+.gmail-footer__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: hsl(var(--muted-foreground));
+}
+
+.gmail-footer__bottom {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid hsl(var(--border));
+}
+
+.gmail-footer__note {
+  margin: 0;
+  font-size: var(--text-xs);
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+}
+
+@container gmail-panel (max-width: 30rem) {
+  .gmail-panel__actions,
+  .gmail-card__footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

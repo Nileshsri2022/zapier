@@ -5,6 +5,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import FormInput from './FormInput';
 import Button from './Button';
+import { Spinner } from './ui/spinner';
 
 interface GmailServer {
   id: string;
@@ -181,14 +182,14 @@ const GmailTriggerConfig = () => {
   }, [selectedServer]);
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Gmail Triggers</h2>
-        <div className="flex gap-4">
+    <div className="gmail-panel">
+      <div className="gmail-panel__head">
+        <h2 className="gmail-panel__title">Gmail Triggers</h2>
+        <div className="gmail-panel__actions">
           <select
             value={selectedServer}
             onChange={(e) => setSelectedServer(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md"
+            className="gmail-select"
           >
             <option value="">Select Gmail Server</option>
             {servers.map((server) => (
@@ -204,16 +205,16 @@ const GmailTriggerConfig = () => {
       </div>
 
       {showAddForm && (
-        <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-          <h3 className="text-lg font-semibold mb-4">Create Gmail Trigger</h3>
+        <div className="gmail-form-card">
+          <h3 className="gmail-card__title">Create Gmail Trigger</h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="gmail-grid">
             <div>
-              <label className="block text-sm font-medium mb-2">Trigger Type</label>
+              <label className="gmail-label">Trigger Type</label>
               <select
                 value={formData.triggerType}
                 onChange={(e) => setFormData((prev) => ({ ...prev, triggerType: e.target.value }))}
-                className="w-full p-2 border border-gray-300 rounded-md"
+                className="gmail-input"
               >
                 {triggerTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -221,7 +222,7 @@ const GmailTriggerConfig = () => {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-600 mt-1">
+              <p className="gmail-hint">
                 {triggerTypes.find((t) => t.value === formData.triggerType)?.description}
               </p>
             </div>
@@ -236,18 +237,15 @@ const GmailTriggerConfig = () => {
             </div>
           </div>
 
-          <div className="mt-4">
-            <label className="block text-sm font-medium mb-2">Watch Labels</label>
-            <div className="flex flex-wrap gap-2">
+          <div className="gmail-block">
+            <label className="gmail-label">Watch Labels</label>
+            <div className="gmail-chips">
               {commonLabels.map((label) => (
                 <button
                   key={label}
                   onClick={() => handleLabelToggle(label)}
-                  className={`px-2 py-1 text-xs rounded-full border ${
-                    formData.watchedLabels.includes(label)
-                      ? 'bg-blue-100 border-blue-300 text-blue-800'
-                      : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  className="gmail-chip"
+                  data-selected={formData.watchedLabels.includes(label)}
                 >
                   {label}
                 </button>
@@ -255,7 +253,7 @@ const GmailTriggerConfig = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <div className="gmail-grid gmail-block">
             <FormInput
               label="Sender Filter (optional)"
               name="senderFilter"
@@ -270,7 +268,7 @@ const GmailTriggerConfig = () => {
             />
           </div>
 
-          <div className="flex gap-2 mt-6">
+          <div className="gmail-actions">
             <Button variant="primary" onClick={createGmailTrigger}>
               Create Trigger
             </Button>
@@ -282,37 +280,35 @@ const GmailTriggerConfig = () => {
       )}
 
       {isLoading ? (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading Gmail triggers...</p>
+        <div className="gmail-empty">
+          <Spinner color="primary" />
+          <p className="gmail-empty__text">Loading Gmail triggers...</p>
         </div>
       ) : triggers.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="gmail-empty">
           <p>No Gmail triggers configured yet.</p>
-          <p className="text-sm mt-2">
+          <p className="gmail-empty__text">
             Select a Gmail server and create triggers to start email automations.
           </p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="gmail-list">
           {triggers.map((trigger) => (
-            <div key={trigger.id} className="bg-white p-6 rounded-lg shadow-md">
-              <div className="flex justify-between items-start mb-4">
+            <div key={trigger.id} className="gmail-card">
+              <div className="gmail-card__head">
                 <div>
-                  <h3 className="text-lg font-semibold capitalize">
+                  <h3 className="gmail-card__title gmail-card__title--cap">
                     {trigger.triggerType.replace('_', ' ')} Trigger
                   </h3>
-                  <p className="text-sm text-gray-600">Triggers Zap: {trigger.zap.name}</p>
+                  <p className="gmail-card__meta">Triggers Zap: {trigger.zap.name}</p>
                   {trigger.watchedLabels.length > 0 && (
-                    <p className="text-sm text-gray-600">
-                      Watching: {trigger.watchedLabels.join(', ')}
-                    </p>
+                    <p className="gmail-card__meta">Watching: {trigger.watchedLabels.join(', ')}</p>
                   )}
                   {trigger.senderFilter && (
-                    <p className="text-sm text-gray-600">Sender: {trigger.senderFilter}</p>
+                    <p className="gmail-card__meta">Sender: {trigger.senderFilter}</p>
                   )}
                   {trigger.subjectFilter && (
-                    <p className="text-sm text-gray-600">Subject: {trigger.subjectFilter}</p>
+                    <p className="gmail-card__meta">Subject: {trigger.subjectFilter}</p>
                   )}
                 </div>
                 <Button variant="link" onClick={() => deleteGmailTrigger(trigger.id)}>

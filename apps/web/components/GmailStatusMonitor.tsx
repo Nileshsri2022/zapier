@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import Button from './Button';
+import { Spinner } from './ui/spinner';
 
 interface GmailServer {
   id: string;
@@ -89,16 +90,17 @@ const GmailStatusMonitor = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  // Tone token only — the colour mapping lives in styles/components/gmail.css.
+  const getStatusTone = (status: string) => {
     switch (status) {
       case 'CLOSED':
-        return 'bg-green-100 text-green-800';
+        return 'ok';
       case 'OPEN':
-        return 'bg-red-100 text-red-800';
+        return 'alert';
       case 'HALF_OPEN':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'warn';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'idle';
     }
   };
 
@@ -129,13 +131,13 @@ const GmailStatusMonitor = () => {
   }, [selectedServer]);
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Gmail Status Monitor</h2>
+    <div className="gmail-panel">
+      <div className="gmail-panel__head">
+        <h2 className="gmail-panel__title">Gmail Status Monitor</h2>
         <select
           value={selectedServer}
           onChange={(e) => setSelectedServer(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-md"
+          className="gmail-select"
         >
           <option value="">Select Gmail Server</option>
           {servers.map((server) => (
@@ -147,70 +149,68 @@ const GmailStatusMonitor = () => {
       </div>
 
       {!selectedServer ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="gmail-empty">
           <p>Select a Gmail server to view its status and performance metrics.</p>
         </div>
       ) : isLoading ? (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading server status...</p>
+        <div className="gmail-empty">
+          <Spinner color="primary" />
+          <p className="gmail-empty__text">Loading server status...</p>
         </div>
       ) : !rateLimitStatus || !circuitBreakerStatus ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="gmail-empty">
           <p>Unable to load server status. Please try again.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="gmail-grid">
           {/* Rate Limit Status */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-lg font-semibold mb-4">Rate Limit Status</h3>
-            <div className="space-y-4">
+          <div className="gmail-card">
+            <h3 className="gmail-card__title">Rate Limit Status</h3>
+            <div className="gmail-stack">
               <div>
-                <div className="flex justify-between text-sm mb-1">
+                <div className="gmail-meter__label">
                   <span>API Quota Usage</span>
                   <span>
                     {rateLimitStatus.quotaUsed} /{' '}
                     {rateLimitStatus.quotaUsed + rateLimitStatus.quotaRemaining}
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="gmail-meter">
                   <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    className="gmail-meter__fill"
                     style={{ width: `${getQuotaPercentage()}%` }}
                   ></div>
                 </div>
-                <p className="text-xs text-gray-600 mt-1">
-                  {rateLimitStatus.quotaRemaining} quota units remaining
-                </p>
+                <p className="gmail-hint">{rateLimitStatus.quotaRemaining} quota units remaining</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="gmail-stats">
                 <div>
-                  <p className="text-2xl font-bold text-blue-600">
+                  <p className="gmail-stat__value" data-tone="info">
                     {rateLimitStatus.requestsPerSecond}
                   </p>
-                  <p className="text-xs text-gray-600">Req/Sec</p>
+                  <p className="gmail-stat__label">Req/Sec</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="gmail-stat__value" data-tone="success">
                     {rateLimitStatus.requestsPerMinute}
                   </p>
-                  <p className="text-xs text-gray-600">Req/Min</p>
+                  <p className="gmail-stat__label">Req/Min</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-purple-600">
+                  <p className="gmail-stat__value" data-tone="secondary">
                     {rateLimitStatus.requestsPerHour}
                   </p>
-                  <p className="text-xs text-gray-600">Req/Hour</p>
+                  <p className="gmail-stat__label">Req/Hour</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Circuit Breaker Status */}
-          <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Circuit Breaker</h3>
+          <div className="gmail-card">
+            <div className="gmail-card__head">
+              <h3 className="gmail-card__title">Circuit Breaker</h3>
               <Button
                 variant="outline"
                 size="md"
@@ -220,28 +220,26 @@ const GmailStatusMonitor = () => {
               </Button>
             </div>
 
-            <div className="space-y-4">
+            <div className="gmail-stack">
               <div>
-                <span
-                  className={`px-2 py-1 text-xs rounded-full ${getStatusColor(circuitBreakerStatus.state)}`}
-                >
+                <span className="gmail-pill" data-tone={getStatusTone(circuitBreakerStatus.state)}>
                   {circuitBreakerStatus.state}
                 </span>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="gmail-hint">
                   {circuitBreakerStatus.state === 'CLOSED' && 'System operating normally'}
                   {circuitBreakerStatus.state === 'OPEN' && 'Too many failures - requests blocked'}
                   {circuitBreakerStatus.state === 'HALF_OPEN' && 'Testing if service recovered'}
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="gmail-grid gmail-grid--pair">
                 <div>
-                  <p className="text-sm text-gray-600">Failure Count</p>
-                  <p className="text-lg font-semibold">{circuitBreakerStatus.failureCount}</p>
+                  <p className="gmail-data__label">Failure Count</p>
+                  <p className="gmail-data__value">{circuitBreakerStatus.failureCount}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Timeout</p>
-                  <p className="text-lg font-semibold">
+                  <p className="gmail-data__label">Timeout</p>
+                  <p className="gmail-data__value">
                     {Math.round(circuitBreakerStatus.timeout / 1000)}s
                   </p>
                 </div>
@@ -249,8 +247,8 @@ const GmailStatusMonitor = () => {
 
               {circuitBreakerStatus.lastFailureTime > 0 && (
                 <div>
-                  <p className="text-sm text-gray-600">Last Failure</p>
-                  <p className="text-sm">
+                  <p className="gmail-data__label">Last Failure</p>
+                  <p className="gmail-data__value">
                     {new Date(circuitBreakerStatus.lastFailureTime).toLocaleString()}
                   </p>
                 </div>
@@ -259,55 +257,53 @@ const GmailStatusMonitor = () => {
           </div>
 
           {/* Performance Metrics */}
-          <div className="bg-white p-6 rounded-lg shadow-md lg:col-span-2">
-            <h3 className="text-lg font-semibold mb-4">Performance Metrics</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-3 bg-blue-50 rounded-lg">
-                <p className="text-2xl font-bold text-blue-600">
+          <div className="gmail-card gmail-card--wide">
+            <h3 className="gmail-card__title">Performance Metrics</h3>
+            <div className="gmail-metrics">
+              <div className="gmail-metric" data-tone="info">
+                <p className="gmail-metric__value">
                   {rateLimitStatus.requestsPerSecond < 5
                     ? '🟢'
                     : rateLimitStatus.requestsPerSecond < 8
                       ? '🟡'
                       : '🔴'}
                 </p>
-                <p className="text-sm text-gray-600">Per Second</p>
-                <p className="text-xs text-gray-500">
-                  Rate: {rateLimitStatus.requestsPerSecond}/10
-                </p>
+                <p className="gmail-metric__label">Per Second</p>
+                <p className="gmail-metric__note">Rate: {rateLimitStatus.requestsPerSecond}/10</p>
               </div>
 
-              <div className="text-center p-3 bg-green-50 rounded-lg">
-                <p className="text-2xl font-bold text-green-600">
+              <div className="gmail-metric" data-tone="success">
+                <p className="gmail-metric__value">
                   {rateLimitStatus.requestsPerMinute < 50
                     ? '🟢'
                     : rateLimitStatus.requestsPerMinute < 80
                       ? '🟡'
                       : '🔴'}
                 </p>
-                <p className="text-sm text-gray-600">Per Minute</p>
-                <p className="text-xs text-gray-500">
-                  Rate: {rateLimitStatus.requestsPerMinute}/100
-                </p>
+                <p className="gmail-metric__label">Per Minute</p>
+                <p className="gmail-metric__note">Rate: {rateLimitStatus.requestsPerMinute}/100</p>
               </div>
 
-              <div className="text-center p-3 bg-purple-50 rounded-lg">
-                <p className="text-2xl font-bold text-purple-600">
+              <div className="gmail-metric" data-tone="secondary">
+                <p className="gmail-metric__value">
                   {getQuotaPercentage() < 50 ? '🟢' : getQuotaPercentage() < 80 ? '🟡' : '🔴'}
                 </p>
-                <p className="text-sm text-gray-600">Quota Usage</p>
-                <p className="text-xs text-gray-500">{Math.round(getQuotaPercentage())}%</p>
+                <p className="gmail-metric__label">Quota Usage</p>
+                <p className="gmail-metric__note">{Math.round(getQuotaPercentage())}%</p>
               </div>
 
-              <div className="text-center p-3 bg-orange-50 rounded-lg">
-                <p className="text-2xl font-bold text-orange-600">
+              <div className="gmail-metric" data-tone="warning">
+                <p className="gmail-metric__value">
                   {circuitBreakerStatus.state === 'CLOSED'
                     ? '🟢'
                     : circuitBreakerStatus.state === 'HALF_OPEN'
                       ? '🟡'
                       : '🔴'}
                 </p>
-                <p className="text-sm text-gray-600">Health</p>
-                <p className="text-xs text-gray-500 capitalize">{circuitBreakerStatus.state}</p>
+                <p className="gmail-metric__label">Health</p>
+                <p className="gmail-metric__note gmail-metric__note--cap">
+                  {circuitBreakerStatus.state}
+                </p>
               </div>
             </div>
           </div>
@@ -315,9 +311,7 @@ const GmailStatusMonitor = () => {
       )}
 
       {lastUpdated && (
-        <div className="text-center text-sm text-gray-500 mt-4">
-          Last updated: {lastUpdated.toLocaleString()}
-        </div>
+        <div className="gmail-updated">Last updated: {lastUpdated.toLocaleString()}</div>
       )}
     </div>
   );

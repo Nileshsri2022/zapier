@@ -4,6 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import FormInput from './FormInput';
 import Button from './Button';
+import { Spinner } from './ui/spinner';
 import { API_URL } from '@/lib/config';
 
 interface GmailServer {
@@ -229,7 +230,7 @@ const GmailActionConfig = () => {
     switch (formData.actionType) {
       case 'GmailSend':
         return (
-          <div className="space-y-4">
+          <div className="gmail-stack">
             <FormInput
               label="To"
               name="to"
@@ -243,16 +244,16 @@ const GmailActionConfig = () => {
               onChange={(e) => setFormData((prev) => ({ ...prev, subject: e.target.value }))}
             />
             <div>
-              <label className="block text-sm font-medium mb-2">Body</label>
+              <label className="gmail-label">Body</label>
               <textarea
                 name="body"
                 placeholder="Email content..."
                 rows={6}
-                className="w-full p-2 border border-gray-300 rounded-md"
+                className="gmail-textarea"
                 onChange={(e) => setFormData((prev) => ({ ...prev, body: e.target.value }))}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="gmail-grid gmail-grid--pair">
               <FormInput
                 label="CC (optional)"
                 name="cc"
@@ -271,30 +272,30 @@ const GmailActionConfig = () => {
 
       case 'GmailReply':
         return (
-          <div className="space-y-4">
+          <div className="gmail-stack">
             <FormInput
               label="Message ID to Reply To"
               name="replyMessageId"
               placeholder="Gmail message ID"
               onChange={(e) => setFormData((prev) => ({ ...prev, replyMessageId: e.target.value }))}
             />
-            <div className="flex items-center">
+            <div className="gmail-checkbox-row">
               <input
                 type="checkbox"
                 id="replyAll"
                 checked={formData.replyAll}
                 onChange={(e) => setFormData((prev) => ({ ...prev, replyAll: e.target.checked }))}
-                className="mr-2"
+                className="gmail-checkbox"
               />
               <label htmlFor="replyAll">Reply to all recipients</label>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Reply Body</label>
+              <label className="gmail-label">Reply Body</label>
               <textarea
                 name="body"
                 placeholder="Reply content..."
                 rows={6}
-                className="w-full p-2 border border-gray-300 rounded-md"
+                className="gmail-textarea"
                 onChange={(e) => setFormData((prev) => ({ ...prev, body: e.target.value }))}
               />
             </div>
@@ -304,7 +305,7 @@ const GmailActionConfig = () => {
       case 'GmailAddLabel':
       case 'GmailRemoveLabel':
         return (
-          <div className="space-y-4">
+          <div className="gmail-stack">
             <FormInput
               label="Message ID"
               name="messageId"
@@ -312,17 +313,14 @@ const GmailActionConfig = () => {
               onChange={(e) => setFormData((prev) => ({ ...prev, replyMessageId: e.target.value }))}
             />
             <div>
-              <label className="block text-sm font-medium mb-2">Labels</label>
-              <div className="flex flex-wrap gap-2">
+              <label className="gmail-label">Labels</label>
+              <div className="gmail-chips">
                 {commonLabels.map((label) => (
                   <button
                     key={label}
                     onClick={() => handleLabelToggle(label)}
-                    className={`px-2 py-1 text-xs rounded-full border ${
-                      formData.labelIds.includes(label)
-                        ? 'bg-blue-100 border-blue-300 text-blue-800'
-                        : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className="gmail-chip"
+                    data-selected={formData.labelIds.includes(label)}
                   >
                     {label}
                   </button>
@@ -334,20 +332,20 @@ const GmailActionConfig = () => {
 
       case 'GmailMarkRead':
         return (
-          <div className="space-y-4">
+          <div className="gmail-stack">
             <FormInput
               label="Message ID"
               name="messageId"
               placeholder="Gmail message ID"
               onChange={(e) => setFormData((prev) => ({ ...prev, replyMessageId: e.target.value }))}
             />
-            <div className="flex items-center">
+            <div className="gmail-checkbox-row">
               <input
                 type="checkbox"
                 id="markAsRead"
                 checked={formData.markAsRead}
                 onChange={(e) => setFormData((prev) => ({ ...prev, markAsRead: e.target.checked }))}
-                className="mr-2"
+                className="gmail-checkbox"
               />
               <label htmlFor="markAsRead">Mark as read (uncheck to mark as unread)</label>
             </div>
@@ -356,7 +354,7 @@ const GmailActionConfig = () => {
 
       case 'GmailArchive':
         return (
-          <div className="space-y-4">
+          <div className="gmail-stack">
             <FormInput
               label="Message ID"
               name="messageId"
@@ -376,14 +374,14 @@ const GmailActionConfig = () => {
   }, []);
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Gmail Actions</h2>
-        <div className="flex gap-4">
+    <div className="gmail-panel">
+      <div className="gmail-panel__head">
+        <h2 className="gmail-panel__title">Gmail Actions</h2>
+        <div className="gmail-panel__actions">
           <select
             value={selectedServer}
             onChange={(e) => setSelectedServer(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md"
+            className="gmail-select"
           >
             <option value="">Select Gmail Server</option>
             {servers.map((server) => (
@@ -399,16 +397,16 @@ const GmailActionConfig = () => {
       </div>
 
       {showAddForm && (
-        <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-          <h3 className="text-lg font-semibold mb-4">Create Gmail Action</h3>
+        <div className="gmail-form-card">
+          <h3 className="gmail-card__title">Create Gmail Action</h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="gmail-grid gmail-grid--spaced">
             <div>
-              <label className="block text-sm font-medium mb-2">Action Type</label>
+              <label className="gmail-label">Action Type</label>
               <select
                 value={formData.actionType}
                 onChange={(e) => setFormData((prev) => ({ ...prev, actionType: e.target.value }))}
-                className="w-full p-2 border border-gray-300 rounded-md"
+                className="gmail-input"
               >
                 {actionTypes.map((action) => (
                   <option key={action.value} value={action.value}>
@@ -416,7 +414,7 @@ const GmailActionConfig = () => {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-600 mt-1">
+              <p className="gmail-hint">
                 {actionTypes.find((a) => a.value === formData.actionType)?.description}
               </p>
             </div>
@@ -424,7 +422,7 @@ const GmailActionConfig = () => {
 
           {renderActionMetadata()}
 
-          <div className="flex gap-2 mt-6">
+          <div className="gmail-actions">
             <Button variant="primary" onClick={createGmailAction}>
               Create Action
             </Button>
@@ -436,27 +434,27 @@ const GmailActionConfig = () => {
       )}
 
       {isLoading ? (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading Gmail actions...</p>
+        <div className="gmail-empty">
+          <Spinner color="primary" />
+          <p className="gmail-empty__text">Loading Gmail actions...</p>
         </div>
       ) : actions.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="gmail-empty">
           <p>No Gmail actions configured yet.</p>
-          <p className="text-sm mt-2">
+          <p className="gmail-empty__text">
             Select a Gmail server and create actions to start email automations.
           </p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="gmail-list">
           {actions.map((action) => (
-            <div key={action.id} className="bg-white p-6 rounded-lg shadow-md">
-              <div className="flex justify-between items-start mb-4">
+            <div key={action.id} className="gmail-card">
+              <div className="gmail-card__head">
                 <div>
-                  <h3 className="text-lg font-semibold capitalize">
+                  <h3 className="gmail-card__title gmail-card__title--cap">
                     {action.actionType.replace('Gmail', '').toLowerCase()} Action
                   </h3>
-                  <p className="text-sm text-gray-600">Used in Zap: {action.zap.name}</p>
+                  <p className="gmail-card__meta">Used in Zap: {action.zap.name}</p>
                 </div>
                 <Button
                   variant="link"

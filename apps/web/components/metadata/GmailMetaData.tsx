@@ -31,7 +31,7 @@ const GmailMetaData = ({ handleClick, selectedType }: GmailMetaDataProps) => {
     switch (selectedType) {
       case 'Gmail Send Email':
         return (
-          <div className="my-4 flex flex-col gap-4 text-secondary-500">
+          <div className="meta-form">
             <FormInput
               label="To"
               name="to"
@@ -45,7 +45,7 @@ const GmailMetaData = ({ handleClick, selectedType }: GmailMetaDataProps) => {
               onChange={handleFormDataChange}
             />
             <textarea
-              className="text-black rounded-sm border border-gray-400 p-2 bg-base-100"
+              className="meta-form__textarea"
               placeholder="Email content..."
               rows={8}
               name="body"
@@ -58,9 +58,9 @@ const GmailMetaData = ({ handleClick, selectedType }: GmailMetaDataProps) => {
         );
       case 'Gmail Reply':
         return (
-          <div className="my-4 flex flex-col gap-4 text-secondary-500">
+          <div className="meta-form">
             <textarea
-              className="text-black rounded-sm border border-gray-400 p-2 bg-base-100"
+              className="meta-form__textarea"
               placeholder="Reply message..."
               rows={8}
               name="replyMessage"
@@ -74,7 +74,7 @@ const GmailMetaData = ({ handleClick, selectedType }: GmailMetaDataProps) => {
       case 'Gmail Add Label':
       case 'Gmail Remove Label':
         return (
-          <div className="my-4 flex flex-col gap-4 text-secondary-500">
+          <div className="meta-form">
             <FormInput
               label={`${selectedType === 'Gmail Add Label' ? 'Add' : 'Remove'} Label`}
               name="labelName"
@@ -89,10 +89,8 @@ const GmailMetaData = ({ handleClick, selectedType }: GmailMetaDataProps) => {
       case 'Gmail Mark as Read':
       case 'Gmail Archive':
         return (
-          <div className="my-4 flex flex-col gap-4 text-secondary-500">
-            <p className="text-sm text-gray-600">
-              No additional configuration needed for this action.
-            </p>
+          <div className="meta-form">
+            <p className="meta-form__text">No additional configuration needed for this action.</p>
             <Button variant="secondary" onClick={() => handleClick({})}>
               Save
             </Button>
@@ -100,7 +98,7 @@ const GmailMetaData = ({ handleClick, selectedType }: GmailMetaDataProps) => {
         );
       case 'Gmail New Email':
         return (
-          <div className="my-4 flex flex-col gap-4 text-secondary-500">
+          <div className="meta-form">
             <FormInput
               label="Sender Filter (optional)"
               name="senderFilter"
@@ -126,7 +124,7 @@ const GmailMetaData = ({ handleClick, selectedType }: GmailMetaDataProps) => {
         );
       case 'Gmail Labeled':
         return (
-          <div className="my-4 flex flex-col gap-4 text-secondary-500">
+          <div className="meta-form">
             <FormInput
               label="Watch Labels"
               name="watchedLabels"
@@ -140,8 +138,8 @@ const GmailMetaData = ({ handleClick, selectedType }: GmailMetaDataProps) => {
         );
       case 'Gmail Starred':
         return (
-          <div className="my-4 flex flex-col gap-4 text-secondary-500">
-            <p className="text-sm text-gray-600">
+          <div className="meta-form">
+            <p className="meta-form__text">
               No additional configuration needed for starred emails trigger.
             </p>
             <Button variant="secondary" onClick={() => handleClick({})}>
@@ -151,7 +149,7 @@ const GmailMetaData = ({ handleClick, selectedType }: GmailMetaDataProps) => {
         );
       case 'Gmail From Sender':
         return (
-          <div className="my-4 flex flex-col gap-4 text-secondary-500">
+          <div className="meta-form">
             <FormInput
               label="Sender Email"
               name="senderFilter"
@@ -165,8 +163,8 @@ const GmailMetaData = ({ handleClick, selectedType }: GmailMetaDataProps) => {
         );
       default:
         return (
-          <div className="my-4 flex flex-col gap-4 text-secondary-500">
-            <p className="text-sm text-gray-600">Unknown Gmail action type.</p>
+          <div className="meta-form">
+            <p className="meta-form__text">Unknown Gmail action type.</p>
             <Button variant="secondary" onClick={() => handleClick({})}>
               Save
             </Button>
