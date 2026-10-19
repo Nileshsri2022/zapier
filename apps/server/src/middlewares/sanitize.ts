@@ -26,7 +26,10 @@ function sanitizeObject(obj: any): any {
  * Sanitizes all string values in request body, query, and params
  */
 export const sanitizeInput = (req: Request, res: Response, next: NextFunction): void => {
-  if (req.body) {
+  // Connection credentials are opaque bytes, not HTML. XSS rewriting corrupts keys.
+  // These endpoints validate strict bounded schemas and never render/echo credential input.
+  const isAiConnection = /^\/api\/ai\/connections(?:\/|$)/.test(req.path);
+  if (req.body && !isAiConnection) {
     req.body = sanitizeObject(req.body);
   }
   if (req.query) {

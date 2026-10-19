@@ -13,6 +13,7 @@ COPY package.json bun.lock ./
 # Copy workspace package.jsons
 COPY apps/server/package.json ./apps/server/
 COPY packages/db/package.json ./packages/db/
+COPY packages/ai-connections/package.json ./packages/ai-connections/
 COPY packages/email/package.json ./packages/email/
 COPY packages/redis/package.json ./packages/redis/
 COPY packages/sentry/package.json ./packages/sentry/
@@ -30,6 +31,9 @@ COPY apps/server ./apps/server
 RUN bunx prisma generate --schema=packages/db/prisma/schema.prisma
 
 # Build workspace packages
+WORKDIR /app/packages/ai-connections
+RUN bun run build
+
 WORKDIR /app/packages/types
 RUN bun run build
 
@@ -62,6 +66,10 @@ COPY --from=builder /app/packages/db ./packages/db
 COPY --from=builder /app/node_modules ./node_modules
 
 # Fix workspace symlinks
+RUN rm -rf ./node_modules/@repo/ai-connections && mkdir -p ./node_modules/@repo/ai-connections
+COPY --from=builder /app/packages/ai-connections/dist ./node_modules/@repo/ai-connections/dist
+COPY --from=builder /app/packages/ai-connections/package.json ./node_modules/@repo/ai-connections/package.json
+
 RUN rm -rf ./node_modules/@repo/types 2>/dev/null || true
 RUN mkdir -p ./node_modules/@repo/types
 COPY --from=builder /app/packages/types/dist ./node_modules/@repo/types/dist

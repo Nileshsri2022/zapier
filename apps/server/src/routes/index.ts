@@ -1,4 +1,5 @@
 import express from 'express';
+import AiConnectionsRouter from './AiConnectionsRoutes';
 import { AuthRouter } from './AuthRoutes';
 import { ZapRouter } from './ZapRoutes';
 import { TriggerRouter } from './TriggerRoutes';
@@ -15,6 +16,7 @@ import ScheduleRouter from './ScheduleRoutes';
 const router = express.Router();
 
 router.use('/auth', AuthRouter);
+router.use('/ai/connections', AiConnectionsRouter);
 router.use('/zaps', ZapRouter);
 router.use('/triggers', TriggerRouter);
 router.use('/actions', ActionsRouter);

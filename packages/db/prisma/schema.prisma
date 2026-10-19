@@ -19,6 +19,7 @@ model User {
   name                  String
   email                 String                 @unique
   password              String
+  aiConnections         AiConnection[]
   zaps                  Zap[]
   gmailServers          GmailServer[]
   googleSheetsServers   GoogleSheetsServer[]
@@ -413,4 +414,24 @@ model ScheduledTrigger {
 
   @@index([isActive])
   @@index([nextRunAt])
+}
+
+// User-owned compatible credentials; encrypted with deployment-managed AES-GCM keys.
+model AiConnection {
+  id                   String    @id @default(uuid())
+  userId               Int
+  user                 User      @relation(fields: [userId], references: [id])
+  name                 String
+  provider             String    @default("openai_compatible")
+  baseUrl              String
+  capabilityProfileId  String
+  credentialCiphertext String
+  credentialNonce      String
+  credentialTag        String
+  keyId                String
+  revokedAt            DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([userId, revokedAt])
 }

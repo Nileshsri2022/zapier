@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { validateAiConnectionEnvironment } from './services/aiConnections';
 
 // Environment variable schema
 const envSchema = z.object({
@@ -28,6 +29,7 @@ export type Env = z.infer<typeof envSchema>;
 export function validateEnv(): Env {
   try {
     const env = envSchema.parse(process.env);
+    validateAiConnectionEnvironment();
     console.log('✅ Environment variables validated successfully');
     return env;
   } catch (error) {
