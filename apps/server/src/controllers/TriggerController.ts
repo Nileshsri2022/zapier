@@ -1,7 +1,7 @@
 import client from '@repo/db';
 import type { Request, Response } from 'express';
 import crypto from 'crypto';
-import { isDuplicateEvent } from '../utils/dedup';
+import { enqueueRun } from '@repo/runs';
 
 export const fetchAvailableTriggers = async (req: Request, res: Response): Promise<any> => {
   const avialableTriggers = await client.availableTriggers.findMany();
@@ -54,35 +54,32 @@ export const handleWebhook = async (req: Request, res: Response): Promise<any> =
         : typeof payload?.eventId === 'string'
           ? payload.eventId
           : undefined;
-    if (await isDuplicateEvent('webhook', eventId ? `${zapId}:${eventId}` : undefined)) {
+    const result = await enqueueRun({
+      zapId: zapId as string,
+      metadata: payload,
+      source: 'server.webhook',
+      dedup: {
+        scope: 'webhook',
+        key: eventId ? `${zapId}:${eventId}` : undefined,
+      },
+    });
+
+    if (result.status === 'duplicate') {
       return res.status(200).json({
         message: 'Duplicate event skipped',
         timestamp: new Date().toISOString(),
       });
     }
 
-    const zap = await client.zap.findUnique({
-      where: { id: zapId as string, isActive: true },
-      select: { id: true },
-    });
-
-    if (!zap) {
-      console.log(`Zap ${zapId} not found or inactive — webhook acknowledged without a run`);
+    if (result.status === 'skipped') {
+      console.log(`Zap ${zapId} ${result.reason} — webhook acknowledged without a run`);
       return res.status(200).json({
         message: 'Webhook processed successfully',
         timestamp: new Date().toISOString(),
       });
     }
 
-    const zapRun = await client.$transaction(async (tx: any) => {
-      const run = await tx.zapRun.create({
-        data: { zapId: zap.id, metadata: payload },
-      });
-      await tx.zapRunOutbox.create({ data: { zapRunId: run.id } });
-      return run;
-    });
-
-    console.log(`📝 ZapRun created: ${zapRun.id} (legacy server webhook)`);
+    console.log(`📝 ZapRun queued: ${result.zapRunId} (legacy server webhook)`);
     return res.status(200).json({
       message: 'Webhook processed successfully',
       timestamp: new Date().toISOString(),

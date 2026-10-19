@@ -16,7 +16,9 @@ COPY packages/db/package.json ./packages/db/
 COPY packages/ai-connections/package.json ./packages/ai-connections/
 COPY packages/ai/package.json ./packages/ai/
 COPY packages/email/package.json ./packages/email/
+COPY packages/kafka/package.json ./packages/kafka/
 COPY packages/redis/package.json ./packages/redis/
+COPY packages/runs/package.json ./packages/runs/
 COPY packages/sentry/package.json ./packages/sentry/
 COPY packages/types/package.json ./packages/types/
 COPY packages/typescript-config/package.json ./packages/typescript-config/
@@ -44,7 +46,13 @@ RUN bun run build
 WORKDIR /app/packages/email
 RUN bun run build
 
+WORKDIR /app/packages/kafka
+RUN bun run build
+
 WORKDIR /app/packages/redis
+RUN bun run build
+
+WORKDIR /app/packages/runs
 RUN bun run build
 
 WORKDIR /app/packages/sentry
@@ -92,6 +100,16 @@ RUN rm -rf ./node_modules/@repo/redis 2>/dev/null || true
 RUN mkdir -p ./node_modules/@repo/redis
 COPY --from=builder /app/packages/redis/dist ./node_modules/@repo/redis/dist
 COPY --from=builder /app/packages/redis/package.json ./node_modules/@repo/redis/package.json
+
+RUN rm -rf ./node_modules/@repo/kafka 2>/dev/null || true
+RUN mkdir -p ./node_modules/@repo/kafka
+COPY --from=builder /app/packages/kafka/dist ./node_modules/@repo/kafka/dist
+COPY --from=builder /app/packages/kafka/package.json ./node_modules/@repo/kafka/package.json
+
+RUN rm -rf ./node_modules/@repo/runs 2>/dev/null || true
+RUN mkdir -p ./node_modules/@repo/runs
+COPY --from=builder /app/packages/runs/dist ./node_modules/@repo/runs/dist
+COPY --from=builder /app/packages/runs/package.json ./node_modules/@repo/runs/package.json
 
 RUN rm -rf ./node_modules/@repo/sentry 2>/dev/null || true
 RUN mkdir -p ./node_modules/@repo/sentry

@@ -1,11 +1,13 @@
 import client from '@repo/db';
 
 /**
- * Gmail outbox dispatch (reports/gmail-worker-routing-spec.md, P2).
+ * Gmail trigger dispatch (reports/gmail-worker-routing-spec.md, P2).
  *
  * GmailService is mocked at the module boundary — no test ever calls
- * Google. The dedup helper is replaced with a stateful in-memory fake
- * with the same first-seen/duplicate contract as the Redis SET NX one.
+ * Google. Run intake is replaced with a stateful in-memory fake that
+ * reproduces its documented result contract (first-seen key enqueues,
+ * replay is a duplicate). The durable transaction itself is covered once,
+ * in packages/runs/tests/intake.test.ts.
  */
 
 const mockGetEmailMetadata = jest.fn();
@@ -21,17 +23,24 @@ jest.mock('../../src/services/GmailService', () => ({
   })),
 }));
 
-const mockDedupSeen = new Set<string>();
-const mockIsDuplicateEvent = jest.fn(async (scope: string, eventId: string) => {
-  const key = `${scope}:${eventId}`;
-  if (mockDedupSeen.has(key)) return true;
-  mockDedupSeen.add(key);
-  return false;
-});
-jest.mock('../../src/utils/dedup', () => ({
-  isDuplicateEvent: (scope: string, eventId: string) => mockIsDuplicateEvent(scope, eventId),
-  dedupKey: (scope: string, eventId: string) => `zapmate:dedup:${scope}:${eventId}`,
+const mockEnqueueSeen = new Set<string>();
+const mockEnqueueRun = jest.fn();
+jest.mock('@repo/runs', () => ({
+  enqueueRun: (input: any) => mockEnqueueRun(input),
 }));
+
+const installIntakeFake = () => {
+  mockEnqueueSeen.clear();
+  mockEnqueueRun.mockReset();
+  mockEnqueueRun.mockImplementation(async (input: any) => {
+    const key = input.dedup?.key;
+    if (key && mockEnqueueSeen.has(key)) {
+      return { status: 'duplicate' };
+    }
+    if (key) mockEnqueueSeen.add(key);
+    return { status: 'queued', zapRunId: 'run-1', dispatched: true };
+  });
+};
 
 import {
   dispatchGmailEvent,
@@ -78,27 +87,26 @@ const triggerRow = (overrides: any = {}) => ({
 
 describe('GmailDispatch.dispatchGmailEvent', () => {
   beforeEach(() => {
-    mockDedupSeen.clear();
+    installIntakeFake();
     mockGetEmailMetadata.mockResolvedValue({ ...hydratedMetadata });
     mockGetEmailContent.mockResolvedValue({
       body: 'Please pay invoice 42 by Friday.',
       truncated: false,
     });
-    (client.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(client));
-    (client.zapRun.create as jest.Mock).mockResolvedValue({ id: 'run-1' });
-    (client.zapRunOutbox.create as jest.Mock).mockResolvedValue({ id: 'outbox-1' });
     (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([triggerRow()]);
   });
 
-  it('enqueues ZapRun + ZapRunOutbox in one transaction with the §4.3 payload contract', async () => {
+  it('hands the §4.3 payload to run intake with a Zap+message+event dedup key', async () => {
     const result = await dispatchGmailEvent(server, 'msg-1', 'new_email');
 
     expect(result).toEqual({ created: 1, skipped: 0, failed: 0 });
-    expect(client.$transaction).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
 
-    const runArg = (client.zapRun.create as jest.Mock).mock.calls[0][0];
-    expect(runArg.data.zapId).toBe('zap-1');
-    expect(runArg.data.metadata).toMatchObject({
+    const input = mockEnqueueRun.mock.calls[0][0];
+    expect(input.zapId).toBe('zap-1');
+    expect(input.source).toBe('server.gmail');
+    expect(input.dedup).toEqual({ scope: 'gmail', key: 'zap-1:msg-1:new_email' });
+    expect(input.metadata).toMatchObject({
       id: 'msg-1',
       messageId: 'msg-1',
       threadId: 'thread-1',
@@ -115,9 +123,7 @@ describe('GmailDispatch.dispatchGmailEvent', () => {
       isRead: false,
       serverId: 'server-1',
     });
-    expect(typeof runArg.data.metadata.timestamp).toBe('string');
-
-    expect(client.zapRunOutbox.create).toHaveBeenCalledWith({ data: { zapRunId: 'run-1' } });
+    expect(typeof input.metadata.timestamp).toBe('string');
   });
 
   it('hydrates once even when several Zaps match', async () => {
@@ -133,15 +139,13 @@ describe('GmailDispatch.dispatchGmailEvent', () => {
     expect(mockGetEmailContent).toHaveBeenCalledTimes(1);
   });
 
-  it('skips inactive Zaps without writing rows', async () => {
-    (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([
-      triggerRow({ zap: { id: 'zap-off', isActive: false } }),
-    ]);
+  it('counts an inactive-Zap decision from intake as skipped', async () => {
+    mockEnqueueRun.mockResolvedValue({ status: 'skipped', reason: 'zap_inactive' });
 
     const result = await dispatchGmailEvent(server, 'msg-1', 'new_email');
 
     expect(result).toEqual({ created: 0, skipped: 1, failed: 0 });
-    expect(client.zapRun.create).not.toHaveBeenCalled();
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
   });
 
   it('applies sender/subject filters against the hydrated payload (audit B4)', async () => {
@@ -163,7 +167,7 @@ describe('GmailDispatch.dispatchGmailEvent', () => {
     const replay = await dispatchGmailEvent(server, 'msg-1', 'new_email');
     expect(first.created).toBe(1);
     expect(replay).toEqual({ created: 0, skipped: 1, failed: 0 });
-    expect(client.zapRun.create).toHaveBeenCalledTimes(1);
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(2);
 
     // Same message, different event kind = legitimate second run.
     (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([
@@ -180,7 +184,7 @@ describe('GmailDispatch.dispatchGmailEvent', () => {
     await expect(dispatchGmailEvent(server, 'msg-1', 'new_email')).rejects.toThrow(
       /hydrate Gmail message msg-1/i
     );
-    expect(client.zapRun.create).not.toHaveBeenCalled();
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
     expect(client.gmailTrigger.findMany).not.toHaveBeenCalled();
   });
 
@@ -189,9 +193,9 @@ describe('GmailDispatch.dispatchGmailEvent', () => {
       triggerRow(),
       triggerRow({ zap: { id: 'zap-2', isActive: true } }),
     ]);
-    (client.zapRun.create as jest.Mock)
+    mockEnqueueRun
       .mockRejectedValueOnce(new Error('db write failed'))
-      .mockResolvedValue({ id: 'run-2' });
+      .mockResolvedValueOnce({ status: 'queued', zapRunId: 'run-2', dispatched: true });
 
     const result = await dispatchGmailEvent(server, 'msg-1', 'new_email');
 
@@ -249,12 +253,9 @@ describe('event-type mapping', () => {
 
 describe('GmailTriggersController.processGmailTrigger (outbox dispatch)', () => {
   beforeEach(() => {
-    mockDedupSeen.clear();
+    installIntakeFake();
     mockGetEmailMetadata.mockResolvedValue({ ...hydratedMetadata });
     mockGetEmailContent.mockResolvedValue({ body: 'body', truncated: false });
-    (client.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(client));
-    (client.zapRun.create as jest.Mock).mockResolvedValue({ id: 'run-1' });
-    (client.zapRunOutbox.create as jest.Mock).mockResolvedValue({ id: 'outbox-1' });
     (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([triggerRow()]);
     (client.zap.findUnique as jest.Mock).mockResolvedValue(null); // legacy executor no-ops
   });
@@ -265,8 +266,7 @@ describe('GmailTriggersController.processGmailTrigger (outbox dispatch)', () => 
     await processGmailTrigger('server-1', { id: 'msg-1', eventType: 'new_email' });
 
     expect(client.gmailServer.findUnique).toHaveBeenCalledWith({ where: { id: 'server-1' } });
-    expect(client.zapRun.create).toHaveBeenCalled();
-    expect(client.zapRunOutbox.create).toHaveBeenCalled();
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
   });
 
   it('unresolvable identifier is a logged no-op', async () => {
@@ -276,7 +276,7 @@ describe('GmailTriggersController.processGmailTrigger (outbox dispatch)', () => 
     await expect(
       processGmailTrigger('nobody@gmail.com', { id: 'msg-1', eventType: 'new_email' })
     ).resolves.toBeUndefined();
-    expect(client.zapRun.create).not.toHaveBeenCalled();
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
   });
 
   it('falls back to GmailServer.email resolution (P3/B3)', async () => {
@@ -288,7 +288,7 @@ describe('GmailTriggersController.processGmailTrigger (outbox dispatch)', () => 
     expect(client.gmailServer.findMany).toHaveBeenCalledWith({
       where: { email: 'owner@gmail.com', isActive: true },
     });
-    expect(client.zapRun.create).toHaveBeenCalled();
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -327,12 +327,9 @@ describe('processHistoryDelta (real Pub/Sub notifications)', () => {
   const serverWithCursor = { ...server, lastHistoryId: '100' };
 
   beforeEach(() => {
-    mockDedupSeen.clear();
+    installIntakeFake();
     mockGetEmailMetadata.mockResolvedValue({ ...hydratedMetadata });
     mockGetEmailContent.mockResolvedValue({ body: 'body', truncated: false });
-    (client.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(client));
-    (client.zapRun.create as jest.Mock).mockResolvedValue({ id: 'run-1' });
-    (client.zapRunOutbox.create as jest.Mock).mockResolvedValue({ id: 'outbox-1' });
     (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([triggerRow()]);
     (client.gmailServer.update as jest.Mock).mockResolvedValue({});
   });
@@ -367,7 +364,7 @@ describe('processHistoryDelta (real Pub/Sub notifications)', () => {
     const result = await processHistoryDelta(serverWithCursor, '150');
 
     expect(result).toMatchObject({ created: 0, cursorReset: true });
-    expect(client.zapRun.create).not.toHaveBeenCalled();
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
     expect(client.gmailServer.update).toHaveBeenCalledWith({
       where: { id: 'server-1' },
       data: { lastHistoryId: '150' },

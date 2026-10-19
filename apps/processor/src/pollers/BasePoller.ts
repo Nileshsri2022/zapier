@@ -5,6 +5,7 @@
 
 import { google } from 'googleapis';
 import client from '@repo/db';
+import { enqueueRun } from '@repo/runs';
 import { PollResult, OAuthServerBase } from './types';
 
 export abstract class BasePoller {
@@ -77,24 +78,26 @@ export abstract class BasePoller {
   }
 
   /**
-   * Create a ZapRun and add to outbox for processing
+   * Queue a ZapRun through the shared run-intake module.
+   *
+   * The module owns the active-Zap check, the ZapRun + outbox transaction and
+   * the best-effort dispatch, so pollers no longer duplicate that logic.
+   * Returns null when the run was skipped (Zap missing or inactive).
    */
-  protected async createZapRun(zapId: string, metadata: any): Promise<string> {
-    const zapRun = await client.zapRun.create({
-      data: {
-        zapId,
-        metadata: JSON.parse(JSON.stringify(metadata)),
-      },
+  protected async createZapRun(zapId: string, metadata: any): Promise<string | null> {
+    const result = await enqueueRun({
+      zapId,
+      metadata,
+      source: `${this.name}.poll`,
     });
 
-    await client.zapRunOutbox.create({
-      data: {
-        zapRunId: zapRun.id,
-      },
-    });
+    if (result.status !== 'queued') {
+      console.log(`${this.emoji} ZapRun not queued (${result.status})`);
+      return null;
+    }
 
-    console.log(`${this.emoji} Created ZapRun ${zapRun.id}`);
-    return zapRun.id;
+    console.log(`${this.emoji} Queued ZapRun ${result.zapRunId}`);
+    return result.zapRunId;
   }
 
   /**

@@ -1,6 +1,6 @@
 import client from '@repo/db';
+import { enqueueRun } from '@repo/runs';
 import { GmailService, EmailMetadata } from './GmailService';
-import { isDuplicateEvent } from '../utils/dedup';
 
 /**
  * Gmail trigger dispatch — the routing core of
@@ -155,10 +155,7 @@ export async function dispatchGmailEvent(
   for (const gmailTrigger of gmailTriggers) {
     const zap = (gmailTrigger as any).zap;
 
-    // Only active Zaps get runs. The processor's outbox drain also filters
-    // on isActive, but relying on it would strand rows in the outbox for
-    // Zaps that are off (same semantics as the legacy inline path).
-    if (!zap || !zap.isActive) {
+    if (!zap) {
       result.skipped++;
       continue;
     }
@@ -168,24 +165,28 @@ export async function dispatchGmailEvent(
       continue;
     }
 
-    // Claim the dedup slot BEFORE writing rows: if a later Zap fails and
-    // the provider redelivers, already-processed Zaps are skipped instead
-    // of double-fired (spec D5).
-    if (await isDuplicateEvent('gmail', `${zap.id}:${messageId}:${eventType}`)) {
-      result.skipped++;
-      continue;
-    }
-
+    // The run-intake module owns the active-Zap check, the dedup claim and
+    // the ZapRun + ZapRunOutbox transaction (spec D5). Dedup is keyed per
+    // Zap + message + event kind, so a later star still fires.
     try {
-      const zapRun = await client.$transaction(async (tx: any) => {
-        const run = await tx.zapRun.create({
-          data: { zapId: zap.id, metadata: payload },
-        });
-        await tx.zapRunOutbox.create({ data: { zapRunId: run.id } });
-        return run;
+      const intake = await enqueueRun({
+        zapId: zap.id,
+        metadata: payload,
+        source: 'server.gmail',
+        dedup: {
+          scope: 'gmail',
+          key: `${zap.id}:${messageId}:${eventType}`,
+        },
       });
-      console.log(`📝 Gmail ZapRun created: ${zapRun.id} for Zap ${zap.id} (${eventType})`);
-      result.created++;
+
+      if (intake.status === 'queued') {
+        console.log(
+          `📝 Gmail ZapRun queued: ${intake.zapRunId} for Zap ${zap.id} (${eventType})`
+        );
+        result.created++;
+      } else {
+        result.skipped++;
+      }
     } catch (error) {
       result.failed++;
       console.error(`Failed to enqueue Gmail ZapRun for Zap ${zap.id}:`, error);

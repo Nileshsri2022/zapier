@@ -22,9 +22,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@repo/ai": "*",
+    "@repo/ai-connections": "*",
     "@repo/db": "*",
     "@repo/email": "*",
+    "@repo/kafka": "*",
     "@repo/redis": "*",
+    "@repo/runs": "*",
     "@repo/sentry": "*",
     "@repo/types": "*",
     "@repo/typescript-config": "*",
@@ -49,9 +53,7 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "xss": "^1.0.15",
-    "zod": "^4.3.5",
-    "@repo/ai-connections": "*",
-    "@repo/ai": "*"
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@types/compression": "^1.8.1",

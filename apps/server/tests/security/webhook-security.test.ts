@@ -3,6 +3,12 @@ import express from 'express';
 import crypto from 'crypto';
 import { Request, Response } from 'express';
 import client from '@repo/db';
+
+const mockEnqueueRun = jest.fn();
+jest.mock('@repo/runs', () => ({
+  enqueueRun: (input: any) => mockEnqueueRun(input),
+}));
+
 import CronRouter from '../../src/routes/CronRoutes';
 import {
   handleGmailWebhook,
@@ -33,6 +39,15 @@ const buildRes = () => {
 };
 
 const originalEnv = { ...process.env };
+
+beforeEach(() => {
+  mockEnqueueRun.mockReset();
+  mockEnqueueRun.mockResolvedValue({
+    status: 'queued',
+    zapRunId: 'run-sched-1',
+    dispatched: true,
+  });
+});
 
 afterEach(() => {
   process.env = { ...originalEnv };
@@ -182,7 +197,7 @@ describe('Security - Cron endpoints fail closed', () => {
     expect(response.body).toHaveProperty('success', true);
   });
 
-  it('writes ZapRunOutbox for due schedules so runs are never orphaned in pending (F6)', async () => {
+  it('queues due schedules through run intake so nextRunAt only advances on a real run (F6)', async () => {
     process.env.CRON_SECRET = 'cron-secret';
     (client.scheduledTrigger.findMany as jest.Mock).mockResolvedValue([
       {
@@ -194,11 +209,6 @@ describe('Security - Cron endpoints fail closed', () => {
         zap: { id: 'zap-1', name: 'Minute Zap', isActive: true },
       },
     ]);
-    (client.zapRun.create as jest.Mock).mockResolvedValue({ id: 'run-sched-1' });
-    (client.zapRunOutbox.create as jest.Mock).mockResolvedValue({
-      id: 'outbox-1',
-      zapRunId: 'run-sched-1',
-    });
     (client.scheduledTrigger.update as jest.Mock).mockResolvedValue({});
 
     const response = await request(cronApp)
@@ -212,20 +222,16 @@ describe('Security - Cron endpoints fail closed', () => {
         processed: 1,
       })
     );
-    expect(client.zapRun.create).toHaveBeenCalledWith(
+    expect(mockEnqueueRun).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          zapId: 'zap-1',
-          metadata: expect.objectContaining({
-            triggerType: 'schedule',
-            scheduleType: 'minutely',
-          }),
+        zapId: 'zap-1',
+        source: 'server.schedule',
+        metadata: expect.objectContaining({
+          triggerType: 'schedule',
+          scheduleType: 'minutely',
         }),
       })
     );
-    expect(client.zapRunOutbox.create).toHaveBeenCalledWith({
-      data: { zapRunId: 'run-sched-1' },
-    });
     expect(client.scheduledTrigger.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'sched-1' },

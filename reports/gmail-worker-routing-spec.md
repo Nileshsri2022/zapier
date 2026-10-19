@@ -280,8 +280,8 @@ Rollback at any point before P5 = `GMAIL_EXECUTION_PATH=inline`. After P5, rollb
 
 - Disposition of `GmailActionsController` / `GmailAction` model + Gmail action config UI after P5 removes their only execution caller (delete as dead code vs expose as a direct API) — needs its own small audit; do not let P5 silently strand them undocumented.
 - If push wins: migrating `lastHistoryId` cursor + watch state fully onto `GmailWatch` rows (today `watchId` stores a historyId — muddled semantics worth one cleanup pass).
-- Unifying the three dedup/redis helpers (`apps/hooks/src/dedup.ts`, new `apps/server/src/utils/dedup.ts`, `apps/server/src/utils/redis.ts` cache client) into `@repo/redis`.
-- Processor outbox stranding for deactivated Zaps (§8) — generic fix (delete-or-park at drain) benefits all triggers.
+- ~~Unifying the three dedup/redis helpers (`apps/hooks/src/dedup.ts`, new `apps/server/src/utils/dedup.ts`, `apps/server/src/utils/redis.ts` cache client) into `@repo/redis`.~~ **Done (2026-10-19, run-intake change):** the dedup helper now lives in `@repo/redis`; both per-app copies are deleted, and `@repo/runs` owns claiming/releasing the key around the durable write.
+- ~~Processor outbox stranding for deactivated Zaps (§8) — generic fix (delete-or-park at drain) benefits all triggers.~~ **Done (2026-10-19, run-intake change):** `@repo/runs` `drainOutbox` parks inactive-Zap runs as `failed` with `errorMessage` and deletes their rows; stale rows for runs that already left `pending` are deleted instead of replayed.
 - Gmail polling fallback _in addition_ to push (belt-and-braces for missed notifications) if production shows gaps.
 - AI Step (PG consumer): once P4 lands, `reports/ai-reasoning-step-spec.md` Examples 5.1's Gmail variant becomes buildable verbatim against §4.3.
 

@@ -3,7 +3,7 @@ import crypto from 'crypto';
 // @ts-ignore - Redis module will be available after build
 import redis from '@repo/redis';
 import client from '@repo/db';
-import { Prisma } from '@prisma/client';
+import { enqueueRun } from '@repo/runs';
 
 export interface GoogleSheetsConfig {
   refreshToken: string;
@@ -255,24 +255,19 @@ export class GoogleSheetsService {
           trigger.sheetName
         );
 
-        // Create ZapRun for each updated row
+        // Hand every changed row to the shared run-intake module.
         for (const row of updatedRows) {
-          const zapRun = await client.zapRun.create({
-            data: {
-              zapId: trigger.zapId,
-              // Convert to plain JSON object for Prisma
-              metadata: JSON.parse(JSON.stringify(row)),
-            },
+          const result = await enqueueRun({
+            zapId: trigger.zapId,
+            metadata: row,
+            source: 'server.sheets-poll',
           });
 
-          // Add to outbox for action execution
-          await client.zapRunOutbox.create({
-            data: {
-              zapRunId: zapRun.id,
-            },
-          });
-
-          console.log(`✅ Created ZapRun ${zapRun.id} for row ${row.row_number}`);
+          if (result.status === 'queued') {
+            console.log(`✅ Queued ZapRun ${result.zapRunId} for row ${row.row_number}`);
+          } else {
+            console.log(`ℹ️ Row ${row.row_number} not queued (${result.status})`);
+          }
         }
 
         // Update last polled timestamp

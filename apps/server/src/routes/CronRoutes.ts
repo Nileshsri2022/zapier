@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import client from '@repo/db';
+import { enqueueRun } from '@repo/runs';
 import { renewExpiringGmailWatches } from '../services/GmailDispatch';
 
 const router = Router();
@@ -44,26 +45,23 @@ router.get('/process-schedules', async (req: Request, res: Response): Promise<an
 
     for (const schedule of dueSchedules) {
       try {
-        // Create ZapRun + ZapRunOutbox (F6: transactional outbox pattern so
-        // processor /process reliably drains scheduled runs to Kafka without
-        // depending on a 5 s cross-service HTTP call to hooks).
-        const zapRun = await client.zapRun.create({
-          data: {
-            zapId: schedule.zapId,
-            metadata: {
-              triggerType: 'schedule',
-              scheduleType: schedule.scheduleType,
-              scheduledAt: now.toISOString(),
-              timezone: schedule.timezone,
-            },
+        const result = await enqueueRun({
+          zapId: schedule.zapId,
+          metadata: {
+            triggerType: 'schedule',
+            scheduleType: schedule.scheduleType,
+            scheduledAt: now.toISOString(),
+            timezone: schedule.timezone,
           },
+          source: 'server.schedule',
         });
 
-        await client.zapRunOutbox.create({
-          data: {
-            zapRunId: zapRun.id,
-          },
-        });
+        if (result.status !== 'queued') {
+          console.log(
+            `ℹ️ Schedule for Zap "${schedule.zap.name}" skipped (${result.status})`
+          );
+          continue;
+        }
 
         // Calculate next run time
         const nextRunAt = calculateNextRun(schedule);
@@ -78,7 +76,7 @@ router.get('/process-schedules', async (req: Request, res: Response): Promise<an
         });
 
         console.log(
-          `✅ Schedule triggered for Zap "${schedule.zap.name}" (ZapRun ${zapRun.id} queued to outbox) - Next run: ${nextRunAt.toISOString()}`
+          `✅ Schedule triggered for Zap "${schedule.zap.name}" (ZapRun ${result.zapRunId} queued) - Next run: ${nextRunAt.toISOString()}`
         );
       } catch (error) {
         console.error(`❌ Failed to process schedule ${schedule.id}:`, error);

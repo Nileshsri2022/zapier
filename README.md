@@ -274,12 +274,13 @@ zapmate/
 │   │       ├── components/      # Component-level stylesheets (modal, navbar, zap-cell)
 │   │       └── pages/           # Page-level stylesheets (app.css, landing.css)
 │   ├── server/                  # Core API microservice (Express + TypeScript)
-│   ├── hooks/                   # Ingestion microservice writing to ZapRunOutbox
-│   ├── processor/               # Transactional Outbox Kafka producer
+│   ├── hooks/                   # Ingestion microservice (uses @repo/runs)
+│   ├── processor/               # Outbox drain + integration pollers
 │   └── worker/                  # Kafka consumer executing step actions
 ├── packages/
 │   ├── db/                      # Shared Prisma schema, clients, and seeds
 │   ├── kafka/                   # Kafka client and topic configuration
+│   ├── runs/                    # Run intake: active-Zap check, dedup, run + outbox, dispatch, drain
 │   ├── types/                   # Shared TypeScript models and payload definitions
 │   └── ui/                      # Shared design tokens and base UI primitives
 ├── reports/                     # Architecture, audit, and design system specs
