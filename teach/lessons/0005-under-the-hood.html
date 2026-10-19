@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 5 — Under the Hood: Validation → Budget → Call → Repair → Retry → Replay</title>
+<link rel="stylesheet" href="../assets/styles.css">
+<script src="../assets/quiz.js" defer></script>
+</head>
+<body>
+<div class="page">
+<header class="lesson-head">
+  <div class="eyebrow">Lesson 5 of 6 · AI Transform · 8–12 min</div>
+  <h1>Under the Hood — From Config to Persisted Envelope</h1>
+  <p class="subtitle">Walk the exact function calls. Know where each failure class is thrown, counted, and retried.</p>
+  <div class="lesson-meta">
+    <span class="badge">Execution</span>
+    <span>Win: you can narrate a run’s path through validation/budget/provider/validation-repair/retry/replay and place each error correctly.</span>
+    <span>Primary source: <a href="../../packages/ai/src/index.ts">packages/ai/src/index.ts:runAiStep</a> + <a href="../../apps/worker/src/executeAiAction.ts">executeAiAction.ts</a></span>
+  </div>
+</header>
+
+<div class="toc">
+  <strong>In this lesson</strong>
+  <ol>
+    <li>Annotated sequence — the 7 steps in runAiStep</li>
+    <li>What withRetry actually retries (and what it never does)</li>
+    <li>Repair — exactly one, never self-replenishing</li>
+    <li>Replay — reuse without touching provider</li>
+    <li>Failure injection game</li>
+  </ol>
+</div>
+
+<h2>Annotated sequence — what runAiStep does</h2>
+<div class="figure">
+<pre><code>export async function runAiStep(raw, resolvedInput, context, providerCall=callProvider)
+{
+  1) config = validateAiConfig(raw)                          // zod-ish checks: types, regex names, category/field bounds, connectionId/model rules
+  2) policy = readAiPolicy(env)                              // integerEnv caps; malformed configured policy → AiStepError (startup fails fast)
+     assert state?.repairUsed == false                       // second repair attempt would throw immediately
+     input = resolvedInput.slice(0, policy.maxInputChars)    // truncation flag = (resolvedInput.length &gt; input.length)
+     assert input non-empty trimmed && config.maxOutputTokens ≤ policy.maxOutputTokens
+     assert puter gate if needed
+  3) connection = (provider==openai_compatible) ? await resolveConnection(id,userId) : undef
+     apiKey = connection?.apiKey || env[OPENAI|ANTHROPIC|PUTER_*]   // missing → AiStepError before network
+     assert /^[\x21-\x7E]+$/ && length ≤8192                 // coarse credential shape
+     model = connection ? config.model! : platformModel(config, env)   // allowlist check for platform providers
+     schema = buildJsonSchema(config)                        // classify→{category:enum}, extract→strict schema, else undefined
+     request = { provider, model, apiKey, connection, schema,
+                 system: systemPrompt(config,schema), input: frameInput(input),
+                 temperature, maxOutputTokens, timeoutMs, maxResponseBytes, allowedHosts }
+  4) invoke = async () =&gt; { await reserveCall(); result = await providerCall(request)
+                           state.usage += result.usage  } // budget reservation = atomic Lua per attempt
+     result = await invoke()                           // first provider call
+  5) if (schema) validateAndCoerce( structured ?? parseJsonText(text) )
+       catch → state.repairUsed=true
+               request.system += "\nYour previous reply did not match… Return only corrected JSON…"
+               result = await invoke();  fields = validate(result)   // exactly one repair attempt
+               catch → throw "AI output repair failed: …"
+     else    // plain-text modes: require non-empty text; summarize alias fields={summary:text}
+     return { output, fields, provider, model, mode, usage:state.usage, truncated, latencyMs }
+} catch (e) { throw safeAiError(e) }                  // normalizes AiConnectionError + unknown to AiStepError</code></pre>
+  <figcaption>Compressed from <code>packages/ai/src/index.ts:24–113</code>. Preview (<code>services/ai.ts:previewAi</code>) calls this with a literal sample; worker (<code>executeAiAction.ts:55</code>) calls it with <code>replaceKeys(input, runMetadata)</code>.</figcaption>
+</div>
+
+<h2>What <code>withRetry</code> actually does — and does not</h2>
+<p>Two layers wrap AI: the inner repair (<code>index.ts</code>) and the outer <code>withRetry</code> in <code>executeAiAction.ts:39</code>:</p>
+<pre><code>return withRetry(
+  async () =&gt; { /* replay guard → runAiStep → return {success:true, output} */ },
+  { maxRetries:3, initialDelayMs:1000, shouldRetry: (e) =&gt; e instanceof AiStepError && e.retryable }
+)</code></pre>
+<ul>
+  <li><strong>Retryable</strong> (from <code>errors.ts:providerHttpError</code>): <code>429</code> rate-limit and <code>≥500</code> provider errors, plus transport timeouts — via <code>AiStepError(retryable:true)</code>. These get up to 3 retries with exponential backoff.</li>
+  <li><strong>Fatal</strong> (not retried): <code>400/401/403/404</code>, validation/repair exhaustion, empty input, invalid config, missing key/allowlist, budget reached, budget service unavailable when fail-closed.</li>
+  <li><strong>Repair does not reset on retry.</strong> <code>state.repairUsed</code> is shared across <code>withRetry</code> attempts (<code>executeAiAction.ts:32 createExecutionState()</code> passed via context). A retry never gets a fresh repair.</li>
+  <li>Non-AI actions in the worker use <code>withRetry</code> <em>without</em> <code>shouldRetry</code> — they retry every throw (legacy behavior preserved). Only AI branch opts into predicate-based retry.</li>
+</ul>
+
+<h2>Repair — one extra try, not a loop</h2>
+<p>From <code>packages/ai/src/index.ts:64</code>:</p>
+<pre><code>let fields = {}
+if (schema) {
+  validate = (r) =&gt; validateAndCoerce( r.structured ?? parseJsonText(r.text ?? ""), config )
+  try { fields = validate(result) }
+  catch {
+    state.repairUsed = true
+    request.system += "Your previous reply did not match the required format…"
+    try { result = await invoke(); fields = validate(result) }
+    catch (e) { throw new AiStepError(`AI output repair failed: ${safeAiError(e).message}`) }
+  }
+} else {
+  if (!result.text?.trim()) throw AiStepError("AI provider returned empty text")
+  if (mode=="summarize") fields={summary: result.text}
+}</code></pre>
+<ul>
+  <li>The repair re-invokes the provider — billable, budget-counted — with an appended system line guiding JSON correction.</li>
+  <li>Second validation failure → run fails with a sanitized message (no raw provider body, raw URL, or credential leakage — <code>safeAiError</code> redacts).</li>
+  <li>Repair is guarded globally: if <code>context.state?.repairUsed</code> was already true (retry resuming after repair), it throws “already exhausted” before any network call.</li>
+</ul>
+
+<h2>Replay — the zero-cost path</h2>
+<p><code>apps/worker/src/executeAiAction.ts:46</code>:</p>
+<pre><code>if (previousOutputs && Object.hasOwn(previousOutputs, context.stage)) {
+  return { success:true, message:"AI step replay: reused stored output", output: previousOutputs[context.stage] }
+}</code></pre>
+<p>Kafka is at-least-once (<code>autoCommit:false</code> in worker, offset committed <em>after</em> <code>processMessage</code>). A crash between successful provider response and DB persist, or a consumer rebalance after persist but before commit, can redeliver the same <code>{zapRunId, stage}</code>. On redelivery, the guard finds <code>stepOutputs[stage]</code> already stored — skips credential lookup and provider entirely.</p>
+<p><strong>Not exactly-once billing</strong> — if the provider accepted but the store never committed, the next delivery re-bills. Spec §4.5 and §6 say explicitly: <em>“This is not exactly-once billing.”</em></p>
+
+<h2>Putting it together — the full worker stage</h2>
+<pre><code>// apps/worker/src/index.ts:processMessage (simplified)
+prepareRunMetadata(metadata, freshRun)        // strip untrusted ingress replay keys on first execution
+stage==1 ? evaluateFilters(filterConditions, zapMetadata)  // block entire run if fail
+find currentAction where sortingOrder==stage
+stepOutputs = zapMetadata.stepOutputs; previousOutput = stepOutputs[stage-1]
+evaluateFilters(stepConditions, {...zapMetadata, previousOutput, stepOutputs}) // skip action if fail
+result = executeActionWithRetry(actionType, metadata, {...zapMetadata, stepOutputs, previousOutput}, stepOutputs, {userId, zapRunId, stage})
+if success && result.data.output  →  store stepOutputs[stage]  →  queue stage+1 or mark completed
+if !success                       →  mark failed + sendZapFailureNotification(userEmail, zapName, zapId, error, zapRunId)</code></pre>
+
+<h2>Failure injection — trace five errors to their layer</h2>
+<div class="quiz">
+  <h3>Match error to layer — where is it thrown?</h3>
+  <p class="q">1. “Invalid AI action configuration” (411 on save)</p>
+  <div class="choices">
+    <button class="choice" data-correct="false" data-explain="Provider is contacted only after budgets and policy checks — save-time stops much earlier.">Provider adapter rejects the request</button>
+    <button class="choice" data-correct="true" data-explain="Right — AiActionMetaDataSchema.superRefine(coherent) before any DB/provider work. See packages/types/src/ai.ts:coherent.">Saver: AiActionMetaDataSchema / validateAiConfig</button>
+    <button class="choice" data-correct="false" data-explain="Budget failure is distinct ('budget reached' / 'budget unavailable') — not a schema error.">Budget Lua returns 0</button>
+    <button class="choice" data-correct="false" data-explain="That yields 'AI output repair failed' at run time, not the save-time 411.">Validation after provider returns bad JSON</button>
+  </div>
+  <p class="q">2. “AI provider request failed (HTTP 429)” after one AI step, retries 3× then succeeds</p>
+  <div class="choices">
+    <button class="choice" data-correct="true" data-explain="429 is retryable via providerHttpError(status). withRetry retries with shouldRetry→true, up to 3 times. See errors.ts + executeAiAction.ts shouldRetry.">Outer withRetry in executeAiAction — retryable AiStepError</button>
+    <button class="choice" data-correct="false" data-explain="Repair handles validation failures, not HTTP status codes. 429 is the outer retry layer.">Inner repair inside runAiStep</button>
+    <button class="choice" data-correct="false" data-explain="Replay is for duplicate deliveries with existing stepOutputs, not HTTP retries.">Replay guard reusing stepOutputs</button>
+    <button class="choice" data-correct="false" data-explain="Policy is read at startup and per-call but does not retry HTTP errors.">Policy readAiPolicy misconfiguration</button>
+  </div>
+  <p class="q">3. Second structured-JSON attempt still fails validation</p>
+  <div class="choices">
+    <button class="choice" data-correct="false" data-explain="HTTP failures are outer retry; validation repair is inner and finite.">Outer withRetry retries once more</button>
+    <button class="choice" data-correct="true" data-explain="Yes — the catch after repair throws 'AI output repair failed: …' as AiStepError, wrapped by safeAiError. No further repair is offered.">Inner repair exhausts and throws fatal</button>
+    <button class="choice" data-correct="false" data-explain="Budget reservation succeeded — this is a shape error, not a cap error.">Budget reservation fails with 'reached'</button>
+    <button class="choice" data-correct="false" data-explain="Replay would have short-circuited before any provider call.">Replay returns stored stepOutputs</button>
+  </div>
+  <div class="feedback"></div>
+  <p style="font-size:12px"><a href="#" data-reset>Reset</a></p>
+</div>
+
+<div class="callout">
+  <div class="callout-title">Your tangible win — fault-tree on paper</div>
+  For your own Zap, write a 5-node fault tree: <em>invalid config → policy/cap → empty input → budget → provider 429/5xx vs 4xx / empty text / validation→repair</em>. Put each error string at its node (from <a href="../reference/troubleshooting.html">Troubleshooting</a>). Now you can classify any future failure in one glance.
+</div>
+
+<div class="lesson-nav">
+  <a href="0004-templates-and-chaining.html">← Templates &amp; chaining</a>
+  <a href="0006-safety-cost-and-failure-modes.html">Next: Safety, cost &amp; failure modes →</a>
+</div>
+<footer class="lesson-foot">
+  <p><strong>Primary sources:</strong> <a href="../../packages/ai/src/index.ts">runAiStep</a>, <a href="../../packages/ai/src/schema.ts">schema.ts</a>, <a href="../../packages/ai/src/budget.ts">budget.ts</a>, <a href="../../packages/ai/src/providers.ts">providers.ts</a>, <a href="../../apps/worker/src/executeAiAction.ts">executeAiAction</a>. See also: <a href="../reference/limits-and-budgets.html">Limits &amp; budgets</a>.</p>
+  <p>Stuck asking “Would this retry?” — trace the error's <code>retryable</code> flag in <a href="../../packages/ai/src/errors.ts">errors.ts</a>.</p>
+</footer>
+</div>
+</body>
+</html>

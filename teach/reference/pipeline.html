@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline — AI Transform Reference</title>
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div class="page">
+<header class="lesson-head">
+  <div class="eyebrow">Reference · System view</div>
+  <h1>The ZapMate Pipeline &amp; Where AI Transform Sits</h1>
+  <p class="subtitle">From trigger ingress to stored output — the path an AI step takes, and the data it touches.</p>
+  <div class="lesson-meta"><span class="badge">Reference</span><span>Drawn from <code>apps/worker/src/index.ts</code>, <code>executeAiAction.ts</code>, <code>packages/ai/src/index.ts</code></span></div>
+</header>
+
+<div class="figure">
+  <div style="font-family: ui-sans-serif, system-ui, sans-serif; font-size:13px; line-height:1.7">
+    <div style="display:grid; grid-template-columns: 1fr 28px 1fr 28px 1fr; gap:10px; align-items:center; text-align:center">
+      <div style="border:1px solid var(--border); background:#fff7eb; border-radius:8px; padding:12px 8px"><strong>Trigger</strong><br><small style="color:var(--muted)">Webhook / Gmail /<br>Sheets / Schedule /<br>Calendar / WA / TG / GH</small></div>
+      <div style="font-size:18px; color:var(--accent)">→</div>
+      <div style="border:1px solid var(--border); background:#fff; border-radius:8px; padding:12px 8px"><strong>Hooks / Poller</strong><br><small style="color:var(--muted)">ZapRun +<br>ZapRunOutbox<br>(atomic)</small></div>
+      <div style="font-size:18px; color:var(--accent)">→</div>
+      <div style="border:1px solid var(--border); background:#fff; border-radius:8px; padding:12px 8px"><strong>Processor</strong><br><small style="color:var(--muted)">Outbox → Kafka<br><code>zap-events</code></small></div>
+    </div>
+    <div style="text-align:center; font-size:18px; color:var(--accent); margin:6px 0">↓</div>
+    <div style="border:2px solid var(--accent); background:var(--accent-soft); border-radius:10px; padding:14px 16px; text-align:center">
+      <strong style="font-size:15px">Worker · Kafka consumer group “worker”</strong>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; text-align:left; font-size:12.5px">
+        <div style="background:#fff; border:1px solid #99f6e4; border-radius:6px; padding:10px"><strong>Per-stage loop</strong><br>1. Load ZapRun + Zap + actions + user<br>2. Fresh-run? sanitize metadata (<code>prepareRunMetadata</code>)<br>3. Mark <code>running</code><br>4. <code>evaluateFilters</code> (stage 1 only) — block → <code>completed</code><br>5. Resolve <code>previousOutput = stepOutputs[stage-1]</code><br>6. <code>evaluateFilters(stepConditions)</code> — skip → <code>advanceSkippedStage</code></div>
+        <div style="background:#fff; border:1px solid #99f6e4; border-radius:6px; padding:10px"><strong>AI Transform branch</strong> (<code>executeAiAction.ts</code>)<br>— Replay? return stored <code>stepOutputs[stage]</code><br>— <code>validateAiConfig(metadata)</code><br>— <code>replaceKeys(input, {…zapMetadata, stepOutputs, previousOutput})</code><br>— <code>runAiStep</code> → provider → validate → (one repair) → envelope<br>— Store to <code>stepOutputs[stage]</code> in DB<br>— Queue <code>stage+1</code> to Kafka or mark <code>completed/failed</code></div>
+      </div>
+      <div style="margin-top:10px; font-size:12.5px; color:var(--muted)">Other branches: Email · Solana · WhatsApp · Telegram · Webhook — same <code>withRetry</code> harness, different executors. Unknown type → throw (D2 invariant).</div>
+    </div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:10px; text-align:center; font-size:12px">
+      <div style="border:1px solid var(--border); background:#fff; border-radius:6px; padding:10px"><strong>Persistence</strong><br><code>ZapRun.metadata.stepOutputs</code><br>chained via dot-path templates</div>
+      <div style="border:1px solid var(--border); background:#fff; border-radius:6px; padding:10px"><strong>Budgets</strong><br>Redis Lua <code>ai:calls:user:{id}:{day}</code><br>+ <code>ai:calls:global:{day}</code></div>
+      <div style="border:1px solid var(--border); background:#fff; border-radius:6px; padding:10px"><strong>Observability</strong><br><code>latencyMs</code> + <code>usage.tokens</code><br>in envelope; failure email on terminal failure</div>
+    </div>
+  </div>
+  <figcaption>Fig. 1 — End-to-end flow. AI Transform is just one executor inside the worker. All triggers except legacy inline Gmail reach it via the same outbox → Kafka path.</figcaption>
+</div>
+
+<h2>What AI Transform is</h2>
+<p>A <strong>data-transformation step</strong> inside an automation pipeline (<code>packages/ai/src/prompts.ts:5</code>). It takes text assembled from earlier in the run, asks one provider for a constrained answer, validates that answer locally, and hands <em>two</em> usable forms downstream:</p>
+<ul>
+  <li><strong><code>output</code></strong> — a string (plain text or <code>JSON.stringify(fields)</code>) for <code>{previousOutput.output}</code>.</li>
+  <li><strong><code>fields</code></strong> — a typed object for <code>{previousOutput.fields.category}</code> / <code>{stepOutputs.2.fields.orderId}</code> and for <code>stepConditions</code>.</li>
+</ul>
+<p>It has <strong>no tools, no side effects, no memory, no file input</strong>. The spec (§2 Non-goals) is explicit about that. If you need the model to call an API, do it in the <em>next</em> Zap step with the AI's fields as inputs.</p>
+
+<h2>What AI Transform is not</h2>
+<table>
+<tr><th>Tempting mental model</th><th>Why it misleads</th></tr>
+<tr><td>A chatbot inside ZapMate</td><td>No conversation memory; each call is one stateless request with a frozen system prompt + framed input. “Memory” is you chaining <code>stepOutputs</code>.</td></tr>
+<tr><td>A free/unlimited LLM</td><td>Every call is <strong>billable</strong> against whoever pays the provider (platform account, Puter token, or your BYOK key) <em>and</em> counted toward the Redis daily cap. Test-panel calls bill too.</td></tr>
+<tr><td>A place to store secrets</td><td>Action metadata never holds keys. Platform keys are env vars; BYOK keys are encrypted server-side and resolved at execution via <code>@repo/ai-connections</code>. They never appear in outputs or errors.</td></tr>
+<tr><td>Guaranteed correct</td><td>Validation checks <em>shape</em> (required fields, types, enums, bare numbers), not <em>truth</em>. The prompt says “Do not invent facts” — that reduces hallucination, it does not eliminate it.</td></tr>
+</table>
+
+<h2>The contract in one glance</h2>
+<pre><code>{
+  "provider": "openai_compatible",
+  "connectionId": "&lt;owned AiConnection id&gt;", // only for that provider
+  "model": "&lt;model id&gt;",                    // required for compatible; else optional
+  "mode": "extract",                         // summarize | classify | extract | custom
+  "instructions": "Extract order details",    // never templated; ≤4000 ch (required for custom)
+  "input": "{raw}",                           // template; ≤4000 ch — the only templated field
+  "outputFields": [                           // 1–25 for extract; optional for custom
+    { "name": "orderId", "type": "text", "isRequired": true }
+  ],
+  "temperature": 0,                          // 0–1, default 0
+  "maxOutputTokens": 500                     // 16–2000, capped by AI_MAX_OUTPUT_TOKENS
+}</code></pre>
+<p>From <code>reports/ai-reasoning-step-spec.md §4.2</code>, enforced by <code>AiActionMetaDataSchema</code> (<code>packages/types/src/ai.ts</code>) and <code>validateAiConfig</code> (<code>packages/ai/src/config.ts</code>). Unknown keys are stripped; <code>classify</code> and <code>extract</code> have mode-specific required fields.</p>
+
+<h2>Where to go next</h2>
+<ul>
+  <li><a href="mode-chooser.html">Mode chooser</a> — pick the right mode in 60 seconds.</li>
+  <li><a href="output-envelope.html">Output envelope</a> — exact success/error shapes you will handle.</li>
+  <li><a href="../lessons/0001-pipeline-mental-model.html">Lesson 1</a> — interactive tour of this pipeline.</li>
+</ul>
+
+<footer class="lesson-foot">
+  <p>Primary source: <a href="../../reports/ai-reasoning-step-spec.md">AI Reasoning Spec §§1–4</a> and <code>apps/worker/src/index.ts</code> (processMessage). Ask your teacher if the diagram raises a question.</p>
+</footer>
+</div>
+</body>
+</html>

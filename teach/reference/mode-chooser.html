@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mode Chooser — AI Transform Reference</title>
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div class="page">
+<header class="lesson-head">
+  <div class="eyebrow">Reference · Decision aid</div>
+  <h1>Which Mode Do I Need?</h1>
+  <p class="subtitle">Four prompts, four shapes of answer — choose by what the *next* step needs.</p>
+  <div class="lesson-meta"><span class="badge">Reference</span><span>Maps <code>packages/ai/src/prompts.ts</code> + <code>schema.ts</code> to user intent</span></div>
+</header>
+
+<div class="callout">
+  <div class="callout-title">Start here — one question</div>
+  <strong>What does the step after AI consume?</strong> A paragraph → <code>summarize</code>. A single label → <code>classify</code>. Named typed values → <code>extract</code>. “Something bespoke, maybe structured, maybe not” → <code>custom</code>. If you answer that, you have already chosen.
+</div>
+
+<table>
+<tr><th>Mode</th><th>When to use</th><th>System hint (from prompts.ts)</th><th>Schema / validation</th><th>Envelope</th></tr>
+<tr>
+  <td><strong>summarize</strong></td>
+  <td>Long → short, preserving names/dates/amounts/links/decisions. Human will read the result or it feeds an email/Slack message.</td>
+  <td><em>Write a faithful summary. Preserve … exactly.</em></td>
+  <td>No JSON Schema. Provider returns plain text; empty text → fatal.</td>
+  <td><code>output</code> = text<br><code>fields = { summary: text }</code></td>
+</tr>
+<tr>
+  <td><strong>classify</strong></td>
+  <td>Route by sentiment/topic/intent. Needs 2–20 mutually exclusive labels. Powers a branch via <code>stepConditions</code>.</td>
+  <td><em>Choose exactly one category from the provided list, the single best fit.</em></td>
+  <td>Fixed schema <code>{ category: enum(categories) }</code>. Required; unique categories ≤60 ch.</td>
+  <td><code>output = String(category)</code><br><code>fields = { category }</code></td>
+</tr>
+<tr>
+  <td><strong>extract</strong></td>
+  <td>Pull structured facts for a downstream API/DB/Sheet: names, emails, order IDs, amounts, dates, enums.</td>
+  <td><em>Extract only values present … Missing optional → null. Numbers must be bare numbers.</em></td>
+  <td>1–25 <code>OutputFields</code> → strict JSON Schema via <code>buildJsonSchema</code>: required = all names, optional = nullable, <code>additionalProperties:false</code>.</td>
+  <td><code>output = JSON.stringify(fields)</code><br><code>fields = { orderId, amount, … }</code></td>
+</tr>
+<tr>
+  <td><strong>custom</strong></td>
+  <td>Anything not covered — translation, reformatting, rules (“Sarcastic praise = negative”). Structured optionally.</td>
+  <td><em>Perform the task specified by the workflow owner.</em> + your <code>instructions</code>.</td>
+  <td><em>With</em> <code>outputFields</code> → same strict schema as extract. <em>Without</em> → plain text like summarize.</td>
+  <td>Structured: as extract; Plain: as summarize (alias <code>fields = { summary }</code> in impl.)</td>
+</tr>
+</table>
+
+<h2>Flowchart — 30-second chooser</h2>
+<div class="figure">
+  <pre style="background:#fff; color:var(--fg); border-color:var(--border); font-size:13px"><code>Is the goal to pick ONE label to branch on?
+  ├─ yes → classify  (e.g. positive/neutral/negative; delivery/payment/other)
+  └─ no → Do downstream steps need named values (orderId, email, amount)?
+           ├─ yes → extract  (or custom+fields if you also need special rules)
+           └─ no → Will a short paragraph be consumed as-is?
+                    ├─ yes → summarize
+                    └─ no → custom  (instructions define it; add fields only if you need structure)
+</code></pre>
+  <figcaption>Fig. 2 — Practical decision tree. In the editor it maps directly to the “Transformation” dropdown in AiMetaData.tsx.</figcaption>
+</div>
+
+<h2>Field types cheat sheet</h2>
+<p>Applies to <code>extract</code> and <code>custom+fields</code> only. Defined in <code>packages/types/src/ai.ts</code> and coerced in <code>validateAndCoerce</code>:</p>
+<table>
+<tr><th>Type</th><th>What it accepts (after coercion)</th><th>Example input→stored</th></tr>
+<tr><td><code>text</code></td><td>Non-empty strings</td><td><code>"84120"</code> stays string</td></tr>
+<tr><td><code>number</code></td><td>Finite numbers; numeric strings like <code>"42"</code> / <code>"1,499? no — bare only"</code> coerced via regex. <code>NaN/Infinity</code> → fail.</td><td><code>"1499"</code> → <code>1499</code></td></tr>
+<tr><td><code>boolean</code></td><td><code>true/false</code>; strings <code>"true"/"false"</code> coerced. Other strings → fail.</td><td><code>"true"</code> → <code>true</code></td></tr>
+<tr><td><code>category_single</code></td><td>One of 2–50 unique options (≤60 ch)</td><td><code>issueType: "delivery"</code></td></tr>
+<tr><td><code>category_multi</code></td><td>Array of options, deduped via <code>Set</code>; extra keys dropped; unknown values → fail.</td><td><code>["delivery","payment"]</code></td></tr>
+</table>
+<div class="sidenote" style="margin-top:10px">Coercion is intentionally narrow: only <code>string→number</code> matching <code>/^-?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i</code> and <code>"true"/"false"→boolean</code>. Anything else must already be the right JSON type. See <code>packages/ai/src/schema.ts:47</code>.</div>
+
+<h2>Recipes — copy the closest one</h2>
+<h3>Wh → AI summarize → Telegram</h3>
+<pre><code>{
+  "provider": "anthropic",
+  "mode": "summarize",
+  "instructions": "Summarize in at most 2 short sentences. Keep names, dates and amounts exact.",
+  "input": "{text}"                 // WhatsApp payload root key
+}
+// Next step:  message = "📩 New WhatsApp from {fromName}:\n{previousOutput.output}"</code></pre>
+
+<h3>Webhook → classify → conditional WhatsApp</h3>
+<pre><code>{
+  "provider": "openai",
+  "mode": "classify",
+  "instructions": "Classify the customer's sentiment about our service. Sarcastic praise counts as negative.",
+  "input": "{message}",
+  "categories": ["positive","neutral","negative"]
+}
+// stepConditions on next action: [{ field:"previousOutput.fields.category", operator:"equals", value:"negative" }]</code></pre>
+
+<h3>Webhook → extract → downstream Webhook</h3>
+<pre><code>{
+  "provider": "openai",
+  "mode": "extract",
+  "input": "{raw}",
+  "outputFields": [
+    { "name": "customerName", "type": "text", "isRequired": true },
+    { "name": "email",        "type": "text", "isRequired": true },
+    { "name": "orderId",      "type": "text", "isRequired": true },
+    { "name": "amount",       "type": "number", "description": "Order amount as bare number", "isRequired": false },
+    { "name": "issueType",    "type": "category_single", "options": ["delivery","payment","quality","other"], "isRequired": true }
+  ]
+}
+// Stored: { customerName:"Priya", email:"priya@example.com", orderId:"84120", amount:1499, issueType:"delivery" }
+// Next Webhook body: { "name":"{previousOutput.fields.customerName}", "email":"{previousOutput.fields.email}" }</code></pre>
+
+<div class="callout warn">
+  <div class="callout-title">Custom with or without fields?</div>
+  If your custom instructions can be answered as free text, leave <code>outputFields</code> off — the editor will store plain text. Add fields only when a downstream step or condition needs a named leaf (see <a href="output-envelope.html">Envelope</a> for why a whole-object reference stringifies to <code>[object Object]</code>).
+</div>
+
+<footer class="lesson-foot">
+  <p>Deep dives: <a href="../lessons/0002-the-four-modes.html">Lesson 2 — The four modes in practice</a> · <a href="glossary.html">Glossary</a></p>
+  <p>Ask: “I have case X — which mode?” — your teacher can classify it in one line.</p>
+</footer>
+</div>
+</body>
+</html>

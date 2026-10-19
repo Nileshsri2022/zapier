@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Limits &amp; Budgets — AI Transform Reference</title>
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div class="page">
+<header class="lesson-head">
+  <div class="eyebrow">Reference · Guardrails</div>
+  <h1>Limits, Timeouts &amp; Daily Budgets</h1>
+  <p class="subtitle">Every knobby number that can reject your Zap before a provider is even called.</p>
+  <div class="lesson-meta"><span class="badge">Reference</span><span>From <code>packages/ai/src/config.ts</code> + <code>budget.ts</code> + spec §4.6–4.7</span></div>
+</header>
+
+<h2>Configured policy — <code>readAiPolicy()</code></h2>
+<table>
+<tr><th>Env var</th><th>Default</th><th>Meaning</th><th>Where enforced</th></tr>
+<tr><td><code>AI_MAX_INPUT_CHARS</code></td><td>20,000</td><td>Resolved input sliced before framing; envelope <code>truncated:true</code> if sliced.</td><td><code>packages/ai/src/index.ts:40</code></td></tr>
+<tr><td><code>AI_MAX_OUTPUT_TOKENS</code></td><td>2,000</td><td>Hard ceiling; per-step <code>maxOutputTokens</code> must not exceed it.</td><td><code>validateAiConfig</code> + runtime check L47</td></tr>
+<tr><td><code>AI_TIMEOUT_MS</code></td><td>60,000</td><td>Per-request <code>AbortController</code> timeout in <code>boundedJsonFetch</code>.</td><td><code>packages/ai/src/providers.ts:36</code></td></tr>
+<tr><td><code>AI_MAX_RESPONSE_BYTES</code></td><td>1,048,576</td><td>Streamed <code>reader.read()</code> byte cap — checked <em>while reading</em>, not after buffering.</td><td><code>providers.ts:55</code></td></tr>
+<tr><td><code>AI_DAILY_CALL_CAP_PER_USER</code></td><td>200</td><td>Max attempts per user per UTC day. <code>0</code> disables this cap.</td><td>Redis Lua (below)</td></tr>
+<tr><td><code>AI_DAILY_CALL_CAP_GLOBAL</code></td><td>0 (off)</td><td>Global attempts cap (operator-wide). <code>0</code> disables.</td><td>Redis Lua</td></tr>
+<tr><td><code>AI_BUDGET_FAIL_OPEN</code></td><td><code>false</code></td><td>If <code>true</code>, Redis outage logs a warning and lets AI through (best-effort). Otherwise AI fails closed but other actions still run.</td><td><code>budget.ts:41</code></td></tr>
+<tr><td><code>AI_PUTER_ENABLED</code></td><td><code>false</code></td><td>Gate for Puter adapter. Must be <code>true</code> explicitly.</td><td><code>index.ts:49</code></td></tr>
+<tr><td><code>AI_COMPATIBLE_ALLOWED_HOSTS</code></td><td>"" (= deny all)</td><td>Empty → compatible always “unavailable” on save and preview. Operator lists approved hostnames only (exact match).</td><td><code>config.ts:readAiPolicy</code> + <code>services/ai.ts:46</code></td></tr>
+<tr><td colspan="4" style="background:#fff7eb; font-size:12.5px">Also: <code>AI_DEFAULT_PROVIDER</code> (default <code>openai</code>), per-provider <code>AI_DEFAULT_MODEL_* / AI_MODEL_ALLOWLIST_*</code>, <code>AI_CONNECTION_ENCRYPTION_KEYS + AI_CONNECTION_ACTIVE_KEY_ID</code> for BYOK. Malformed configured policy fails startup in both server and worker (<code>apps/worker/src/index.ts:14</code>).</td></tr>
+</table>
+
+<h2>Per-step config limits — <code>validateAiConfig(raw)</code></h2>
+<table>
+<tr><th>Field</th><th>Bounds</th><th>Notes</th></tr>
+<tr><td><code>input</code></td><td>1–4,000 ch, non-empty trimmed</td><td>The <em>template</em> cap. Resolved + capped input is separate.</td></tr>
+<tr><td><code>instructions</code></td><td>0–4,000 ch (required non-empty only for <code>custom</code>)</td><td>Never templated.</td></tr>
+<tr><td><code>temperature</code></td><td>0–1, default 0</td><td>Finite number.</td></tr>
+<tr><td><code>maxOutputTokens</code></td><td>16–2,000, default 500</td><td>And must not exceed <code>AI_MAX_OUTPUT_TOKENS</code> policy cap.</td></tr>
+<tr><td><code>categories</code> (classify)</td><td>2–20 unique strings, 1–60 ch each</td><td>Duplicate/empty → 411.</td></tr>
+<tr><td><code>outputFields</code></td><td>1–25 for extract; ≤25 optional for custom</td><td>Name ≤50, regex <code>^[a-zA-Z_][…]*$</code>, reserves prototype keys. Field names unique. Options 2–50 unique strings for category types only.</td></tr>
+<tr><td><code>model</code></td><td>≤200 ch</td><td>Must be in platform allowlist for non-compatible providers; required non-empty for <code>openai_compatible</code>.</td></tr>
+<tr><td><code>connectionId</code></td><td>UUID, ≤100 ch</td><td>Required iff <code>provider==openai_compatible</code>; forbidden otherwise.</td></tr>
+</table>
+
+<h2>The budget mechanism</h2>
+<div class="figure">
+<pre><code>RESERVE_AI_CALL_LUA  —  packages/ai/src/budget.ts:7
+
+local userCap   = tonumber(ARGV[1])
+local globalCap = tonumber(ARGV[2])
+local userCount   = tonumber(redis.call('GET', KEYS[1]) or '0')
+local globalCount = tonumber(redis.call('GET', KEYS[2]) or '0')
+if (userCap &gt; 0 and userCount &gt;= userCap) or (globalCap &gt; 0 and globalCount &gt;= globalCap) then return 0 end
+for i = 1, 2 do
+  local count = redis.call('INCR', KEYS[i])
+  if count == 1 then redis.call('EXPIRE', KEYS[i], 172800) end
+end
+return 1
+
+Keys:  ai:calls:user:{userId}:{YYYY-MM-DD}    ai:calls:global:{YYYY-MM-DD}
+Args:  [ userCap, globalCap ]     TTL: 48 h    Wrap: 5 s timeout via Promise.race in createDailyBudget()</code></pre>
+  <figcaption>Atomic reservation. 0 → “Daily AI call budget reached” (AiStepError). Non-1 → generic reservation failure. Preview + repair + retries each reserve.</figcaption>
+</div>
+
+<h3>Rules that surprise people</h3>
+<ul>
+  <li><strong>Repair consumes budget.</strong> The single validation-repair call reserves separately; a failed first attempt that got a billed response still counted.</li>
+  <li><strong>Retries consume budget</strong> if they reach <code>reserveCall()</code> again inside <code>withRetry</code>. A timeout after the provider accepted the request can still bill.</li>
+  <li><strong>Redis down ≠ “free” by default.</strong> With <code>AI_BUDGET_FAIL_OPEN=false</code> (default), the error is “AI budget service unavailable; no provider call was made” — the provider is never contacted. Non-AI steps still succeed. Fail-open must be explicitly opted into.</li>
+  <li><strong>Character caps are not token/dollar caps.</strong> The spec calls this out: 20,000 characters ≠ 5,000 tokens across languages/tokenizers (§7). Set provider-side spend controls too.</li>
+  <li><strong>Test-panel calls count.</strong> Both <code>POST /api/actions/ai/test</code> and <code>POST /api/ai/connections/:id/test</code> call <code>createDailyBudget(...).reserveCall()</code> with the same Lua.</li>
+</ul>
+
+<h2>Transport guardrails — <code>boundedJsonFetch</code></h2>
+<table>
+<tr><th>Guard</th><th>Value</th><th>Behavior</th></tr>
+<tr><td>Outbound concurrency</td><td>10 in-flight</td><td>11th direct call throws “AI outbound concurrency limit reached” (retryable).</td></tr>
+<tr><td>Response cap</td><td><code>AI_MAX_RESPONSE_BYTES</code> streamed</td><td>Abort + throw “exceeded its size limit” the moment accumulated bytes exceed cap.</td></tr>
+<tr><td>Redirects</td><td><code>redirect:"error"</code></td><td>Never follow redirects (critical for SSRF defense in BYOK transport).</td></tr>
+<tr><td>Allowed hosts (BYOK)</td><td><code>AI_COMPATIBLE_ALLOWED_HOSTS</code></td><td>Empty → denies; otherwise exact-hostname match after canonicalization, no suffix tricks.</td></tr>
+</table>
+
+<h2>Quick self-check</h2>
+<p>Before asking “why did my AI step fail?”, scan this checklist (details in <a href="troubleshooting.html">Troubleshooting</a>):</p>
+<ol>
+  <li>Is <code>input</code> template empty after <code>replaceKeys</code>? → “input resolved to empty text”</li>
+  <li>Does <code>maxOutputTokens</code> exceed policy cap? → exceeds configured limit</li>
+  <li>Are you on <code>puter</code> without <code>AI_PUTER_ENABLED=true</code>? → disabled</li>
+  <li>Is <code>openai_compatible</code> missing owned connection or approved host? → unavailable</li>
+  <li>Daily cap hit or Redis down with fail-closed? → budget error</li>
+</ol>
+
+<footer class="lesson-foot">
+  <p>Next: <a href="../lessons/0005-under-the-hood.html">Lesson 5 — Under the hood</a> · <a href="pipeline.html">Pipeline</a> · Primary source: <code>packages/ai/src/config.ts</code> + <code>budget.ts</code></p>
+</footer>
+</div>
+</body>
+</html>
