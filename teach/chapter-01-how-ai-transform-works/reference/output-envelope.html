@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Output Envelope — AI Transform Reference</title>
+<link rel="stylesheet" href="../assets/styles.css">
+</head>
+<body>
+<div class="page">
+<header class="lesson-head">
+  <div class="eyebrow">Reference · Contract</div>
+  <h1>The Output Envelope</h1>
+  <p class="subtitle">The exact shape persisted to <code>stepOutputs[stage]</code> — what you can reference, condition on, and stringify.</p>
+  <div class="lesson-meta"><span class="badge">Reference</span><span>From <code>packages/ai/src/types.ts</code> + <code>src/index.ts</code> §4.4</span></div>
+</header>
+
+<div class="figure">
+<pre><code>{
+  "output":   "serialized result or plain text",   // ← String(next action reads as {previousOutput.output})
+  "fields":  { "orderId": "84120", … },            // ← Typed object (dot-reachable)
+  "provider": "openai_compatible",
+  "model":    "provider-model-id",                 // resolved platform model or BYOK-entered id
+  "mode":     "extract",
+  "usage":   { "inputTokens": 1234, "outputTokens": 87 }, // omitted if provider did not report
+  "truncated": false,                              // true if resolvedInput was sliced to AI_MAX_INPUT_CHARS
+  "latencyMs": 1420                                // Date.now() - state.startedAt across attempts
+}</code></pre>
+  <figcaption>Fig. 3 — Successful envelope. On classified/repair failure the run is marked <code>failed</code> with <code>AiStepError.message</code> — no envelope persisted.</figcaption>
+</div>
+
+<h2>Fields by mode</h2>
+<table>
+<tr><th>Mode</th><th><code>fields</code></th><th><code>output</code></th><th>Downstream tip</th></tr>
+<tr><td><code>summarize</code></td><td><code>{ summary: string }</code></td><td>Plain text</td><td>Use <code>{previousOutput.output}</code> for email bodies; <code>{previousOutput.fields.summary}</code> is identical.</td></tr>
+<tr><td><code>classify</code></td><td><code>{ category: string }</code><br>Must be one of <code>categories</code>.</td><td><code>String(category)</code></td><td>Branch via <code>stepConditions</code> on <code>previousOutput.fields.category</code>.</td></tr>
+<tr><td><code>extract</code></td><td>Named leaves per <code>outputFields</code> (nullable if not required).</td><td><code>JSON.stringify(fields)</code></td><td>Reach leaves: <code>{stepOutputs.1.fields.orderId}</code>. Do not reference the whole object — <code>String({…})</code> yields <code>[object Object]</code> (replaceKeys limitation).</td></tr>
+<tr><td><code>custom</code> + fields</td><td>As extract.</td><td><code>JSON.stringify(fields)</code></td><td>Same as extract.</td></tr>
+<tr><td><code>custom</code> (plain)</td><td><code>{ summary: text }</code> (impl alias)</td><td>Plain text</td><td>As summarize.</td></tr>
+</table>
+
+<h2>How validation shapes the envelope</h2>
+<p>Built in <code>packages/ai/src/schema.ts:buildJsonSchema</code>:</p>
+<ul>
+  <li><code>classify</code> → <code>{ type:"object", properties:{ category:{ enum: categories } }, required:["category"], additionalProperties:false }</code></li>
+  <li><code>extract/custom+fields</code> → one <code>properties</code> entry per field; <code>required: outputFields.map(f=&gt;f.name)</code> but optional business fields are allowed as <code>{ anyOf:[property,{type:"null"}] }</code> — strict schemas need every key present.</li>
+  <li><code>validateAndCoerce</code> then checks required/nullable, finite numbers, boolean/string coercion, enum membership, array deduping, and drops extra keys.</li>
+</ul>
+<div class="callout">
+  <div class="callout-title">Why two forms — output and fields?</div>
+  Templates in <code>replaceKeys</code> do <code>String(value)</code>. A whole object becomes <code>[object Object]</code>. So ZapMate persists both: <code>output</code> for anywhere a string is needed (a single interpolated email/hook body) and <code>fields</code> for dot-path access and conditions. See <code>apps/worker/src/utils/replaceKeys.ts</code> and Spec §4.4 caveat.
+</div>
+
+<h2>Referencing — what actually resolves</h2>
+<pre><code>// After an extract step at stage 1 that produced { orderId:"84120", amount:1499 }
+// In a later step's body or subject:
+{previousOutput.output}                 // → '{"orderId":"84120","amount":1499}'  (raw string)
+{previousOutput.fields.orderId}         // → "84120"
+{previousOutput.fields.amount}          // → "1499"  (String(1499) after replaceKeys)
+{stepOutputs.1.fields.orderId}           // → same, indexed by stage
+
+// In a step condition:
+field: "previousOutput.fields.category"  value: "negative"  operator: "equals"
+
+// These do NOT do what you expect:
+{previousOutput.fields}                 // → "[object Object]"  (avoid)
+{previousOutput.fields.unknown}         // → "" (unknown placeholder stays → "" via replaceKeys fallback)
+
+// Framing: content between input markers is untrusted data — see prompts.ts system prompt.</code></pre>
+
+<h2><code>usage</code> and <code>truncated</code> semantics</h2>
+<ul>
+  <li><code>usage</code> is <strong>provider-reported only</strong> (e.g. OpenAI <code>prompt_tokens/completion_tokens</code>, Anthropic <code>input_tokens/output_tokens</code> via <code>reportedUsage</code> in <code>providers.ts</code>). If the provider omits it, the envelope omits it. Repair counts are <em>aggregated</em> across initial + repair calls (summing <code>state.usage</code> in index.ts:42).</li>
+  <li><code>truncated: resolvedInput.length &gt; input.length</code>. Input is sliced to <code>AI_MAX_INPUT_CHARS</code> (default 20,000) before framing. The model never sees the tail.</li>
+  <li><code>latencyMs</code> covers the whole attempt including any repair and <code>reserveCall()</code>.</li>
+</ul>
+
+<h2>Failure envelope</h2>
+<p>Failures do not produce the table above. The worker records <code>ZapRun.status:"failed"</code> + <code>errorMessage: AiStepError.message</code> and optionally emails the owner via <code>sendZapFailureNotification</code>. See <a href="troubleshooting.html">Troubleshooting</a> for the error catalog.</p>
+
+<footer class="lesson-foot">
+  <p>Related: <a href="pipeline.html">Pipeline</a> · <a href="troubleshooting.html">Troubleshooting</a> · <a href="../lessons/0004-templates-and-chaining.html">Lesson 4 — Templates &amp; chaining</a></p>
+  <p>Primary source: <code>reports/ai-reasoning-step-spec.md §4.4</code> + <code>packages/ai/src/index.ts:92–111</code>.</p>
+</footer>
+</div>
+</body>
+</html>
