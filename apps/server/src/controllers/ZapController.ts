@@ -3,6 +3,7 @@ import { AiMetadataError, validateActionMetadata } from '../services/ai';
 import { Request, Response } from 'express';
 import { formatZodError } from '../helper';
 import client from '@repo/db';
+import { computeNextRun } from '../services/schedule';
 
 export const createZap = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -134,37 +135,16 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
 
         const internalScheduleType = scheduleTypeMap[availableTrigger.type] || 'hourly';
 
-        // Calculate initial nextRunAt
-        const now = new Date();
-        const nextRunAt = new Date(now);
-        nextRunAt.setSeconds(0);
-        nextRunAt.setMilliseconds(0);
-
-        switch (internalScheduleType) {
-          case 'minutely':
-            nextRunAt.setMinutes(nextRunAt.getMinutes() + 1);
-            break;
-          case 'hourly':
-            nextRunAt.setHours(nextRunAt.getHours() + 1);
-            nextRunAt.setMinutes(triggerMeta?.minute || 0);
-            break;
-          case 'daily':
-            nextRunAt.setDate(nextRunAt.getDate() + 1);
-            nextRunAt.setHours(triggerMeta?.hour || 9);
-            nextRunAt.setMinutes(triggerMeta?.minute || 0);
-            break;
-          case 'weekly':
-            nextRunAt.setDate(nextRunAt.getDate() + 7);
-            nextRunAt.setHours(triggerMeta?.hour || 9);
-            nextRunAt.setMinutes(triggerMeta?.minute || 0);
-            break;
-          case 'monthly':
-            nextRunAt.setMonth(nextRunAt.getMonth() + 1);
-            nextRunAt.setDate(triggerMeta?.dayOfMonth || 1);
-            nextRunAt.setHours(triggerMeta?.hour || 9);
-            nextRunAt.setMinutes(triggerMeta?.minute || 0);
-            break;
-        }
+        // Calculate the first run on the user's wall clock, honouring the
+        // selected timezone, weekday and month-end rules.
+        const nextRunAt = computeNextRun({
+          scheduleType: internalScheduleType,
+          hour: triggerMeta?.hour ?? null,
+          minute: triggerMeta?.minute ?? 0,
+          dayOfWeek: triggerMeta?.dayOfWeek ?? null,
+          dayOfMonth: triggerMeta?.dayOfMonth ?? null,
+          timezone: triggerMeta?.timezone || 'UTC',
+        });
 
         await tx.scheduledTrigger.create({
           data: {
@@ -182,6 +162,56 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
         console.log(
           `⏰ Created ScheduledTrigger (${internalScheduleType}) for zap ${zap.id} - Next run: ${nextRunAt.toISOString()}`
         );
+      }
+
+      // WhatsApp/Telegram triggers need a provider-specific row. The editor
+      // now sends serverId/botId in triggerMetaData; verify ownership before
+      // attaching the trigger so one tenant cannot target another's account.
+      if (availableTrigger?.type === 'WhatsApp Message Received') {
+        const triggerMeta = validation?.data?.triggerMetaData as any;
+        if (!triggerMeta?.serverId) {
+          throw new Error('WhatsApp trigger requires a connected WhatsApp server');
+        }
+
+        const server = await tx.whatsAppServer.findFirst({
+          where: { id: triggerMeta.serverId, userId: parseInt(id) },
+        });
+        if (!server) {
+          throw new Error('WhatsApp server not found');
+        }
+
+        await tx.whatsAppTrigger.create({
+          data: {
+            serverId: triggerMeta.serverId,
+            zapId: zap.id,
+            eventType: triggerMeta.eventType || 'message_received',
+          },
+        });
+        console.log(`💬 Created WhatsApp trigger for zap ${zap.id}`);
+      }
+
+      if (availableTrigger?.type === 'Telegram New Message') {
+        const triggerMeta = validation?.data?.triggerMetaData as any;
+        if (!triggerMeta?.botId) {
+          throw new Error('Telegram trigger requires a connected Telegram bot');
+        }
+
+        const bot = await tx.telegramBot.findFirst({
+          where: { id: triggerMeta.botId, userId: parseInt(id) },
+        });
+        if (!bot) {
+          throw new Error('Telegram bot not found');
+        }
+
+        await tx.telegramTrigger.create({
+          data: {
+            botId: triggerMeta.botId,
+            zapId: zap.id,
+            eventType: triggerMeta.eventType || 'message',
+            filterCommand: triggerMeta.filterCommand || null,
+          },
+        });
+        console.log(`✈️ Created Telegram trigger for zap ${zap.id}`);
       }
 
       return zap.id;

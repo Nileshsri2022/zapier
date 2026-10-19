@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import client from '@repo/db';
 import { enqueueRun } from '@repo/runs';
 import { renewExpiringGmailWatches } from '../services/GmailDispatch';
+import { computeNextRun } from '../services/schedule';
 
 const router = Router();
 
@@ -64,7 +65,7 @@ router.get('/process-schedules', async (req: Request, res: Response): Promise<an
         }
 
         // Calculate next run time
-        const nextRunAt = calculateNextRun(schedule);
+        const nextRunAt = computeNextRun(schedule, now);
 
         // Update schedule
         await client.scheduledTrigger.update({
@@ -93,71 +94,6 @@ router.get('/process-schedules', async (req: Request, res: Response): Promise<an
     res.status(500).json({ error: error.message });
   }
 });
-
-/**
- * Calculate the next run time based on schedule type
- */
-function calculateNextRun(schedule: any): Date {
-  const now = new Date();
-  const next = new Date(now);
-
-  switch (schedule.scheduleType) {
-    case 'minutely':
-      // Run every minute
-      next.setMinutes(next.getMinutes() + 1);
-      next.setSeconds(0);
-      next.setMilliseconds(0);
-      break;
-
-    case 'hourly':
-      // Run at specified minute every hour
-      next.setHours(next.getHours() + 1);
-      next.setMinutes(schedule.minute || 0);
-      next.setSeconds(0);
-      next.setMilliseconds(0);
-      break;
-
-    case 'daily':
-      // Run at specified hour:minute every day
-      next.setDate(next.getDate() + 1);
-      next.setHours(schedule.hour || 0);
-      next.setMinutes(schedule.minute || 0);
-      next.setSeconds(0);
-      next.setMilliseconds(0);
-      break;
-
-    case 'weekly': {
-      // Run on specified day of week at specified time
-      const currentDay = now.getDay();
-      const targetDay = schedule.dayOfWeek ?? 0;
-      let daysUntilNext = (7 + targetDay - currentDay) % 7;
-      if (daysUntilNext === 0) daysUntilNext = 7; // If today, schedule for next week
-
-      next.setDate(next.getDate() + daysUntilNext);
-      next.setHours(schedule.hour || 0);
-      next.setMinutes(schedule.minute || 0);
-      next.setSeconds(0);
-      next.setMilliseconds(0);
-      break;
-    }
-
-    case 'monthly':
-      // Run on specified day of month at specified time
-      next.setMonth(next.getMonth() + 1);
-      next.setDate(Math.min(schedule.dayOfMonth || 1, 28)); // Cap at 28 for safety
-      next.setHours(schedule.hour || 0);
-      next.setMinutes(schedule.minute || 0);
-      next.setSeconds(0);
-      next.setMilliseconds(0);
-      break;
-
-    default:
-      // Default: 1 hour from now
-      next.setHours(next.getHours() + 1);
-  }
-
-  return next;
-}
 
 /**
  * GET /api/cron/renew-gmail-watches

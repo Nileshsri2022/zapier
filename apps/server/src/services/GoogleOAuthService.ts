@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import crypto from 'crypto';
 
 /**
  * Configuration for different Google services
@@ -54,7 +55,8 @@ export class GoogleOAuthService {
     redirectUri: string,
     scopes: string[],
     userId: number,
-    serviceName: string
+    serviceName: string,
+    extraState: Record<string, unknown> = {}
   ): string {
     const oauth2Client = this.createClient(redirectUri);
 
@@ -62,8 +64,25 @@ export class GoogleOAuthService {
       access_type: 'offline',
       scope: scopes,
       prompt: 'consent', // Force consent to get refresh token
-      state: JSON.stringify({ userId, service: serviceName }),
+      state: this.signState({ userId, service: serviceName, ...extraState }),
     });
+  }
+
+  private static stateSecret(): string {
+    const secret = process.env.OAUTH_STATE_SECRET || process.env.JWT_SECRET;
+    if (!secret) {
+      throw new Error('OAuth state signing secret is not configured');
+    }
+    return secret;
+  }
+
+  private static signState(payload: Record<string, unknown>): string {
+    const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const signature = crypto
+      .createHmac('sha256', this.stateSecret())
+      .update(encoded)
+      .digest('base64url');
+    return `${encoded}.${signature}`;
   }
 
   /**
@@ -90,12 +109,38 @@ export class GoogleOAuthService {
   /**
    * Parse state parameter from OAuth callback
    */
-  static parseState(state: string): { userId: number; service: string } {
+  static parseState(state: string): { userId: number; service: string; name?: string } {
     try {
-      const parsed = JSON.parse(state);
+      const [encoded, signature, ...rest] = state.split('.');
+      if (!encoded || !signature || rest.length > 0) {
+        throw new Error('malformed state');
+      }
+
+      const expected = crypto
+        .createHmac('sha256', this.stateSecret())
+        .update(encoded)
+        .digest('base64url');
+      const provided = Buffer.from(signature);
+      const expectedBuffer = Buffer.from(expected);
+      if (
+        provided.length !== expectedBuffer.length ||
+        !crypto.timingSafeEqual(provided, expectedBuffer)
+      ) {
+        throw new Error('bad state signature');
+      }
+
+      const parsed = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+      const userId = Number(parsed.userId);
+      if (!Number.isSafeInteger(userId) || userId < 1 || typeof parsed.service !== 'string') {
+        throw new Error('invalid state payload');
+      }
+
       return {
-        userId: parseInt(parsed.userId),
+        userId,
         service: parsed.service,
+        ...(typeof parsed.name === 'string' && parsed.name.trim()
+          ? { name: parsed.name }
+          : {}),
       };
     } catch {
       throw new Error('Invalid state parameter');

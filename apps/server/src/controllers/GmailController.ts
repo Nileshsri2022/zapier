@@ -8,6 +8,26 @@ import { GoogleOAuthService, GMAIL_SCOPES } from '../services';
 const getRedirectUri = () =>
   process.env.GMAIL_REDIRECT_URI || `${process.env.API_URL}/api/gmail/auth/callback`;
 
+/**
+ * Serialize only the fields the UI needs. GmailServer rows carry OAuth
+ * client/refresh/access credentials; returning the raw Prisma row leaked
+ * long-lived mailbox credentials to the browser.
+ */
+const toPublicGmailServer = (server: any) => {
+  if (!server) return server;
+  return {
+    id: server.id,
+    name: server.name,
+    email: server.email,
+    isActive: server.isActive,
+    createdAt: server.createdAt,
+    updatedAt: server.updatedAt,
+    gmailTriggers: server.gmailTriggers,
+    gmailActions: server.gmailActions,
+    watchHistory: server.watchHistory,
+  };
+};
+
 export const initiateGmailAuth = async (req: Request, res: Response): Promise<any> => {
   try {
     const { name } = req.body;
@@ -20,23 +40,19 @@ export const initiateGmailAuth = async (req: Request, res: Response): Promise<an
       });
     }
 
-    // Generate OAuth URL using shared service
+    // Generate OAuth URL using shared service. The display name is part of
+    // the signed state so the callback can trust it.
     const authUrl = GoogleOAuthService.generateAuthUrl(
       getRedirectUri(),
       GMAIL_SCOPES,
       userId,
-      'gmail'
+      'gmail',
+      { name }
     );
-
-    // Add name to the auth URL state by modifying it
-    const url = new URL(authUrl);
-    const state = JSON.parse(url.searchParams.get('state') || '{}');
-    state.name = name;
-    url.searchParams.set('state', JSON.stringify(state));
 
     return res.status(200).json({
       message: 'Gmail OAuth initiated',
-      authUrl: url.toString(),
+      authUrl,
     });
   } catch (error) {
     console.error('Error initiating Gmail auth:', error);
@@ -57,22 +73,10 @@ export const handleGmailCallback = async (req: Request, res: Response): Promise<
       });
     }
 
-    const stateData = JSON.parse(state as string);
-    const { userId, name } = stateData;
-
-    // Validate userId
-    if (!userId) {
-      console.error('Gmail callback: userId is missing from state', stateData);
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      return res.redirect(`${frontendUrl}/editor?gmail=error`);
-    }
-
-    const parsedUserId = parseInt(userId);
-    if (isNaN(parsedUserId)) {
-      console.error('Gmail callback: userId is not a valid number', userId);
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      return res.redirect(`${frontendUrl}/editor?gmail=error`);
-    }
+    // Signed state: throws (and the outer catch redirects with ?gmail=error)
+    // when the payload was forged or tampered with.
+    const { userId, name } = GoogleOAuthService.parseState(state as string);
+    const parsedUserId = Number(userId);
 
     const redirectUri = getRedirectUri();
 
@@ -87,27 +91,62 @@ export const handleGmailCallback = async (req: Request, res: Response): Promise<
     const gmail = google.gmail({ version: 'v1', auth: oauth2Client as any });
     const profile = await gmail.users.getProfile({ userId: 'me' });
 
-    // Save Gmail server configuration using connect for user relation
-    const gmailServer = await client.gmailServer.create({
-      data: {
-        name: name || 'Gmail Server',
-        // Push notifications identify the mailbox only by address, and the
-        // history cursor starts at connect time so no old mail fires
-        // (reports/gmail-worker-routing-spec.md D3 — the profile was
-        // previously fetched for verification and then discarded).
-        email: profile.data.emailAddress || null,
-        lastHistoryId: profile.data.historyId || null,
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-        refreshToken: tokens.refresh_token!,
-        accessToken: tokens.access_token!,
-        tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-        isActive: true,
-        user: {
-          connect: { id: parsedUserId },
+    // Push notifications identify the mailbox only by address, and the
+    // history cursor starts at connect time so no old mail fires
+    // (reports/gmail-worker-routing-spec.md D3 — the profile was previously
+    // fetched for verification and then discarded).
+    const email = profile.data.emailAddress || null;
+    const serverData = {
+      name: name || 'Gmail Server',
+      email,
+      lastHistoryId: profile.data.historyId || null,
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      refreshToken: tokens.refresh_token!,
+      accessToken: tokens.access_token!,
+      tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+      isActive: true,
+    };
+
+    // Reconnecting the same mailbox must update the existing row. Creating a
+    // new one every time produced duplicate servers, duplicate watches and
+    // duplicate runs for every inbound email.
+    const existingServer = email
+      ? await client.gmailServer.findFirst({ where: { userId: parsedUserId, email } })
+      : null;
+
+    let gmailServer: { id: string };
+    let tokenSource = tokens;
+
+    if (existingServer) {
+      // Google may omit refresh_token on a repeat consent; keep the stored one.
+      const refreshToken = tokens.refresh_token || existingServer.refreshToken;
+      tokenSource = { ...tokens, refresh_token: refreshToken };
+
+      gmailServer = await client.gmailServer.update({
+        where: { id: existingServer.id },
+        data: {
+          ...serverData,
+          refreshToken,
         },
-      },
-    });
+      });
+
+      // A reconnect replaces the mailbox's push watch; retire the old rows so
+      // only the new watch is considered active.
+      await client.gmailWatch.updateMany({
+        where: { serverId: existingServer.id, isActive: true },
+        data: { isActive: false },
+      });
+    } else {
+      gmailServer = await client.gmailServer.create({
+        data: {
+          ...serverData,
+          user: {
+            connect: { id: parsedUserId },
+          },
+        },
+      });
+    }
 
     // Set up email watching (only works with public URL, not localhost)
     // Skip watch setup for localhost since Google can't reach it
@@ -118,8 +157,8 @@ export const handleGmailCallback = async (req: Request, res: Response): Promise<
         const gmailService = new GmailService({
           clientId: process.env.GOOGLE_CLIENT_ID!,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-          refreshToken: tokens.refresh_token!,
-          accessToken: tokens.access_token!,
+          refreshToken: tokenSource.refresh_token!,
+          accessToken: tokenSource.access_token!,
           tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
         });
 
@@ -177,7 +216,7 @@ export const getGmailServers = async (req: Request, res: Response): Promise<any>
 
     return res.status(200).json({
       message: 'Gmail servers retrieved successfully',
-      gmailServers,
+      gmailServers: gmailServers.map(toPublicGmailServer),
     });
   } catch (error) {
     console.error('Error fetching Gmail servers:', error);
@@ -222,7 +261,7 @@ export const getGmailServer = async (req: Request, res: Response): Promise<any> 
 
     return res.status(200).json({
       message: 'Gmail server retrieved successfully',
-      gmailServer,
+      gmailServer: toPublicGmailServer(gmailServer),
     });
   } catch (error) {
     console.error('Error fetching Gmail server:', error);
@@ -275,7 +314,23 @@ export const deleteGmailServer = async (req: Request, res: Response): Promise<an
     const userId = req.id;
     const { serverId } = req.params;
 
-    // Stop watching first
+    // Ownership must be verified before touching the mailbox watch or any
+    // related rows: getGmailService() and the deleteMany calls below are
+    // scoped by server id alone.
+    const ownedServer = await client.gmailServer.findFirst({
+      where: {
+        id: serverId as string,
+        userId: parseInt(userId),
+      },
+    });
+
+    if (!ownedServer) {
+      return res.status(404).json({
+        message: 'Gmail server not found',
+      });
+    }
+
+    // Stop watching first (safe now that ownership is established)
     if (serverId) {
       const gmailService = await getGmailService(serverId as string);
       if (gmailService) {

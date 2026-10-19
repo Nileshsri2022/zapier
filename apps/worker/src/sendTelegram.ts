@@ -1,6 +1,8 @@
 import axios from 'axios';
 
 const TELEGRAM_API = 'https://api.telegram.org/bot';
+// Bound every call: a stalled Telegram connection must not block the worker.
+const REQUEST_TIMEOUT_MS = 10_000;
 
 export interface TelegramMessageResult {
   success: boolean;
@@ -20,11 +22,15 @@ export async function sendTelegramMessage(
   try {
     console.log(`📤 Sending Telegram message to chat ${chatId}...`);
 
-    const response = await axios.post(`${TELEGRAM_API}${botToken}/sendMessage`, {
-      chat_id: chatId,
-      text: text,
-      parse_mode: parseMode,
-    });
+    const response = await axios.post(
+      `${TELEGRAM_API}${botToken}/sendMessage`,
+      {
+        chat_id: chatId,
+        text: text,
+        parse_mode: parseMode,
+      },
+      { timeout: REQUEST_TIMEOUT_MS }
+    );
 
     const messageId = response.data.result.message_id;
     console.log(`✅ Telegram message sent successfully: ${messageId}`);
@@ -55,11 +61,15 @@ export async function sendTelegramPhoto(
   try {
     console.log(`📸 Sending Telegram photo to chat ${chatId}...`);
 
-    const response = await axios.post(`${TELEGRAM_API}${botToken}/sendPhoto`, {
-      chat_id: chatId,
-      photo: photoUrl,
-      caption: caption,
-    });
+    const response = await axios.post(
+      `${TELEGRAM_API}${botToken}/sendPhoto`,
+      {
+        chat_id: chatId,
+        photo: photoUrl,
+        caption: caption,
+      },
+      { timeout: REQUEST_TIMEOUT_MS }
+    );
 
     return {
       success: true,
@@ -83,11 +93,15 @@ export async function sendTelegramDocument(
   caption?: string
 ): Promise<TelegramMessageResult> {
   try {
-    const response = await axios.post(`${TELEGRAM_API}${botToken}/sendDocument`, {
-      chat_id: chatId,
-      document: documentUrl,
-      caption: caption,
-    });
+    const response = await axios.post(
+      `${TELEGRAM_API}${botToken}/sendDocument`,
+      {
+        chat_id: chatId,
+        document: documentUrl,
+        caption: caption,
+      },
+      { timeout: REQUEST_TIMEOUT_MS }
+    );
 
     return {
       success: true,
@@ -111,11 +125,15 @@ export async function replyToMessage(
   text: string
 ): Promise<TelegramMessageResult> {
   try {
-    const response = await axios.post(`${TELEGRAM_API}${botToken}/sendMessage`, {
-      chat_id: chatId,
-      text: text,
-      reply_to_message_id: replyToMessageId,
-    });
+    const response = await axios.post(
+      `${TELEGRAM_API}${botToken}/sendMessage`,
+      {
+        chat_id: chatId,
+        text: text,
+        reply_to_message_id: replyToMessageId,
+      },
+      { timeout: REQUEST_TIMEOUT_MS }
+    );
 
     return {
       success: true,

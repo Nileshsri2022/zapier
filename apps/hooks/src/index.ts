@@ -124,6 +124,8 @@ app.post('/api/webhooks/whatsapp', handleWhatsAppWebhook);
 // ============================================
 // Telegram Webhook Routes
 // ============================================
+// Bot id is part of the registered webhook URL (see TelegramRoutes).
+app.post('/api/webhooks/telegram/:botId', handleTelegramWebhook);
 app.post('/api/webhooks/telegram', handleTelegramWebhook);
 
 // ============================================

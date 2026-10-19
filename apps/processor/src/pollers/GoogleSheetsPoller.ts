@@ -11,6 +11,10 @@ import client from '@repo/db';
 import { BasePoller } from './BasePoller';
 import { PollResult } from './types';
 
+function quoteSheetName(sheetName: string): string {
+  return `'${sheetName.replace(/'/g, "''")}'`;
+}
+
 interface UpdatedRow {
   row_number: number;
   row_data: Record<string, any>;
@@ -99,7 +103,7 @@ export class GoogleSheetsPoller extends BasePoller {
     // Fetch spreadsheet data
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: trigger.spreadsheetId,
-      range: `${trigger.sheetName}!A:Z`,
+      range: `${quoteSheetName(trigger.sheetName)}!A:Z`,
     });
 
     const allRows = response.data.values || [];

@@ -269,6 +269,17 @@ router.post('/triggers', authMiddleware, async (req: Request, res: Response): Pr
       return res.status(404).json({ message: 'Server not found' });
     }
 
+    // A trigger may only target one of the caller's own Zaps. Without this
+    // check a user could attach a trigger to another tenant's Zap.
+    if (zapId) {
+      const zap = await client.zap.findFirst({
+        where: { id: zapId, userId },
+      });
+      if (!zap) {
+        return res.status(404).json({ message: 'Zap not found' });
+      }
+    }
+
     const trigger = await client.whatsAppTrigger.create({
       data: {
         serverId,

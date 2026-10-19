@@ -30,7 +30,7 @@ describe('Authentication - Signup', () => {
         expect(response.body.data.user).toHaveProperty('id', 1);
         expect(response.body.data.user).toHaveProperty('name', testUser.name);
         expect(response.body.data.user).toHaveProperty('email', testUser.email);
-        expect(response.body.data.user).toHaveProperty('password'); // Password is returned in response (should be fixed in controller)
+        expect(response.body.data.user).not.toHaveProperty('password'); // never leak the hash
       });
 
       it('should hash the password before storing', async () => {
