@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import client from '@repo/db';
+import { enqueueRun } from '@repo/runs';
 
 const router = Router();
 
@@ -151,10 +152,6 @@ router.post('/webhook/:zapId', async (req: Request, res: Response): Promise<any>
       return res.status(404).json({ error: 'Zap not found' });
     }
 
-    if (!zap.isActive) {
-      return res.status(200).json({ message: 'Zap is not active' });
-    }
-
     // Get the trigger type from the database using triggerId
     const trigger = await client.trigger.findUnique({
       where: { zapId: zap.id },
@@ -182,25 +179,22 @@ router.post('/webhook/:zapId', async (req: Request, res: Response): Promise<any>
     const payloadData = extractPayloadData(event || '', req.body);
 
     // Create ZapRun
-    const zapRun = await client.zapRun.create({
-      data: {
-        zapId: zap.id,
-        metadata: payloadData,
-      },
+    const result = await enqueueRun({
+      zapId: zap.id,
+      metadata: payloadData,
+      source: 'server.github',
     });
 
-    console.log(`✅ ZapRun created: ${zapRun.id} for ${triggerType}`);
+    if (result.status !== 'queued') {
+      // The run-intake module owns the active-Zap check.
+      return res.status(200).json({ message: 'Zap is not active', event: triggerType });
+    }
 
-    // Add to outbox for processing
-    await client.zapRunOutbox.create({
-      data: {
-        zapRunId: zapRun.id,
-      },
-    });
+    console.log(`✅ ZapRun queued: ${result.zapRunId} for ${triggerType}`);
 
     return res.status(200).json({
       message: 'GitHub webhook processed',
-      zapRunId: zapRun.id,
+      zapRunId: result.zapRunId,
       event: triggerType,
     });
   } catch (error) {

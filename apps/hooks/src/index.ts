@@ -1,19 +1,16 @@
 import express, { Request, Response, NextFunction } from 'express';
-import kafka from '@repo/kafka';
 import client from '@repo/db';
 import dotenv from 'dotenv';
+import { disconnectRunDispatcher, enqueueRun } from '@repo/runs';
 import { verifyWhatsAppWebhook, handleWhatsAppWebhook } from './whatsappHandler';
 import { handleTelegramWebhook } from './telegramHandler';
 import { handleGoogleCalendarWebhook } from './googleCalendarHandler';
-import { isDuplicateEvent } from './dedup';
 import { verifyWebhookRequest } from './webhookAuth';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8000;
-
-const TOPIC_NAME = 'zap-events';
 
 // Enable CORS for all routes
 app.use((req, res, next) => {
@@ -30,28 +27,6 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
-
-/**
- * Enqueue a ZapRun for the worker (single execution engine).
- *
- * All triggers — webhooks, schedules, polls — funnel into Kafka here and are
- * executed by apps/worker, which knows the full action catalog, retries,
- * filters/conditions and output chaining. Previously this service also ran a
- * legacy inline executor (Email/Solana only) that marked unimplemented
- * actions as completed (gap D1 in reports/workflow-execution-gaps.md).
- */
-async function enqueueZapRun(zapRunId: string): Promise<void> {
-  const producer = kafka.producer();
-  await producer.connect();
-  try {
-    await producer.send({
-      topic: TOPIC_NAME,
-      messages: [{ value: JSON.stringify({ zapRunId, stage: 1 }) }],
-    });
-  } finally {
-    await producer.disconnect();
-  }
-}
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {
@@ -73,7 +48,7 @@ app.post('/hooks/:userId/:zapId', async (req: Request, res: Response): Promise<a
   try {
     const zap = await client.zap.findUnique({
       where: { id: zapId },
-      include: { actions: true, trigger: true },
+      include: { trigger: true },
     });
 
     // F5: verify webhook signature/secret when WEBHOOK_SECRET or per-trigger
@@ -97,7 +72,17 @@ app.post('/hooks/:userId/:zapId', async (req: Request, res: Response): Promise<a
           ? payload.eventId
           : undefined;
 
-    if (await isDuplicateEvent('webhook', eventId ? `${zapId}:${eventId}` : undefined)) {
+    const result = await enqueueRun({
+      zapId: zapId as string,
+      metadata: triggerPayload,
+      source: 'hooks.webhook',
+      dedup: {
+        scope: 'webhook',
+        key: eventId ? `${zapId}:${eventId}` : undefined,
+      },
+    });
+
+    if (result.status === 'duplicate') {
       return res.status(200).json({
         success: true,
         message: 'Duplicate event skipped',
@@ -105,44 +90,21 @@ app.post('/hooks/:userId/:zapId', async (req: Request, res: Response): Promise<a
       });
     }
 
-    // Create ZapRun record for history
-    const zapRun = await client.zapRun.create({
-      data: {
-        zapId: zapId as string,
-        metadata: triggerPayload,
-      },
-    });
-
-    console.log(`📝 ZapRun created: ${zapRun.id}`);
-
-    if (!zap) {
-      await client.zapRun.update({
-        where: { id: zapRun.id },
-        data: { status: 'failed', errorMessage: 'Zap not found', completedAt: new Date() },
-      });
+    if (result.status === 'skipped') {
       return res.status(201).json({
-        message: 'Hook received but Zap not found',
-        zapRunId: zapRun.id,
+        message:
+          result.reason === 'zap_not_found'
+            ? 'Hook received but Zap not found'
+            : 'Hook received but Zap is inactive',
       });
     }
 
-    if (!zap.isActive) {
-      await client.zapRun.update({
-        where: { id: zapRun.id },
-        data: { status: 'failed', errorMessage: 'Zap is inactive', completedAt: new Date() },
-      });
-      return res.status(201).json({
-        message: 'Hook received but Zap is inactive',
-        zapRunId: zapRun.id,
-      });
-    }
-
-    await enqueueZapRun(zapRun.id);
+    console.log(`📝 ZapRun queued: ${result.zapRunId}`);
 
     // Respond immediately — the worker picks up the event from Kafka
     res.status(201).json({
       message: 'Hook triggered - queued for processing',
-      zapRunId: zapRun.id,
+      zapRunId: result.zapRunId,
     });
   } catch (error) {
     console.error('❌ Webhook error:', error);
@@ -181,6 +143,7 @@ app.use((err: any, req: any, res: any, next: NextFunction) => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('📛 SIGTERM received, shutting down...');
+  await disconnectRunDispatcher();
   await client.$disconnect();
   process.exit(0);
 });

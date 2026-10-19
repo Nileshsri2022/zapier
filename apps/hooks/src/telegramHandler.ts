@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import client from '@repo/db';
-import kafka from '@repo/kafka';
-import { isDuplicateEvent } from './dedup';
+import { enqueueRun } from '@repo/runs';
 
 interface TelegramMessage {
   message_id: number;
@@ -110,46 +109,46 @@ async function processMessage(message: TelegramMessage): Promise<void> {
   for (const trigger of triggers) {
     if (!trigger.zapId) continue;
 
-    const zap = await client.zap.findFirst({
-      where: { id: trigger.zapId, isActive: true },
-    });
+    // The run-intake module owns the active-Zap decision.
+    const zap = await client.zap.findFirst({ where: { id: trigger.zapId } });
 
     if (!zap) continue;
 
-    // Dedup: Telegram redelivers on missed ACKs; one message must fire the Zap once
-    if (await isDuplicateEvent('telegram', `${zap.id}:${message.message_id}`)) {
-      continue;
-    }
-
-    // Create ZapRun with comprehensive message metadata
-    const zapRun = await client.zapRun.create({
-      data: {
-        zapId: zap.id,
-        metadata: {
-          // Sender info
-          userId: message.from.id,
-          firstName: message.from.first_name,
-          lastName: message.from.last_name || '',
-          username: message.from.username || '',
-          isBot: message.from.is_bot,
-          // Chat info
-          chatId: message.chat.id,
-          chatType: message.chat.type,
-          chatTitle: message.chat.title || message.chat.first_name || '',
-          // Message info
-          messageId: message.message_id,
-          text: message.text || '',
-          isCommand: isCommand,
-          command: command,
-          commandArgs: commandArgs,
-          timestamp: message.date,
-          // For reply functionality
-          replyToChatId: message.chat.id,
-          // Useful placeholder for other actions
-          email: `${message.from.username || message.from.id}@telegram.placeholder`,
-        },
+    const result = await enqueueRun({
+      zapId: zap.id,
+      source: 'hooks.telegram',
+      dedup: { scope: 'telegram', key: `${zap.id}:${message.message_id}` },
+      metadata: {
+        // Sender info
+        userId: message.from.id,
+        firstName: message.from.first_name,
+        lastName: message.from.last_name || '',
+        username: message.from.username || '',
+        isBot: message.from.is_bot,
+        // Chat info
+        chatId: message.chat.id,
+        chatType: message.chat.type,
+        chatTitle: message.chat.title || message.chat.first_name || '',
+        // Message info
+        messageId: message.message_id,
+        text: message.text || '',
+        isCommand: isCommand,
+        command: command,
+        commandArgs: commandArgs,
+        timestamp: message.date,
+        // For reply functionality
+        replyToChatId: message.chat.id,
+        // Useful placeholder for other actions
+        email: `${message.from.username || message.from.id}@telegram.placeholder`,
       },
     });
+
+    if (result.status !== 'queued') {
+      // Only a real run advances the trigger clock; a duplicate replay or an
+      // inactive Zap must leave it untouched (same as the previous ingress).
+      console.log(`🔁 Telegram ${result.status} — no run for Zap "${zap.name}"`);
+      continue;
+    }
 
     // Update last processed time
     await client.telegramTrigger.update({
@@ -157,22 +156,6 @@ async function processMessage(message: TelegramMessage): Promise<void> {
       data: { lastProcessedAt: new Date() },
     });
 
-    // Push to Kafka for worker processing
-    const producer = kafka.producer();
-    await producer.connect();
-    await producer.send({
-      topic: 'zap-events',
-      messages: [
-        {
-          value: JSON.stringify({
-            zapRunId: zapRun.id,
-            stage: 1,
-          }),
-        },
-      ],
-    });
-    await producer.disconnect();
-
-    console.log(`✅ Telegram ZapRun created: ${zapRun.id} for Zap "${zap.name}"`);
+    console.log(`✅ Telegram ZapRun queued: ${result.zapRunId} for Zap "${zap.name}"`);
   }
 }

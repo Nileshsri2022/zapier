@@ -157,3 +157,27 @@ Why duplicates arrive: WhatsApp/Meta and Google both redeliver when the consumer
 AI Transform preserves the earlier D1 single-engine closure: Gmail and legacy webhooks enqueue outbox runs; AI executes only in `apps/worker` through the shared server/worker provider package. Existing `GmailDispatch` payload fields support AI `{subject}\n\n{snippet}` / `{body}` templates. The separate Gmail spec's P6 documentation closure and AI spec's **PG implementation** are now marked complete; live Gmail production gates are explicitly still open.
 
 The AI integration also connects per-action conditions across shared schemas, create/update persistence and editor controls. A skipped final action now completes its run, enabling classify → conditional notify without a stuck run. Saved AI settings survive editing. Evidence: commit `75183e1`, component/API/worker regressions, and [AI completion report](ai-implementation-completion.md). No new inline executor, automatic paid-provider fallback or production rollout is introduced.
+---
+
+## 8. Run-intake consolidation (2026-10-19)
+
+The ten trigger-ingress sites now share one deep module, `@repo/runs`
+(`packages/runs`). It owns the whole step that F1/F6 used to re-implement per
+caller:
+
+- active-Zap check (missing or inactive ⇒ no `ZapRun`, typed skip result);
+- optional dedup claim via `@repo/redis` (`SET NX PX`, 24 h, fail-open) with
+  release when the guarded write fails, so a transient DB error does not burn
+  the key;
+- `ZapRun` + `ZapRunOutbox` in one transaction;
+- best-effort immediate Kafka dispatch (capped at 3 s so a provider ACK is
+  never held by a Kafka connect timeout), then outbox-row cleanup. A failed
+  or timed-out dispatch leaves the row for the processor drain, which is now
+  `drainOutbox()` in the same module (batch limit, stale-row cleanup,
+  inactive-run parking).
+
+Delivery contract: **at-least-once**. A dispatch whose outbox cleanup fails
+can replay stage 1 on the next drain; worker-side `(zapRunId, stage)`
+idempotency is the explicit follow-up. Ingress call sites keep their provider
+semantics (signature checks, hydration, filters, cursor advancement) and map
+`queued` / `duplicate` / `skipped` onto their existing HTTP responses.

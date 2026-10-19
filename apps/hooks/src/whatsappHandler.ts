@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import client from '@repo/db';
-import kafka from '@repo/kafka';
-import { isDuplicateEvent } from './dedup';
+import { enqueueRun } from '@repo/runs';
 
 const WHATSAPP_VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'zapmate_whatsapp_verify';
 
@@ -105,45 +104,42 @@ async function processWhatsAppMessage(
     for (const trigger of triggers) {
       if (!trigger.zapId) continue;
 
-      const zap = await client.zap.findFirst({
-        where: {
-          id: trigger.zapId,
-          isActive: true,
-        },
-      });
+      // The run-intake module owns the active-Zap decision.
+      const zap = await client.zap.findFirst({ where: { id: trigger.zapId } });
 
       if (!zap) continue;
 
-      // Dedup: Meta redelivers on missed ACKs; one message must fire the Zap once
-      if (await isDuplicateEvent('whatsapp', `${zap.id}:${message.id}`)) {
-        continue;
-      }
-
-      // Create ZapRun with message metadata
-      const zapRun = await client.zapRun.create({
-        data: {
-          zapId: zap.id,
-          metadata: {
-            // Sender info
-            from: message.from,
-            fromName: contact?.profile?.name || message.from,
-            // Message info
-            messageId: message.id,
-            timestamp: message.timestamp,
-            type: message.type,
-            // Message content based on type
-            text: message.text?.body || '',
-            // For media messages
-            mediaId:
-              message.image?.id || message.audio?.id || message.video?.id || message.document?.id,
-            caption: message.image?.caption || message.video?.caption,
-            // Server info
-            phoneNumberId: phoneNumberId,
-            // Useful placeholders
-            email: `${message.from}@whatsapp.placeholder`,
-          },
+      const result = await enqueueRun({
+        zapId: zap.id,
+        source: 'hooks.whatsapp',
+        dedup: { scope: 'whatsapp', key: `${zap.id}:${message.id}` },
+        metadata: {
+          // Sender info
+          from: message.from,
+          fromName: contact?.profile?.name || message.from,
+          // Message info
+          messageId: message.id,
+          timestamp: message.timestamp,
+          type: message.type,
+          // Message content based on type
+          text: message.text?.body || '',
+          // For media messages
+          mediaId:
+            message.image?.id || message.audio?.id || message.video?.id || message.document?.id,
+          caption: message.image?.caption || message.video?.caption,
+          // Server info
+          phoneNumberId: phoneNumberId,
+          // Useful placeholders
+          email: `${message.from}@whatsapp.placeholder`,
         },
       });
+
+      if (result.status !== 'queued') {
+        // Only a real run advances the trigger clock (same as the previous
+        // ingress: duplicates and inactive Zaps leave it untouched).
+        console.log(`🔁 WhatsApp ${result.status} — no run for Zap ${zap.id}`);
+        continue;
+      }
 
       // Update last processed time
       await client.whatsAppTrigger.update({
@@ -151,23 +147,7 @@ async function processWhatsAppMessage(
         data: { lastProcessedAt: new Date() },
       });
 
-      // Push to Kafka for processing
-      const producer = kafka.producer();
-      await producer.connect();
-      await producer.send({
-        topic: 'zap-events',
-        messages: [
-          {
-            value: JSON.stringify({
-              zapRunId: zapRun.id,
-              stage: 1,
-            }),
-          },
-        ],
-      });
-      await producer.disconnect();
-
-      console.log(`✅ WhatsApp ZapRun created: ${zapRun.id} for Zap ${zap.id}`);
+      console.log(`✅ WhatsApp ZapRun queued: ${result.zapRunId} for Zap ${zap.id}`);
     }
   } catch (error) {
     console.error('Error processing WhatsApp message:', error);

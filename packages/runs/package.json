@@ -1,0 +1,30 @@
+{
+  "name": "@repo/runs",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/src/index.js",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "npx swc src -d dist --copy-files",
+    "test": "jest --runInBand"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Deep run-intake and outbox module for ZapMate",
+  "dependencies": {
+    "@repo/db": "*",
+    "@repo/kafka": "*",
+    "@repo/redis": "*",
+    "@swc/cli": "^0.7.9",
+    "@swc/core": "^1.15.8",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.19.28",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "5.5.4"
+  }
+}

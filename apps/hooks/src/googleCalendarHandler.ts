@@ -10,7 +10,8 @@
 import { Request, Response } from 'express';
 import { google, calendar_v3 } from 'googleapis';
 import client from '@repo/db';
-import { isDuplicateEvent } from './dedup';
+import { isDuplicateEvent } from '@repo/redis';
+import { enqueueRun } from '@repo/runs';
 
 // Channel state for push notifications
 interface GoogleCalendarNotification {
@@ -175,34 +176,30 @@ export async function handleGoogleCalendarWebhook(req: Request, res: Response): 
           continue;
         }
 
-        // Create ZapRun
-        const zapRun = await client.zapRun.create({
-          data: {
-            zapId: trigger.zapId,
-            metadata: JSON.parse(
-              JSON.stringify({
-                trigger_type: isNewEvent ? 'new_event' : eventType,
-                event_id: event.id,
-                summary: event.summary,
-                description: event.description,
-                start: event.start,
-                end: event.end,
-                location: event.location,
-                status: event.status,
-                attendees: event.attendees,
-                html_link: event.htmlLink,
-                created: event.created,
-                updated: event.updated,
-              })
-            ),
+        const result = await enqueueRun({
+          zapId: trigger.zapId,
+          source: 'hooks.calendar-push',
+          metadata: {
+            trigger_type: isNewEvent ? 'new_event' : eventType,
+            event_id: event.id,
+            summary: event.summary,
+            description: event.description,
+            start: event.start,
+            end: event.end,
+            location: event.location,
+            status: event.status,
+            attendees: event.attendees,
+            html_link: event.htmlLink,
+            created: event.created,
+            updated: event.updated,
           },
         });
 
-        await client.zapRunOutbox.create({
-          data: { zapRunId: zapRun.id },
-        });
-
-        console.log(`📅 Created ZapRun ${zapRun.id} for event ${event.summary}`);
+        if (result.status === 'queued') {
+          console.log(`📅 Queued ZapRun ${result.zapRunId} for event ${event.summary}`);
+        } else {
+          console.log(`📅 ZapRun skipped (${result.status}) for event ${event.summary}`);
+        }
       }
 
       // Update sync token for incremental sync
