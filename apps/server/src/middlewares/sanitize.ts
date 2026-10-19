@@ -28,9 +28,31 @@ function sanitizeObject(obj: any): any {
 export const sanitizeInput = (req: Request, res: Response, next: NextFunction): void => {
   // Connection credentials are opaque bytes, not HTML. XSS rewriting corrupts keys.
   // These endpoints validate strict bounded schemas and never render/echo credential input.
-  const isAiConnection = /^\/api\/ai\/connections(?:\/|$)/.test(req.path);
-  if (req.body && !isAiConnection) {
+  const isAiEndpoint =
+    /^\/api\/ai\/connections(?:\/|$)/.test(req.path) || req.path === '/api/actions/ai/test';
+  if (req.body && !isAiEndpoint) {
+    const original = req.body;
     req.body = sanitizeObject(req.body);
+    // AI-specific fields are bounded/schema-validated at save time. Other action fields
+    // (email body, webhook URLs, etc.) retain their previous sanitization behavior.
+    if (/^\/api\/zaps(?:\/|$)/.test(req.path) && Array.isArray(original.actions)) {
+      original.actions.forEach((action: any, index: number) => {
+        const metadata = action?.actionMetaData;
+        if (
+          metadata &&
+          ['openai', 'anthropic', 'puter', 'openai_compatible'].includes(metadata.provider)
+        ) {
+          for (const key of ['input', 'instructions', 'categories', 'outputFields']) {
+            if (
+              Object.prototype.hasOwnProperty.call(metadata, key) &&
+              req.body.actions?.[index]?.actionMetaData
+            ) {
+              req.body.actions[index].actionMetaData[key] = metadata[key];
+            }
+          }
+        }
+      });
+    }
   }
   if (req.query) {
     req.query = sanitizeObject(req.query);

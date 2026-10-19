@@ -64,6 +64,8 @@ export async function runAiStep(
           : 'PUTER_AUTH_TOKEN';
     const apiKey = connection?.apiKey || env[keyName];
     if (!apiKey) throw new AiStepError(`AI action configured but ${keyName} is not set`);
+    if (!/^[!-~]+$/.test(apiKey) || apiKey.length > 8192)
+      throw new AiStepError('AI provider credential is invalid');
     const model = connection ? config.model! : platformModel(config, env);
     const schema = buildJsonSchema(config);
     const request: ProviderRequest = {

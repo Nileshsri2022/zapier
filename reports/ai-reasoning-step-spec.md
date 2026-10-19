@@ -504,7 +504,7 @@ P1 progress: `@repo/ai` adapters/executor, per-attempt atomic Redis reservations
 - [ ] Owner approves decisions and applicable production gates
 - [ ] PC — Migration, encrypted connections, APIs, rotation and safe egress
 - [ ] P1 — Shared adapters, worker, retry/replay, budgets and tests
-- [ ] P3 — Metadata validation, models/test endpoints and tests
+- [x] P3 — Metadata validation, models/test endpoints, CSRF and budgeted connection probes; mocked tests pass
 - [ ] P2 — Seed/icon after worker and server readiness
 - [ ] P4 — Editor and secure connection management
 - [ ] P5 — Gated E2E and documentation

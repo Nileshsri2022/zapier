@@ -1,4 +1,6 @@
 import express from 'express';
+import { authMiddleware } from '../middlewares';
+import { getAiCsrf } from '../middlewares/aiCsrf';
 import AiConnectionsRouter from './AiConnectionsRoutes';
 import { AuthRouter } from './AuthRoutes';
 import { ZapRouter } from './ZapRoutes';
@@ -16,6 +18,7 @@ import ScheduleRouter from './ScheduleRoutes';
 const router = express.Router();
 
 router.use('/auth', AuthRouter);
+router.get('/ai/csrf', authMiddleware, getAiCsrf);
 router.use('/ai/connections', AiConnectionsRouter);
 router.use('/zaps', ZapRouter);
 router.use('/triggers', TriggerRouter);

@@ -127,7 +127,7 @@ test('replacement is owner-scoped and revocation is soft', async () => {
   const revoked = await request(app)
     .delete(`${endpoint}/${id}`)
     .set('Authorization', 'Bearer user-one');
-  expect(revoked.status).toBe(204);
+  expect(revoked.status).toBe(200);
   expect(db.aiConnection.updateMany.mock.calls[1][0].data.revokedAt).toBeInstanceOf(Date);
 });
 

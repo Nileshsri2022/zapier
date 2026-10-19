@@ -65,6 +65,7 @@
       "name": "server",
       "version": "1.0.0",
       "dependencies": {
+        "@repo/ai": "*",
         "@repo/ai-connections": "*",
         "@repo/db": "*",
         "@repo/email": "*",

@@ -1,4 +1,5 @@
-import { CreateZapSchema } from '@repo/types';
+import { CreateZapSchema, UpdateZapActionsSchema } from '@repo/types';
+import { AiMetadataError, validateActionMetadata } from '../services/ai';
 import { Request, Response } from 'express';
 import { formatZodError } from '../helper';
 import client from '@repo/db';
@@ -17,6 +18,8 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
       });
     }
 
+    const actions = await validateActionMetadata(validation.data.actions, Number(id));
+
     const zapId = await client.$transaction(async (tx) => {
       // Look up the trigger type to determine if it's Google Sheets
       const availableTrigger = await tx.availableTriggers.findUnique({
@@ -28,7 +31,7 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
           userId: parseInt(id),
           triggerId: '',
           actions: {
-            create: validation?.data?.actions.map((x, index) => ({
+            create: actions.map((x, index) => ({
               actionId: x.availableActionId as string,
               metadata: x.actionMetaData,
               sortingOrder: index + 1,
@@ -188,6 +191,7 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
       zapId,
     });
   } catch (error) {
+    if (error instanceof AiMetadataError) return res.status(411).json({ message: error.message });
     console.log(error);
     res.status(400).json({
       message: 'Failed to create a zap!',
@@ -422,45 +426,33 @@ export const enableZapExecution = async (req: Request, res: Response): Promise<a
 
 export const updateZapWithId = async (req: Request, res: Response): Promise<any> => {
   try {
-    // @ts-ignore
-    const id = req.id;
-    const { actions } = req.body;
-
+    const userId = Number((req as Request & { id?: unknown }).id);
+    const parsed = UpdateZapActionsSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(411).json({ message: 'Invalid action inputs' });
+    const ownedZap = await client.zap.findFirst({
+      where: { id: req.params.zapId as string, userId },
+    });
+    if (!ownedZap) return res.status(404).json({ message: 'Zap not found' });
+    const actions = await validateActionMetadata(parsed.data.actions, userId);
     const zap = await client.$transaction(async (tx) => {
-      if (actions.length) {
-        await tx.action.deleteMany({
-          where: {
-            zapId: req.params.zapId as string,
+      await tx.action.deleteMany({ where: { zapId: ownedZap.id } });
+      return tx.zap.update({
+        where: { id: ownedZap.id, userId },
+        data: {
+          actions: {
+            create: actions.map((action, index) => ({
+              actionId: action.availableActionId,
+              metadata: action.actionMetaData as any,
+              sortingOrder: index + 1,
+            })),
           },
-        });
-
-        await tx.zap.update({
-          where: {
-            userId: id,
-            id: req.params.zapId as string,
-          },
-          data: {
-            actions: {
-              create: actions.map((x: any, index: number) => ({
-                actionId: x.availableActionId as string,
-                metadata: x.actionMetaData,
-                sortingOrder: index + 1,
-              })),
-            },
-          },
-        });
-      }
+        },
+      });
     });
-
-    return res.status(201).json({
-      message: 'Zap updated successfully',
-      zap,
-    });
-  } catch (error: any) {
-    res.status(401).json({
-      message: 'Could not update the zap, please try again',
-      error: error.response,
-    });
+    return res.status(201).json({ message: 'Zap updated successfully', zap });
+  } catch (error) {
+    if (error instanceof AiMetadataError) return res.status(411).json({ message: error.message });
+    return res.status(500).json({ message: 'Could not update the zap, please try again' });
   }
 };
 

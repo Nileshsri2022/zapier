@@ -46,6 +46,7 @@ jest.mock('@repo/db', () => ({
       findFirst: jest.fn(),
     },
     zap: {
+      count: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),

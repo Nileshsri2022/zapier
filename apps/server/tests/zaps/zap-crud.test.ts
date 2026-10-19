@@ -38,6 +38,7 @@ describe('ZapController - Create Zap', () => {
 
       const mockZap = { id: 'zap-123' };
 
+      (client.availableActions.findUnique as jest.Mock).mockResolvedValue({ type: 'Email' });
       (client.$transaction as jest.Mock).mockResolvedValue('zap-123');
 
       await ZapController.createZap(mockRequest as Request, mockResponse as Response);

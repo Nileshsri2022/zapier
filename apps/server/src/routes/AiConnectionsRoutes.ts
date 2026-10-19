@@ -2,6 +2,10 @@ import { Request, Response, Router } from 'express';
 import { z } from 'zod';
 import { AiConnectionError, CAPABILITY_PROFILES } from '@repo/ai-connections';
 import { authMiddleware } from '../middlewares';
+import { aiCsrf, aiOwner } from '../middlewares/aiCsrf';
+import { previewAi } from '../services/ai';
+import { AiStepError } from '@repo/ai';
+import client from '@repo/db';
 import { getAiConnectionService } from '../services/aiConnections';
 
 const router = Router();
@@ -21,15 +25,7 @@ const createSchema = z
   .strict();
 const updateSchema = createSchema.partial().refine((value) => Object.keys(value).length > 0);
 
-// Bearer-only in the foundation phase: avoid accepting cookie-authenticated secret mutations
-// until the connection editor's CSRF flow is implemented. Never let a cookie override Bearer.
-router.use((req, res, next) => {
-  if (!req.headers.authorization?.startsWith('Bearer ') || req.cookies?.auth_token) {
-    res.status(403).json({ message: 'AI connection management requires Bearer authentication' });
-    return;
-  }
-  next();
-}, authMiddleware);
+router.use(authMiddleware, aiCsrf);
 
 function owner(req: Request): number {
   const userId = (req as Request & { id?: number }).id;
@@ -91,11 +87,49 @@ router.patch('/:id', async (req, res) => {
 });
 router.delete('/:id', async (req, res) => {
   try {
-    await getAiConnectionService().revoke(id(req), owner(req));
-    res.status(204).send();
+    const connectionId = id(req);
+    const userId = owner(req);
+    await getAiConnectionService().revoke(connectionId, userId);
+    const affectedZapCount = await client.zap.count({
+      where: {
+        userId,
+        actions: {
+          some: {
+            action: { type: 'AI Transform' },
+            metadata: { path: ['connectionId'], equals: connectionId },
+          },
+        },
+      },
+    });
+    res.json({ revoked: true, affectedZapCount });
   } catch (error) {
     failure(res, error);
   }
 });
-// No probe endpoint until shared execution and budget accounting exist (P1/P3).
+router.post('/:id/test', async (req, res) => {
+  const model = z.string().trim().min(1).max(200).safeParse(req.body?.model);
+  if (!model.success) {
+    res.status(411).json({ message: 'Model is required for connection test' });
+    return;
+  }
+  try {
+    const output = await previewAi(
+      {
+        provider: 'openai_compatible',
+        connectionId: id(req),
+        model: model.data,
+        mode: 'summarize',
+        input: 'Connection test: reply with OK.',
+      },
+      aiOwner(req)
+    );
+    res.json(output);
+  } catch (error) {
+    res
+      .status(error instanceof AiStepError && error.retryable ? 503 : 400)
+      .json({
+        message: error instanceof AiStepError ? error.message : 'AI connection test failed',
+      });
+  }
+});
 export default router;
