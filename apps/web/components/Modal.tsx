@@ -11,6 +11,7 @@ import { APPS } from './modal/constants';
 
 // Import metadata components
 import {
+  AiMetaData,
   EmailMetaData,
   SolanaMetaData,
   WebhookMetaData,
@@ -190,6 +191,7 @@ const Modal = ({
       selectedItem.type.includes('Gmail') ||
       selectedItem.type === 'Email' ||
       selectedItem.type === 'Solana' ||
+      selectedItem.type === 'AI Transform' ||
       selectedItem.type.startsWith('Schedule'); // Add Schedule
 
     if (needsMetadata) {
@@ -607,7 +609,9 @@ const Modal = ({
             </svg>
             Back to action selection
           </button>
-          {selectedItem?.type === 'Email' ? (
+          {selectedItem?.type === 'AI Transform' ? (
+            <AiMetaData handleClick={handleSaveMetaData} />
+          ) : selectedItem?.type === 'Email' ? (
             <EmailMetaData handleClick={handleSaveMetaData} />
           ) : selectedItem?.type === 'Solana' ? (
             <SolanaMetaData handleClick={handleSaveMetaData} />

@@ -506,7 +506,7 @@ P1 progress: `@repo/ai` adapters/executor, per-attempt atomic Redis reservations
 - [ ] P1 — Shared adapters, worker, retry/replay, budgets and tests
 - [x] P3 — Metadata validation, models/test endpoints, CSRF and budgeted connection probes; mocked tests pass
 - [x] P2 — Seed/icon after worker and server support; six-action registry invariant tested
-- [ ] P4 — Editor and secure connection management
+- [x] P4 — Four-provider editor, fields, connection management, protected billable tests and disclosure; component tests/build pass
 - [ ] P5 — Gated E2E and documentation
 - [ ] Puter verification complete before production activation
 - [ ] Compatible SSRF/transport verification complete before activation

@@ -76,7 +76,7 @@ export function aiModels() {
           .filter(Boolean)
       ),
     ];
-    const defaultModel = process.env[`AI_DEFAULT_MODEL_${suffix}`] || models[0] || '';
+    const defaultModel = process.env[`AI_DEFAULT_MODEL_${suffix}`] || '';
     const key =
       id === 'openai'
         ? 'OPENAI_API_KEY'
@@ -86,7 +86,7 @@ export function aiModels() {
     const configured =
       Boolean(process.env[key]) &&
       models.length > 0 &&
-      models.includes(defaultModel) &&
+      (!defaultModel || models.includes(defaultModel)) &&
       (id !== 'puter' || policy.puterEnabled);
     return { id, models, defaultModel, configured, connectionRequired: false };
   });
