@@ -134,9 +134,14 @@ router.post('/webhook/:zapId', async (req: Request, res: Response): Promise<any>
       return res.status(200).json({ message: 'Event type not supported', event });
     }
 
-    // Verify signature if secret is configured
-    if (secret && signature) {
-      const rawBody = JSON.stringify(req.body);
+    // When a secret is configured, authentication is mandatory: a delivery
+    // without the signature header must not bypass verification.
+    if (secret) {
+      if (!signature) {
+        console.log(`❌ Missing GitHub signature for zap ${zapId}`);
+        return res.status(401).json({ error: 'Missing signature' });
+      }
+      const rawBody = (req as any).rawBody?.toString('utf8') ?? JSON.stringify(req.body);
       if (!verifyGitHubSignature(rawBody, signature, secret)) {
         console.log(`❌ Invalid GitHub signature for zap ${zapId}`);
         return res.status(401).json({ error: 'Invalid signature' });

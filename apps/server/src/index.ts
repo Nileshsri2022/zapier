@@ -40,7 +40,15 @@ app.use(corsMiddleware);
 // Handle preflights explicitly for every path, ahead of all routes/routers.
 app.options('*', corsMiddleware);
 
-app.use(express.json());
+// Capture the raw bytes for webhook HMAC verification (GitHub signs the
+// exact request body; re-serializing parsed JSON is not byte-identical).
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      (req as any).rawBody = Buffer.from(buf);
+    },
+  })
+);
 app.use(cookieParser()); // Parse cookies for auth
 app.use(compressionMiddleware); // Compress API responses
 

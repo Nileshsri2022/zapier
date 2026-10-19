@@ -1,6 +1,8 @@
 import axios from 'axios';
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v18.0';
+// Bound every call: a stalled Meta connection must not block a Kafka partition.
+const REQUEST_TIMEOUT_MS = 10_000;
 
 export interface WhatsAppMessageResult {
   success: boolean;
@@ -40,6 +42,7 @@ export async function sendWhatsAppMessage(
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
+        timeout: REQUEST_TIMEOUT_MS,
       }
     );
 
@@ -95,6 +98,7 @@ export async function sendWhatsAppTemplateMessage(
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
+        timeout: REQUEST_TIMEOUT_MS,
       }
     );
 

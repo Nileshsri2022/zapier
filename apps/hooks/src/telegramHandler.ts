@@ -46,9 +46,20 @@ export async function handleTelegramWebhook(req: Request, res: Response): Promis
     // Always respond 200 quickly to prevent Telegram retries
     res.sendStatus(200);
 
+    // Every bot used to share one webhook URL, so a message could not be
+    // attributed to a bot and was fanned out to every tenant's triggers.
+    // The URL registered by setWebhook now carries the bot id.
+    const botId = typeof req.params?.botId === 'string' ? req.params.botId : '';
+    if (!botId) {
+      console.warn(
+        'Ignoring Telegram update without a bot id; re-register the bot webhook (/api/webhooks/telegram/:botId)'
+      );
+      return;
+    }
+
     // Process message updates
     if (update.message) {
-      await processMessage(update.message);
+      await processMessage(botId, update.message);
     }
 
     // Process edited messages
@@ -71,7 +82,7 @@ export async function handleTelegramWebhook(req: Request, res: Response): Promis
 /**
  * Process incoming Telegram message and trigger Zaps
  */
-async function processMessage(message: TelegramMessage): Promise<void> {
+export async function processMessage(botId: string, message: TelegramMessage): Promise<void> {
   console.log(
     `📨 Telegram message from ${message.from.first_name} (@${message.from.username || 'no-username'}): ${message.text || '[no text]'}`
   );
@@ -81,12 +92,11 @@ async function processMessage(message: TelegramMessage): Promise<void> {
   const command = isCommand ? message.text!.split(' ')[0].split('@')[0] : null;
   const commandArgs = isCommand ? message.text!.slice(command!.length).trim() : null;
 
-  // Find all active Telegram triggers
-  // Note: We match all bots since we don't know which bot this came from
+  // Only triggers belonging to the bot that received this update.
   const triggers = await client.telegramTrigger.findMany({
     where: {
       isActive: true,
-      bot: { isActive: true },
+      bot: { id: botId, isActive: true },
       // Filter by command if the trigger has a filter set
       OR: [
         { filterCommand: null }, // No filter - match all
@@ -117,7 +127,7 @@ async function processMessage(message: TelegramMessage): Promise<void> {
     const result = await enqueueRun({
       zapId: zap.id,
       source: 'hooks.telegram',
-      dedup: { scope: 'telegram', key: `${zap.id}:${message.message_id}` },
+      dedup: { scope: 'telegram', key: `${botId}:${zap.id}:${message.message_id}` },
       metadata: {
         // Sender info
         userId: message.from.id,

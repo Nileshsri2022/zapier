@@ -189,6 +189,21 @@ const Modal = ({
   const handleContinue = () => {
     if (!selectedItem) return;
 
+    // WhatsApp/Telegram have no metadata form, but the Zap needs the chosen
+    // server/bot so createZap can persist the provider trigger row.
+    let itemWithAccount = selectedItem;
+    if (selectedServerId && selectedApp?.id === 'whatsapp') {
+      itemWithAccount = {
+        ...selectedItem,
+        metadata: { ...(selectedItem.metadata || {}), serverId: selectedServerId },
+      };
+    } else if (selectedServerId && selectedApp?.id === 'telegram') {
+      itemWithAccount = {
+        ...selectedItem,
+        metadata: { ...(selectedItem.metadata || {}), botId: selectedServerId },
+      };
+    }
+
     // Check if needs metadata form
     const needsMetadata =
       selectedItem.type.includes('Google Sheets') ||
@@ -210,7 +225,7 @@ const Modal = ({
       }
       setStep(3);
     } else {
-      onClick && onClick(selectedItem);
+      onClick && onClick(itemWithAccount);
       resetModal();
       setIsVisible(0);
     }

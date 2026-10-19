@@ -71,30 +71,39 @@ router.post(
         return res.status(400).json({ message: 'This bot is already registered' });
       }
 
-      // Set webhook automatically
-      const webhookUrl = `${process.env.HOOKS_URL || 'https://zapier-hooks-bqyy.onrender.com'}/api/webhooks/telegram`;
-      try {
-        await axios.post(`${TELEGRAM_API}${botToken}/setWebhook`, {
-          url: webhookUrl,
-          allowed_updates: ['message', 'callback_query'],
-        });
-      } catch (error: any) {
-        console.warn('Webhook setup warning:', error.response?.data?.description);
-      }
-
+      // Create the row first so the webhook URL can carry the bot id. Without
+      // the id the hooks service cannot tell which bot received an update and
+      // would have to fan the message out to every tenant's triggers.
       const bot = await client.telegramBot.create({
         data: {
           userId,
           botToken,
           botName,
           botUsername: botInfo.username,
-          webhookConfigured: true,
+          webhookConfigured: false,
         },
       });
 
+      const webhookBase = process.env.HOOKS_URL || 'https://zapier-hooks-bqyy.onrender.com';
+      const webhookUrl = `${webhookBase}/api/webhooks/telegram/${bot.id}`;
+      let webhookConfigured = false;
+      try {
+        await axios.post(`${TELEGRAM_API}${botToken}/setWebhook`, {
+          url: webhookUrl,
+          allowed_updates: ['message', 'callback_query'],
+        });
+        await client.telegramBot.update({
+          where: { id: bot.id },
+          data: { webhookConfigured: true },
+        });
+        webhookConfigured = true;
+      } catch (error: any) {
+        console.warn('Webhook setup warning:', error.response?.data?.description || error.message);
+      }
+
       res.status(201).json({
         message: `Bot @${botInfo.username} connected successfully!`,
-        bot: { ...bot, botToken: '***hidden***' },
+        bot: { ...bot, webhookConfigured, botToken: '***hidden***' },
       });
     } catch (error: any) {
       console.error('Error creating Telegram bot:', error);
@@ -130,6 +139,40 @@ router.put('/bots/:id', authMiddleware, async (req: Request, res: Response): Pro
     res.json({ message: 'Bot updated', bot: { ...updated, botToken: '***hidden***' } });
   } catch (error: any) {
     res.status(500).json({ message: 'Failed to update bot', error: error.message });
+  }
+});
+
+// Re-register the bot webhook (also repairs bots created before the URL
+// carried the bot id).
+router.post('/bots/:id/webhook', authMiddleware, async (req: Request, res: Response): Promise<any> => {
+  try {
+    // @ts-ignore
+    const userId = req.id;
+    const { id } = req.params;
+
+    const bot = await client.telegramBot.findFirst({
+      where: { id: id as string, userId },
+    });
+
+    if (!bot) return res.status(404).json({ message: 'Bot not found' });
+
+    const webhookBase = process.env.HOOKS_URL || 'https://zapier-hooks-bqyy.onrender.com';
+    await axios.post(`${TELEGRAM_API}${bot.botToken}/setWebhook`, {
+      url: `${webhookBase}/api/webhooks/telegram/${bot.id}`,
+      allowed_updates: ['message', 'callback_query'],
+    });
+
+    await client.telegramBot.update({
+      where: { id: bot.id },
+      data: { webhookConfigured: true },
+    });
+
+    return res.json({ message: 'Webhook registered' });
+  } catch (error: any) {
+    return res.status(502).json({
+      message: 'Failed to register webhook',
+      error: error.response?.data?.description || error.message,
+    });
   }
 });
 
@@ -254,6 +297,15 @@ router.post('/triggers', authMiddleware, async (req: Request, res: Response): Pr
     });
 
     if (!bot) return res.status(404).json({ message: 'Bot not found' });
+
+    // A trigger may only target one of the caller's own Zaps. Without this
+    // check a user could attach a trigger to another tenant's Zap.
+    if (zapId) {
+      const zap = await client.zap.findFirst({
+        where: { id: zapId, userId },
+      });
+      if (!zap) return res.status(404).json({ message: 'Zap not found' });
+    }
 
     const trigger = await client.telegramTrigger.create({
       data: {

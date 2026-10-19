@@ -40,7 +40,8 @@ export const handleWebhook = async (req: Request, res: Response): Promise<any> =
       if (!signature) {
         return res.status(401).json({ message: 'Webhook signature required' });
       }
-      const isValidSignature = verifyWebhookSignature(JSON.stringify(payload), signature);
+      const rawBody = (req as any).rawBody?.toString('utf8') ?? JSON.stringify(payload);
+      const isValidSignature = verifyWebhookSignature(rawBody, signature);
       if (!isValidSignature) {
         return res.status(401).json({ message: 'Invalid webhook signature' });
       }

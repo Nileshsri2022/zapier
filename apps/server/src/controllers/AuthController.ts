@@ -62,7 +62,8 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
   return res.status(201).json({
     message: 'Signup successful',
     data: {
-      user: newUser,
+      // Never serialize the password hash: the client only needs these fields.
+      user: { id: newUser.id, name: newUser.name, email: newUser.email },
     },
   });
 };
@@ -129,23 +130,34 @@ export const signin = async (req: Request, res: Response): Promise<any> => {
 };
 
 export const getUserDetails = async (req: Request, res: Response): Promise<any> => {
-  const { userId } = req.params;
+  const requestedUserId = Number(req.params.userId);
+  // @ts-ignore - req.id is set by authMiddleware
+  const callerId = Number(req.id);
+
+  if (!Number.isSafeInteger(requestedUserId) || requestedUserId < 1) {
+    return res.status(400).json({ message: 'Invalid user id' });
+  }
+
+  // This endpoint is self-service only: a user may fetch their own record.
+  if (requestedUserId !== callerId) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+
   const user = await client.user.findFirst({
-    where: {
-      id: parseInt(userId as string),
-    },
+    where: { id: requestedUserId },
+    select: { id: true, name: true, email: true },
   });
 
   if (!user) {
-    res.status(403).json({
-      message: 'User not found!',
-    });
+    return res.status(404).json({ message: 'User not found!' });
   }
 
   return res.status(200).json({
     message: 'User fetched successfully',
     data: {
-      user,
+      // Explicit projection: never leak the password hash even if the
+      // database client/driver returns more columns than requested.
+      user: { id: user.id, name: user.name, email: user.email },
     },
   });
 };

@@ -228,8 +228,31 @@ async function executeActionWithRetry(
   );
 }
 
+/**
+ * Best-effort failure transition for a run that cannot be processed.
+ * Exported for tests; the Kafka loop uses it before committing the offset so
+ * one bad message cannot be redelivered forever.
+ */
+export async function markRunFailed(zapRunId: string | undefined, errorMessage: string) {
+  if (!zapRunId) return;
+  try {
+    // Only pending/running runs may transition to failed; never overwrite a
+    // run that already completed successfully.
+    await client.zapRun.updateMany({
+      where: { id: zapRunId, status: { in: ['pending', 'running'] } },
+      data: {
+        status: 'failed',
+        errorMessage,
+        completedAt: new Date(),
+      },
+    });
+  } catch (error) {
+    console.error(`Failed to mark ZapRun ${zapRunId} failed:`, error);
+  }
+}
+
 // Process a single Kafka message
-async function processMessage(message: any) {
+export async function processMessage(message: any) {
   const { zapRunId, stage } = JSON.parse(message.value.toString());
   const startTime = Date.now();
 
@@ -247,9 +270,15 @@ async function processMessage(message: any) {
     },
   });
 
+  // A missing run means the message references a deleted/invalid run; failing
+  // loudly lets the consumer mark-and-advance instead of retrying forever.
+  if (!zapRunDetails) {
+    throw new Error(`ZapRun ${zapRunId} does not exist (deleted or invalid outbox message)`);
+  }
+
   // Drop untrusted ingress replay keys on first execution; persisted later outputs remain reusable.
-  const freshRun = zapRunDetails?.status === 'pending';
-  const zapMetadata = prepareRunMetadata(zapRunDetails?.metadata, freshRun);
+  const freshRun = zapRunDetails.status === 'pending';
+  const zapMetadata = prepareRunMetadata(zapRunDetails.metadata, freshRun);
   // Update status to running
   await client.zapRun.update({
     where: { id: zapRunId },
@@ -281,8 +310,17 @@ async function processMessage(message: any) {
   }
 
   if (!currentAction) {
-    console.log('Current Action not found');
-    return { success: false, reason: 'action_not_found', duration: Date.now() - startTime };
+    // Previously this returned without touching the run, leaving it
+    // 'running' forever (and the message uncommitted).
+    const message = `Action for stage ${stage} was not found`;
+    console.log(message);
+    await markRunFailed(zapRunId, message);
+    return {
+      success: false,
+      reason: 'action_not_found',
+      duration: Date.now() - startTime,
+      error: message,
+    };
   }
 
   // Get previous step outputs from metadata (for chaining)
@@ -430,6 +468,29 @@ async function startConsumer() {
         ]);
       } catch (error) {
         console.error('Message processing error:', error);
+
+        // Do not leave the offset uncommitted: KafkaJS would otherwise skip
+        // this message on the next successful commit (silent loss) or
+        // redeliver it forever after a restart (poison pill). Persist the
+        // failure first, then advance.
+        let zapRunId: string | undefined;
+        try {
+          zapRunId = JSON.parse(message.value.toString()).zapRunId;
+        } catch {
+          // Malformed payload: nothing to update, just advance.
+        }
+        await markRunFailed(
+          zapRunId,
+          error instanceof Error ? error.message : 'Unknown processing error'
+        );
+
+        await consumer.commitOffsets([
+          {
+            topic,
+            partition,
+            offset: (parseInt(message.offset) + 1).toString(),
+          },
+        ]);
       }
     },
   });
@@ -477,12 +538,15 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-app.listen(PORT, async () => {
-  console.log(`Worker service running on port ${PORT}`);
-  try {
-    await startConsumer();
-  } catch (err) {
-    console.error('Failed to start consumer on boot:', err);
-    isConsumerRunning = false;
-  }
-});
+// Do not bind a port (or start Kafka) when the module is imported by tests.
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, async () => {
+    console.log(`Worker service running on port ${PORT}`);
+    try {
+      await startConsumer();
+    } catch (err) {
+      console.error('Failed to start consumer on boot:', err);
+      isConsumerRunning = false;
+    }
+  });
+}

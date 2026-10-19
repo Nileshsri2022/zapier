@@ -11,6 +11,15 @@ export interface GoogleSheetsConfig {
   tokenExpiry?: Date;
 }
 
+/**
+ * Quote a sheet name for A1 notation. Names with spaces or punctuation are
+ * rejected by the Sheets API unless quoted, and embedded quotes are escaped
+ * by doubling them.
+ */
+export function quoteSheetName(sheetName: string): string {
+  return `'${sheetName.replace(/'/g, "''")}'`;
+}
+
 export interface UpdatedRow {
   row_number: number;
   row_data: Record<string, any>;
@@ -97,7 +106,7 @@ export class GoogleSheetsService {
 
     const response = await this.sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `${sheetName}!A:Z`,
+      range: `${quoteSheetName(sheetName)}!A:Z`,
     });
 
     const allRows = response.data.values || [];
