@@ -16,7 +16,7 @@
   <div class="lesson-meta">
     <span class="badge">Production</span>
     <span>Win: you can run an AI step safely — no credential leaks, no surprise bills, and a clear rollback plan.</span>
-    <span>Primary source: <a href="../../reports/ai-connection-operations.md">Operations guide</a> + <a href="../reference/troubleshooting.html">Troubleshooting</a></span>
+    <span>Primary source: <a href="../../../reports/ai-connection-operations.md">Operations guide</a> + <a href="../reference/troubleshooting.html">Troubleshooting</a></span>
   </div>
 </header>
 
@@ -134,7 +134,7 @@ Rollback:  Remove execution support only after in-flight handled; do NOT drop Ai
 </div>
 
 <footer class="lesson-foot">
-  <p><strong>Primary sources to keep nearby:</strong> <a href="../../reports/ai-connection-operations.md">Operations guide</a> (setup, rotation, billing), <a href="../reference/troubleshooting.html">Troubleshooting</a>, <a href="../../reports/ai-implementation-completion.md">Completion report</a> (what shipped vs gaps), and <a href="../../reports/ai-reasoning-step-spec.md">Spec §6 privacy/abuse table</a>.</p>
+  <p><strong>Primary sources to keep nearby:</strong> <a href="../../../reports/ai-connection-operations.md">Operations guide</a> (setup, rotation, billing), <a href="../reference/troubleshooting.html">Troubleshooting</a>, <a href="../../../reports/ai-implementation-completion.md">Completion report</a> (what shipped vs gaps), and <a href="../../../reports/ai-reasoning-step-spec.md">Spec §6 privacy/abuse table</a>.</p>
   <p><strong>Graduation challenge:</strong> build a Webhook → AI extract → Webhook chain (spec §5.3 Priya order) in your own editor, then trigger it with a curl. Check <code>ZapRun.metadata.stepOutputs</code> after success — does <code>amount</code> survive as a bare number?</p>
   <p>Question for your teacher: “How would you add a human-approval step before the Solana action I just built?” — we have thoughts, and they involve <code>stepConditions</code> + an external inbox.</p>
 </footer>
