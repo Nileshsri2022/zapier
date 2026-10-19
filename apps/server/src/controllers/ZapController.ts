@@ -34,6 +34,7 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
             create: actions.map((x, index) => ({
               actionId: x.availableActionId as string,
               metadata: x.actionMetaData,
+              stepConditions: x.stepConditions || [],
               sortingOrder: index + 1,
             })),
           },
@@ -443,6 +444,7 @@ export const updateZapWithId = async (req: Request, res: Response): Promise<any>
             create: actions.map((action, index) => ({
               actionId: action.availableActionId,
               metadata: action.actionMetaData as any,
+              stepConditions: action.stepConditions || [],
               sortingOrder: index + 1,
             })),
           },

@@ -161,3 +161,39 @@
   cursor: pointer;
   font-size: 0.85rem;
 }
+.ai-step-conditions {
+  margin-top: 0.6rem;
+  padding: 0.8rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.6rem;
+  background: hsl(var(--card));
+  font-size: 0.8rem;
+  max-width: 40rem;
+}
+.ai-step-conditions summary {
+  cursor: pointer;
+}
+.ai-step-conditions p {
+  margin: 0.7rem 0;
+  color: hsl(var(--muted-foreground));
+}
+.ai-condition-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.ai-condition-row input,
+.ai-condition-row select {
+  min-width: 0;
+  flex: 1 1 9rem;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  padding: 0.5rem;
+  border-radius: 0.3rem;
+}
+.ai-step-conditions button {
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.3rem;
+  padding: 0.4rem;
+}

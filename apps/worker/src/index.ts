@@ -7,6 +7,7 @@ import { withRetry, RetryResult } from './utils/retry';
 import { sendSol, getSolanaPrivateKey } from './sendSolana';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
 import { isKnownActionType } from './utils/actionTypes';
+import { advanceSkippedStage } from './utils/skipStage';
 import { replaceKeys } from './utils/replaceKeys';
 import { readAiPolicy } from '@repo/ai';
 import { validateAiConnectionEnvironment } from '@repo/ai-connections';
@@ -262,6 +263,10 @@ async function processMessage(message: any) {
 
     if (!evaluateFilters(filterConditions, triggerData)) {
       console.log(`🚫 Filters blocked ZapRun ${zapRunId} - skipping all actions`);
+      await client.zapRun.update({
+        where: { id: zapRunId },
+        data: { status: 'completed', completedAt: new Date() },
+      });
       return {
         success: true,
         reason: 'filtered',
@@ -291,13 +296,20 @@ async function processMessage(message: any) {
         `⏭️ Skipping action ${stage} (${currentAction.action.type}) - step conditions not met`
       );
 
-      // Queue next stage even though this one was skipped
-      if (stage !== lastStage) {
-        await producer.send({
-          topic: TOPIC_NAME,
-          messages: [{ value: JSON.stringify({ zapRunId, stage: stage + 1 }) }],
-        });
-      }
+      await advanceSkippedStage(
+        stage,
+        lastStage,
+        () =>
+          producer.send({
+            topic: TOPIC_NAME,
+            messages: [{ value: JSON.stringify({ zapRunId, stage: stage + 1 }) }],
+          }),
+        () =>
+          client.zapRun.update({
+            where: { id: zapRunId },
+            data: { status: 'completed', completedAt: new Date() },
+          })
+      );
 
       return {
         success: true,

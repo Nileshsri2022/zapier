@@ -50,7 +50,7 @@ const discovery = {
     },
   ],
 };
-async function fixture(t) {
+async function fixture(t, initialData) {
   const calls = [];
   const results = [];
   const client = {
@@ -79,7 +79,7 @@ async function fixture(t) {
   let view;
   await act(async () => {
     view = Renderer.create(
-      React.createElement(Component, { handleClick: (data) => results.push(data) })
+      React.createElement(Component, { handleClick: (data) => results.push(data), initialData })
     );
   });
   t.after(() => {
@@ -179,4 +179,55 @@ test('AI API client uses fresh CSRF and credentialed fetch without paid-call ret
   assert.equal(calls[1].options.credentials, 'include');
   assert.equal(calls[1].options.headers.get('X-AI-CSRF'), 'csrf-value');
   assert.ok(!calls[1].url.includes('localhost'));
+});
+
+test('editing preserves saved provider, model, templates and instructions after discovery', async (t) => {
+  const initialData = {
+    provider: 'anthropic',
+    model: 'claude-test',
+    mode: 'summarize',
+    input: '{body}',
+    instructions: 'Two lines in Hindi',
+    temperature: 0.2,
+    maxOutputTokens: 300,
+  };
+  const f = await fixture(t, initialData);
+  assert.equal(f.view.root.findByProps({ id: 'ai-provider' }).props.value, 'anthropic');
+  assert.equal(f.view.root.findByProps({ id: 'ai-input' }).props.value, '{body}');
+  await f.click('Save AI step');
+  assert.equal(f.results[0].model, 'claude-test');
+  assert.equal(f.results[0].instructions, initialData.instructions);
+});
+
+test('step-condition editor creates the exact AI routing contract', () => {
+  const Component = load('../components/StepConditionsEditor.tsx').default;
+  let conditions = [];
+  let view;
+  const props = () => ({
+    step: 2,
+    conditions,
+    onChange: (value) => {
+      conditions = value;
+    },
+  });
+  act(() => {
+    view = Renderer.create(React.createElement(Component, props()));
+  });
+  act(() =>
+    view.root
+      .findAllByType('button')
+      .find((b) => b.children.join('') === 'Add step condition')
+      .props.onClick()
+  );
+  assert.deepEqual(conditions, [
+    { field: 'previousOutput.fields.category', operator: 'equals', value: 'negative' },
+  ]);
+  act(() => view.update(React.createElement(Component, props())));
+  act(() =>
+    view.root
+      .findByProps({ 'aria-label': 'Action 2 condition 1 value' })
+      .props.onChange({ target: { value: 'positive' } })
+  );
+  assert.equal(conditions[0].value, 'positive');
+  act(() => view.unmount());
 });

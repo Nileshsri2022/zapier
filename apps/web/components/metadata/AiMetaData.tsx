@@ -24,20 +24,31 @@ const emptyConnection = {
   capabilityProfileId: 'chat_json_schema',
 };
 
-export default function AiMetaData({ handleClick }: MetaDataFormProps) {
+export default function AiMetaData({
+  handleClick,
+  initialData,
+}: MetaDataFormProps & { initialData?: unknown }) {
+  const parsedInitial = AiActionMetaDataSchema.safeParse(initialData);
+  const initial = parsedInitial.success ? parsedInitial.data : undefined;
   const [discovery, setDiscovery] = useState<AiDiscovery>();
   const [connections, setConnections] = useState<AiConnectionView[]>([]);
-  const [provider, setProvider] = useState('openai');
-  const [model, setModel] = useState('');
-  const [connectionId, setConnectionId] = useState('');
-  const [mode, setMode] = useState<AiActionMetaData['mode']>('summarize');
-  const [input, setInput] = useState('{text}');
-  const [instructions, setInstructions] = useState('');
-  const [categories, setCategories] = useState('positive\nneutral\nnegative');
-  const [fields, setFields] = useState<Field[]>([newField()]);
-  const [structuredCustom, setStructuredCustom] = useState(false);
-  const [temperature, setTemperature] = useState(0);
-  const [tokens, setTokens] = useState(500);
+  const [provider, setProvider] = useState<string>(initial?.provider || 'openai');
+  const [model, setModel] = useState(initial?.model || '');
+  const [connectionId, setConnectionId] = useState(initial?.connectionId || '');
+  const [mode, setMode] = useState<AiActionMetaData['mode']>(initial?.mode || 'summarize');
+  const [input, setInput] = useState(initial?.input || '{text}');
+  const [instructions, setInstructions] = useState(initial?.instructions || '');
+  const [categories, setCategories] = useState(
+    initial?.categories?.join('\n') || 'positive\nneutral\nnegative'
+  );
+  const [fields, setFields] = useState<Field[]>(
+    initial?.outputFields?.length ? initial.outputFields : [newField()]
+  );
+  const [structuredCustom, setStructuredCustom] = useState(
+    initial?.mode === 'custom' && Boolean(initial.outputFields?.length)
+  );
+  const [temperature, setTemperature] = useState(initial?.temperature || 0);
+  const [tokens, setTokens] = useState(initial?.maxOutputTokens || 500);
   const [sample, setSample] = useState('Order 84120 for ₹1,499 has not arrived. Please help.');
   const [preview, setPreview] = useState<AiPreview>();
   const [error, setError] = useState('');
@@ -53,15 +64,18 @@ export default function AiMetaData({ handleClick }: MetaDataFormProps) {
       .then(async (data) => {
         if (!alive) return;
         setDiscovery(data);
-        setProvider(data.defaultProvider);
+        if (!initial) setProvider(data.defaultProvider);
         const active = data.providers.find((p) => p.id === data.defaultProvider);
-        setModel(active?.defaultModel || active?.models[0] || '');
-        setTokens(Math.min(500, data.limits.maxOutputTokens));
+        if (!initial) {
+          setModel(active?.defaultModel || active?.models[0] || '');
+          setTokens(Math.min(500, data.limits.maxOutputTokens));
+        }
         if (data.providers.find((p) => p.id === 'openai_compatible')?.configured) {
           const saved = await aiRequest<{ connections: AiConnectionView[] }>('/api/ai/connections');
           if (alive) {
             setConnections(saved.connections);
-            setConnectionId(saved.connections.find((c) => !c.revoked)?.id || '');
+            if (!initial?.connectionId)
+              setConnectionId(saved.connections.find((c) => !c.revoked)?.id || '');
           }
         }
       })

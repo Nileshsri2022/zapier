@@ -199,6 +199,9 @@ test('create stores parsed metadata without credentials and preserves literal ow
       actions: [
         {
           availableActionId: 'ai',
+          stepConditions: [
+            { field: 'previousOutput.fields.category', operator: 'equals', value: 'negative' },
+          ],
           actionMetaData: {
             ...config,
             instructions: 'Keep <tag> and {text}',
@@ -211,6 +214,9 @@ test('create stores parsed metadata without credentials and preserves literal ow
   const stored = create.mock.calls[0][0].data.actions.create[0].metadata;
   expect(stored).not.toHaveProperty('apiKey');
   expect(stored.instructions).toBe('Keep <tag> and {text}');
+  expect(create.mock.calls[0][0].data.actions.create[0].stepConditions).toEqual([
+    { field: 'previousOutput.fields.category', operator: 'equals', value: 'negative' },
+  ]);
 });
 
 test('compatible connection ownership checked on save; foreign Zap cannot be updated', async () => {
@@ -246,4 +252,22 @@ test('compatible connection ownership checked on save; foreign Zap cannot be upd
     ).status
   ).toBe(404);
   expect(db.$transaction).not.toHaveBeenCalled();
+});
+
+test('step condition schema rejects unsupported operators and prototype paths', () => {
+  const { StepConditionSchema } = require('@repo/types');
+  expect(
+    StepConditionSchema.safeParse({
+      field: 'previousOutput.fields.category',
+      operator: 'equals',
+      value: 'negative',
+    }).success
+  ).toBe(true);
+  expect(
+    StepConditionSchema.safeParse({ field: 'x', operator: 'made_up', value: 'negative' }).success
+  ).toBe(false);
+  expect(
+    StepConditionSchema.safeParse({ field: '__proto__.x', operator: 'equals', value: 'negative' })
+      .success
+  ).toBe(false);
 });
