@@ -258,26 +258,3 @@
   padding: var(--space-lg) 0;
   color: hsl(var(--brand-primary));
 }
-
-.history-audit-card {
-  background: hsl(var(--background));
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius-md);
-  padding: 0.625rem 0.75rem;
-  margin-bottom: 0.5rem;
-  font-size: var(--text-xs);
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.history-audit-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.history-audit-val {
-  font-family: var(--font-geist-mono), monospace;
-  color: hsl(var(--foreground));
-}

@@ -164,7 +164,6 @@ export async function sendDiscordMessage(
     Boolean(
       (resolvedEmbed.title && resolvedEmbed.title.trim().length > 0) ||
       (resolvedEmbed.description && resolvedEmbed.description.trim().length > 0) ||
-      resolvedEmbed.timestamp ||
       (Array.isArray(resolvedEmbed.fields) && resolvedEmbed.fields.length > 0)
     );
 
@@ -172,7 +171,7 @@ export async function sendDiscordMessage(
     return {
       success: false,
       isFatal: true,
-      error: 'Either content or embed (with title, description, timestamp, or fields) is required to send a Discord message.',
+      error: 'Either content or embed (with title, description, or fields) is required to send a Discord message.',
     };
   }
 

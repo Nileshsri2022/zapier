@@ -177,20 +177,22 @@ test('Metadata Form Seam: Empty embed toggle does not emit embed object in metad
   assert.equal(metadata.embed, undefined);
 });
 
-test('Metadata Form Seam: Non-text embeds with timestamp evaluate hasEmbedContent to true (standalone URL does not)', () => {
+test('Metadata Form Seam: Embed requires body content (title, description, or fields); timestamp or URL alone evaluates hasEmbedContent to false', () => {
   const showEmbed = true;
   const embedTitle = '';
   const embedDescription = '';
   const hasValidFields = false;
 
-  const evaluateHasEmbedContent = ({ title, desc, hasFields, timestamp }) =>
-    showEmbed && (title.trim().length > 0 || desc.trim().length > 0 || Boolean(timestamp) || hasFields);
+  const evaluateHasEmbedContent = ({ title, desc, hasFields }) =>
+    showEmbed && (title.trim().length > 0 || desc.trim().length > 0 || hasFields);
 
-  // Standalone URL without title/desc/timestamp/fields does NOT make embed content valid
-  assert.equal(evaluateHasEmbedContent({ title: embedTitle, desc: embedDescription, hasFields: hasValidFields, timestamp: false }), false);
+  // Standalone URL or timestamp without title/desc/fields does NOT make embed content valid
+  assert.equal(evaluateHasEmbedContent({ title: embedTitle, desc: embedDescription, hasFields: hasValidFields }), false);
 
-  // Timestamp or fields makes it valid
-  assert.equal(evaluateHasEmbedContent({ title: embedTitle, desc: embedDescription, hasFields: hasValidFields, timestamp: true }), true);
+  // Body content (title, desc, or fields) makes it valid
+  assert.equal(evaluateHasEmbedContent({ title: 'Alert', desc: embedDescription, hasFields: hasValidFields }), true);
+  assert.equal(evaluateHasEmbedContent({ title: embedTitle, desc: 'Details here', hasFields: hasValidFields }), true);
+  assert.equal(evaluateHasEmbedContent({ title: embedTitle, desc: embedDescription, hasFields: true }), true);
 });
 
 test('Metadata Form Seam: Rehydrates numeric embed color and pure black 0 without crashing', () => {

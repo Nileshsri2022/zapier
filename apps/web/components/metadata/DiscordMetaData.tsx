@@ -97,13 +97,12 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
   const isEmbedUrlValid = !embedUrl.trim() || embedTitle.trim().length > 0;
   const areFieldsValid = embedFields.every((f) => f.name.length <= 256 && f.value.length <= 1024);
 
-  // Rich embed is valid if it has title, description, timestamp, OR any valid field (spec §23, §72; url requires title)
+  // Rich embed is valid if it has title, description, or any valid field (spec §23, §72; url requires title)
   const hasValidFields = embedFields.some((f) => f.name.trim().length > 0 && f.value.trim().length > 0);
   const hasEmbedContent =
     showEmbed && (
       embedTitle.trim().length > 0 ||
       embedDescription.trim().length > 0 ||
-      Boolean(includeTimestamp) ||
       hasValidFields
     );
 
@@ -498,7 +497,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
 
             {showEmbed && !hasEmbedContent && (
               <p className="meta-form__hint">
-                An embed requires a title, description, timestamp, or at least one field to be attached.
+                An embed requires a title, description, or at least one field to be attached.
               </p>
             )}
           </div>
@@ -540,13 +539,20 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
                 <p className="meta-form__error-text">Sender name exceeds Discord&apos;s 80-character limit.</p>
               )}
             </div>
-            <FormInput
-              label="Avatar URL (Optional)"
-              name="avatarUrl"
-              value={avatarUrl}
-              placeholder="https://.../avatar.png"
-              onChange={(e: any) => setAvatarUrl(e.target.value)}
-            />
+            <div>
+              <div className="meta-form__row">
+                <label className="meta-form__label">Avatar URL (Optional)</label>
+                <span className="meta-form__counter">{avatarUrl.length}</span>
+              </div>
+              <input
+                type="text"
+                name="avatarUrl"
+                value={avatarUrl}
+                className="meta-form__input"
+                placeholder="https://.../avatar.png"
+                onChange={(e: any) => setAvatarUrl(e.target.value)}
+              />
+            </div>
           </div>
         )}
       </div>

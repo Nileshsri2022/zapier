@@ -1,7 +1,7 @@
 # Discord Action Via Incoming Webhooks
 
 ## Context
-ZapMate automates workflows by executing actions in response to trigger events. Users need to send real-time notifications to Discord channels (e.g. sales alerts, Solana transaction confirmations, new form leads). 
+ZapMate automates Zaps by executing actions in response to trigger events. Users need to send real-time notifications to Discord channels (e.g. sales alerts, Solana transaction confirmations, new form leads). 
 
 There were two technical routes considered:
 1. **Discord Application with OAuth2 / Gateway Connection**: Requiring users to create an application in the Discord Developer Portal, configure application scopes/permissions, invite the application to their server, and manage application tokens.

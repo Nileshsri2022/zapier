@@ -222,6 +222,19 @@ describe('sendDiscordMessage', () => {
     expect(calledBody.embeds[0].fields[0].value.length).toBeLessThanOrEqual(1024);
   });
 
+  it('rejects sending when only embed timestamp or color is provided without title, description, or fields', async () => {
+    const result = await sendDiscordMessage(validWebhookUrl, {
+      embed: {
+        timestamp: 'now',
+        color: '#5865F2',
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.isFatal).toBe(true);
+    expect(result.error).toContain('Either content or embed (with title, description, or fields) is required');
+  });
+
   it('interpolates nested placeholders across embed title, description, and fields', () => {
     const zapRunMetadata = {
       trigger: {

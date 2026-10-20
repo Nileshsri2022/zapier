@@ -1,4 +1,4 @@
-# Specification: Discord Webhook Action (`Discord Send Message`)
+# Specification: Discord Action (`Discord Send Message`)
 
 **Status**: Ready for Agent (`ready-for-agent`)  
 **Context**: ZapMate Automation Platform  
@@ -28,7 +28,7 @@ Users configure their action by pasting an incoming Discord Webhook URL and draf
 
 ## User Stories
 
-1. As a Zap creator, I want to select "Discord Send Message" from the action catalog, so that I can add Discord notifications to my automation pipeline.
+1. As a Zap creator, I want to select "Discord Send Message" from the action catalog, so that I can add Discord notifications to my Zap.
 2. As a Zap creator, I want to paste a Discord incoming webhook URL into the action form, so that the message routes directly to my desired server and channel without OAuth complexity.
 3. As a Zap creator, I want to write plain text messages with Markdown formatting (bold, italic, code blocks), so that my notifications are easy to read in Discord.
 4. As a Zap creator, I want to use dynamic placeholders like `{trigger.data.txHash}` or `{trigger.data.from}` in the message content, so that real event data appears in the alert.
