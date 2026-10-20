@@ -62,6 +62,25 @@ test('Metadata Form Seam: Sample trigger variable replacement in test modal', ()
   assert.equal(resolved, 'Sent 2.5 SOL to Alice (0x71C...3a1) on tx 5K2b9a1z9PqL7eR3tU6vW8xY2');
 });
 
+test('Metadata Form Seam: Resolves sample placeholders in embedUrl during test delivery assembly', () => {
+  const SAMPLE_TRIGGER_VALUES = {
+    '{trigger.data.txHash}': '5K2b9a1z9PqL7eR3tU6vW8xY2',
+  };
+
+  function resolveSamplePlaceholders(text) {
+    if (!text) return text;
+    let resolved = text;
+    for (const [placeholder, sampleValue] of Object.entries(SAMPLE_TRIGGER_VALUES)) {
+      resolved = resolved.split(placeholder).join(sampleValue);
+    }
+    return resolved;
+  }
+
+  const embedUrl = 'https://solscan.io/tx/{trigger.data.txHash}';
+  const resolved = resolveSamplePlaceholders(embedUrl);
+  assert.equal(resolved, 'https://solscan.io/tx/5K2b9a1z9PqL7eR3tU6vW8xY2');
+});
+
 test('Metadata Form Seam: Field-only rich embeds are valid without title or description', () => {
   const embedFields = [{ name: 'Status', value: 'Confirmed', inline: true }];
   const embedTitle = '';
