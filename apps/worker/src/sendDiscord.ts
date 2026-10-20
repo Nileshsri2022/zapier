@@ -73,7 +73,7 @@ export function resolveDiscordPlaceholders(
     ...options,
     content: options.content ? replaceKeys(options.content, metadata) : undefined,
     username: options.username ? replaceKeys(options.username, metadata) : undefined,
-    avatarUrl: options.avatarUrl ? replaceKeys(options.avatarUrl, metadata) : undefined,
+    avatarUrl: options.avatarUrl,
   };
 
   if (options.embed) {
@@ -159,7 +159,7 @@ export async function sendDiscordMessage(
   }
 
   const hasContent = typeof content === 'string' && content.trim().length > 0;
-  const hasBodyContent =
+  const hasEmbedContent =
     resolvedEmbed !== undefined &&
     Boolean(
       (resolvedEmbed.title && resolvedEmbed.title.trim().length > 0) ||
@@ -167,21 +167,7 @@ export async function sendDiscordMessage(
       (Array.isArray(resolvedEmbed.fields) && resolvedEmbed.fields.length > 0)
     );
 
-  const hasAnyEmbedProps =
-    resolvedEmbed !== undefined &&
-    Boolean(
-      hasBodyContent ||
-      resolvedEmbed.timestamp ||
-      resolvedEmbed.color !== undefined ||
-      resolvedEmbed.url
-    );
-
-  // If there is message content, any configured embed can be attached.
-  // If there is no message content, the embed MUST have body content (title, description, or fields)
-  // so Discord will not reject with HTTP 400 "Cannot send an empty message".
-  const hasEmbedContent = hasContent ? hasAnyEmbedProps : hasBodyContent;
-
-  if (!hasContent && !hasBodyContent) {
+  if (!hasContent && !hasEmbedContent) {
     return {
       success: false,
       isFatal: true,

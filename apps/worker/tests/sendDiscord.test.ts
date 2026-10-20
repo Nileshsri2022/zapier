@@ -235,9 +235,9 @@ describe('sendDiscordMessage', () => {
     expect(result.error).toContain('Either content or embed (with title, description, or fields) is required');
   });
 
-  it('includes embed with timestamp and color when message content is provided', async () => {
+  it('omits bodyless embed (only color or timestamp) and sends content successfully without triggering Discord 400', async () => {
     post.mockResolvedValueOnce({
-      data: { id: 'msg-with-embed' },
+      data: { id: 'msg-content-only' },
     });
 
     const result = await sendDiscordMessage(validWebhookUrl, {
@@ -251,10 +251,15 @@ describe('sendDiscordMessage', () => {
     expect(result.success).toBe(true);
     const [, calledBody] = post.mock.calls[0];
     expect(calledBody.content).toBe('Here is your update');
-    expect(calledBody.embeds).toBeDefined();
-    expect(calledBody.embeds).toHaveLength(1);
-    expect(calledBody.embeds[0].color).toBe(5793266);
-    expect(calledBody.embeds[0].timestamp).toBeDefined();
+    expect(calledBody.embeds).toBeUndefined();
+  });
+
+  it('preserves avatarUrl without attempting key interpolation per spec scope', () => {
+    const options = {
+      avatarUrl: 'https://cdn.example.com/avatars/{trigger.data.id}.png',
+    };
+    const resolved = resolveDiscordPlaceholders(options, { trigger: { data: { id: '123' } } });
+    expect(resolved.avatarUrl).toBe('https://cdn.example.com/avatars/{trigger.data.id}.png');
   });
 
   it('interpolates nested placeholders across embed title, description, and fields', () => {

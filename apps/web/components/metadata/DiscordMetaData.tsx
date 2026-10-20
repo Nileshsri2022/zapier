@@ -97,20 +97,14 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
   const isEmbedUrlValid = !embedUrl.trim() || embedTitle.trim().length > 0;
   const areFieldsValid = embedFields.every((f) => f.name.length <= 256 && f.value.length <= 1024);
 
-  // Rich embed has body content if it has title, description, or valid fields
+  // Rich embed is valid if it has title, description, or valid fields (spec §23, §72; url requires title)
   const hasValidFields = embedFields.some((f) => f.name.trim().length > 0 && f.value.trim().length > 0);
-  const hasBodyContent =
-    embedTitle.trim().length > 0 ||
-    embedDescription.trim().length > 0 ||
-    hasValidFields;
-
-  const hasAnyEmbedProps =
-    hasBodyContent ||
-    Boolean(includeTimestamp) ||
-    embedUrl.trim().length > 0;
-
-  // An embed is attached if user enables embed and either has content (with any embed prop) or has body content
-  const hasEmbedContent = showEmbed && (content.trim().length > 0 ? hasAnyEmbedProps : hasBodyContent);
+  const hasEmbedContent =
+    showEmbed && (
+      embedTitle.trim().length > 0 ||
+      embedDescription.trim().length > 0 ||
+      hasValidFields
+    );
 
   const isEmbedValid = !showEmbed || (
     isTitleValid &&
@@ -154,8 +148,8 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
       return;
     }
 
-    if (!content.trim() && !hasBodyContent) {
-      setTestMessage({ type: 'error', text: 'Enter message content or configure an embed (with title, description, or fields) to test.' });
+    if (!content.trim() && !hasEmbedContent) {
+      setTestMessage({ type: 'error', text: 'Enter message content or configure an embed to test.' });
       return;
     }
 
@@ -501,9 +495,9 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
               ))}
             </div>
 
-            {showEmbed && !hasBodyContent && !content.trim() && (
+            {showEmbed && !hasEmbedContent && (
               <p className="meta-form__hint">
-                An embed requires a title, description, or at least one field when message content is blank.
+                An embed requires a title, description, or at least one field to be attached.
               </p>
             )}
           </div>
@@ -545,13 +539,20 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
                 <p className="meta-form__error-text">Sender name exceeds Discord&apos;s 80-character limit.</p>
               )}
             </div>
-            <FormInput
-              label="Avatar URL (Optional)"
-              name="avatarUrl"
-              value={avatarUrl}
-              placeholder="https://.../avatar.png"
-              onChange={(e: any) => setAvatarUrl(e.target.value)}
-            />
+            <div>
+              <div className="meta-form__row">
+                <label className="meta-form__label">Avatar URL (Optional)</label>
+                <span className="meta-form__counter">{avatarUrl.length}</span>
+              </div>
+              <input
+                type="text"
+                name="avatarUrl"
+                value={avatarUrl}
+                className="meta-form__input"
+                placeholder="https://.../avatar.png"
+                onChange={(e: any) => setAvatarUrl(e.target.value)}
+              />
+            </div>
           </div>
         )}
       </div>
