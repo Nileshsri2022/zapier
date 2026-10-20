@@ -84,13 +84,13 @@ export function resolveDiscordPlaceholders(
       url: options.embed.url ? replaceKeys(options.embed.url, metadata) : undefined,
       timestamp: options.embed.timestamp ? replaceKeys(options.embed.timestamp, metadata) : undefined,
       fields: options.embed.fields
-        ?.filter((field) => field && String(field.name || '').trim().length > 0 && String(field.value || '').trim().length > 0)
-        .slice(0, 25)
-        .map((field) => ({
-          name: replaceKeys(String(field.name), metadata).slice(0, 256),
-          value: replaceKeys(String(field.value), metadata).slice(0, 1024),
+        ?.map((field) => ({
+          name: replaceKeys(String(field.name || ''), metadata).trim().slice(0, 256),
+          value: replaceKeys(String(field.value || ''), metadata).trim().slice(0, 1024),
           inline: field.inline,
-        })),
+        }))
+        .filter((field) => field.name.length > 0 && field.value.length > 0)
+        .slice(0, 25),
     };
   }
 
@@ -139,11 +139,13 @@ export async function sendDiscordMessage(
           }))
       : undefined;
 
+    const hasValidTitle = typeof embed.title === 'string' && embed.title.trim().length > 0;
+
     resolvedEmbed = {
-      title: embed.title ? String(embed.title).slice(0, 256) : undefined,
+      title: hasValidTitle ? String(embed.title).slice(0, 256) : undefined,
       description: embed.description ? String(embed.description).slice(0, 4096) : undefined,
       color: normalizeDiscordColor(embed.color),
-      url: embed.url || undefined,
+      url: hasValidTitle && embed.url ? String(embed.url).trim() || undefined : undefined,
       timestamp: resolvedTimestamp,
       fields: sanitizedFields && sanitizedFields.length > 0 ? sanitizedFields : undefined,
     };
@@ -162,7 +164,6 @@ export async function sendDiscordMessage(
     Boolean(
       (resolvedEmbed.title && resolvedEmbed.title.trim().length > 0) ||
       (resolvedEmbed.description && resolvedEmbed.description.trim().length > 0) ||
-      (resolvedEmbed.url && resolvedEmbed.url.trim().length > 0) ||
       resolvedEmbed.timestamp ||
       (Array.isArray(resolvedEmbed.fields) && resolvedEmbed.fields.length > 0)
     );
@@ -171,7 +172,7 @@ export async function sendDiscordMessage(
     return {
       success: false,
       isFatal: true,
-      error: 'Either content or embed (with title, description, url, timestamp, or fields) is required to send a Discord message.',
+      error: 'Either content or embed (with title, description, timestamp, or fields) is required to send a Discord message.',
     };
   }
 

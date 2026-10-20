@@ -136,5 +136,5 @@ interface DiscordActionMetadata {
 
 ## Further Notes
 
-- **Icon Asset**: Place a clean SVG icon at `apps/web/public/apps/discord.svg` matching the brand assets of Telegram and WhatsApp.
+- **Icon Asset**: Place a clean SVG icon at `apps/web/public/apps/discord.svg` matching the brand assets of Telegram and WhatsApp, and register `/apps/discord.svg` in `apps/web/lib/appIcon.ts` and `apps/web/components/modal/constants.ts`.
 - **Database Migrations**: No schema alterations are needed for `Action` or `ZapRun` because `metadata` is already typed as `Json`. Only `AvailableActions` requires seeding `"Discord Send Message"`.

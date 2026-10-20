@@ -1,12 +1,21 @@
+const mockFindFirst = jest.fn();
+const mockUpdate = jest.fn();
 const mockUpdateMany = jest.fn();
 
 jest.mock('@repo/db', () => ({
   __esModule: true,
   default: {
     zapRun: {
+      findFirst: (...args: any[]) => mockFindFirst(...args),
+      update: (...args: any[]) => mockUpdate(...args),
       updateMany: (...args: any[]) => mockUpdateMany(...args),
     },
   },
+}));
+
+jest.mock('@repo/email', () => ({
+  sendEmailWithTextBody: jest.fn(),
+  sendZapFailureNotification: jest.fn(),
 }));
 
 jest.mock('axios', () => ({
@@ -15,7 +24,7 @@ jest.mock('axios', () => ({
 }));
 
 import axios from 'axios';
-import { executeActionWithRetry, markRunFailed } from '../src/index';
+import { executeActionWithRetry, markRunFailed, processMessage } from '../src/index';
 
 const post = axios.post as jest.Mock;
 
@@ -177,5 +186,55 @@ describe('Worker Action Execution Seam: Discord Send Message', () => {
         completedAt: expect.any(Date),
       },
     });
+  });
+
+  it('updates ZapRun to failed in database when Discord action fails on HTTP 400 during processMessage', async () => {
+    mockUpdate.mockResolvedValue({});
+
+    post.mockRejectedValueOnce({
+      response: {
+        status: 400,
+        data: { message: 'Cannot send an empty message', code: 50006 },
+      },
+    });
+
+    mockFindFirst.mockResolvedValueOnce({
+      id: 'run-discord-400',
+      status: 'pending',
+      metadata: {},
+      zap: {
+        id: 'zap-1',
+        actions: [
+          {
+            sortingOrder: 1,
+            action: { type: 'Discord Send Message' },
+            metadata: {
+              webhookUrl: validWebhookUrl,
+              content: '',
+              embed: { title: 'Test' },
+            },
+          },
+        ],
+        user: { email: 'user@example.com' },
+      },
+    });
+
+    const kafkaMsg = {
+      value: Buffer.from(JSON.stringify({ zapRunId: 'run-discord-400', stage: 1 })),
+      offset: '1',
+    };
+
+    await processMessage(kafkaMsg);
+
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'run-discord-400' },
+        data: expect.objectContaining({
+          status: 'failed',
+          errorMessage: expect.stringContaining('Cannot send an empty message'),
+          completedAt: expect.any(Date),
+        }),
+      })
+    );
   });
 });
