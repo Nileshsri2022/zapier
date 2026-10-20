@@ -7,9 +7,9 @@ import Button from '../Button';
 import { MetaDataFormProps } from '../modal/types';
 
 // Canonical Discord webhook pattern, anchored to prevent trailing path bypass
-const DISCORD_WEBHOOK_PATTERN = /^https:\/\/(?:discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
+export const DISCORD_WEBHOOK_PATTERN = /^https:\/\/(?:discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
 
-const COMMON_PLACEHOLDERS = [
+export const COMMON_PLACEHOLDERS = [
   '{trigger.data.txHash}',
   '{trigger.data.amount}',
   '{trigger.data.from}',
@@ -17,7 +17,7 @@ const COMMON_PLACEHOLDERS = [
   '{trigger.data.subject}',
 ];
 
-const SAMPLE_TRIGGER_VALUES: Record<string, string> = {
+export const SAMPLE_TRIGGER_VALUES: Record<string, string> = {
   '{trigger.data.txHash}': '5K2b9a1z9PqL7eR3tU6vW8xY2',
   '{trigger.data.amount}': '2.5 SOL',
   '{trigger.data.from}': 'Alice (0x71C...3a1)',
@@ -26,7 +26,7 @@ const SAMPLE_TRIGGER_VALUES: Record<string, string> = {
   '{trigger.data.timestamp}': new Date().toISOString(),
 };
 
-function resolveSamplePlaceholders(text: string): string {
+export function resolveSamplePlaceholders(text: string): string {
   if (!text) return text;
   let resolved = text;
   for (const [placeholder, sampleValue] of Object.entries(SAMPLE_TRIGGER_VALUES)) {
@@ -35,14 +35,14 @@ function resolveSamplePlaceholders(text: string): string {
   return resolved;
 }
 
-function parseHexColor(colorHex: string): number {
+export function parseHexColor(colorHex: string): number {
   const clean = colorHex.replace(/^#/, '').trim();
   const parsed = parseInt(clean, 16);
   // Pure black (#000000 -> 0) is valid; only fall back to blurple if not a number
   return Number.isNaN(parsed) ? 5793266 : Math.max(0, Math.min(16777215, parsed));
 }
 
-function formatInitialColor(color?: string | number): string {
+export function formatInitialColor(color?: string | number): string {
   if (color === 0) return '#000000';
   if (typeof color === 'number' && Number.isFinite(color)) {
     return `#${Math.max(0, Math.min(16777215, Math.floor(color))).toString(16).padStart(6, '0')}`;
@@ -173,7 +173,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
       testPayload.username = resolveSamplePlaceholders(username.trim()).slice(0, 80);
     }
     if (showIdentity && avatarUrl.trim()) {
-      testPayload.avatar_url = avatarUrl.trim();
+      testPayload.avatar_url = resolveSamplePlaceholders(avatarUrl.trim());
     }
 
     if (showEmbed && hasEmbedContent) {

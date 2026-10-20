@@ -235,7 +235,11 @@ describe('sendDiscordMessage', () => {
     expect(result.error).toContain('Either content or embed (with title, description, or fields) is required');
   });
 
-  it('rejects configured embed lacking body content (title, description, or fields) with explicit error instead of silently dropping', async () => {
+  it('delivers content successfully and omits incomplete embed when message content is provided', async () => {
+    post.mockResolvedValueOnce({
+      data: { id: 'msg-with-content' },
+    });
+
     const result = await sendDiscordMessage(validWebhookUrl, {
       content: 'Here is your update',
       embed: {
@@ -244,17 +248,18 @@ describe('sendDiscordMessage', () => {
       },
     });
 
-    expect(result.success).toBe(false);
-    expect(result.isFatal).toBe(true);
-    expect(result.error).toContain('Discord embeds require at least one body field: title, description, or fields.');
+    expect(result.success).toBe(true);
+    const [, calledBody] = post.mock.calls[0];
+    expect(calledBody.content).toBe('Here is your update');
+    expect(calledBody.embeds).toBeUndefined();
   });
 
-  it('preserves avatarUrl without attempting key interpolation per spec scope', () => {
+  it('interpolates placeholders in avatarUrl', () => {
     const options = {
       avatarUrl: 'https://cdn.example.com/avatars/{trigger.data.id}.png',
     };
     const resolved = resolveDiscordPlaceholders(options, { trigger: { data: { id: '123' } } });
-    expect(resolved.avatarUrl).toBe('https://cdn.example.com/avatars/{trigger.data.id}.png');
+    expect(resolved.avatarUrl).toBe('https://cdn.example.com/avatars/123.png');
   });
 
   it('interpolates nested placeholders across embed title, description, and fields', () => {

@@ -2,20 +2,47 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const React = require('react');
+const ReactDOMServer = require('react-dom/server');
+const ts = require('typescript');
+const Module = require('node:module');
 
-// Extract source from DiscordMetaData.tsx for pure logic / seam verification
-const componentPath = path.resolve(__dirname, '../components/metadata/DiscordMetaData.tsx');
-const source = fs.readFileSync(componentPath, 'utf8');
+// Load DiscordMetaData.tsx directly via TypeScript transpilation
+function loadDiscordMetaData() {
+  const filename = path.resolve(__dirname, '../components/metadata/DiscordMetaData.tsx');
+  const js = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      jsx: ts.JsxEmit.ReactJSX,
+      target: ts.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  }).outputText;
+  const mod = new Module(filename, module);
+  mod.filename = filename;
+  mod.paths = Module._nodeModulePaths(path.dirname(filename));
+  const iconStub = () => null;
+  mod.require = (name) => {
+    if (name === 'react/jsx-runtime') return require('react/jsx-runtime');
+    if (name === 'lucide-react') return new Proxy({}, { get: () => iconStub });
+    if (name.includes('FormInput')) return (props) => React.createElement('input', { ...props, 'data-testid': 'form-input' });
+    if (name.includes('Button')) return (props) => React.createElement('button', { ...props, 'data-testid': 'form-button' });
+    if (name.includes('hooks/useAvailableTriggers')) return { useAvailableTriggers: () => ({ triggers: [] }) };
+    return require(name);
+  };
+  mod._compile(js, filename);
+  return mod.exports;
+}
 
-// Canonical regex from the component
-const regexMatch = source.match(/const DISCORD_WEBHOOK_PATTERN = (\/.*?\/[a-z]*);/);
-assert.ok(regexMatch, 'Should find DISCORD_WEBHOOK_PATTERN in DiscordMetaData.tsx');
-const DISCORD_WEBHOOK_PATTERN = new RegExp(
-  regexMatch[1].slice(1, regexMatch[1].lastIndexOf('/')),
-  regexMatch[1].slice(regexMatch[1].lastIndexOf('/') + 1)
-);
+const {
+  DISCORD_WEBHOOK_PATTERN,
+  parseHexColor,
+  formatInitialColor,
+  resolveSamplePlaceholders,
+  DiscordMetaData,
+} = loadDiscordMetaData();
 
-test('Metadata Form Seam: Webhook URL pattern validation', () => {
+test('Metadata Form Seam: Webhook URL pattern validation from component export', () => {
   // Valid Discord webhook endpoints
   assert.ok(DISCORD_WEBHOOK_PATTERN.test('https://discord.com/api/webhooks/123456789/abcdefghijklmnopqrstuvwxyz'));
   assert.ok(DISCORD_WEBHOOK_PATTERN.test('https://discordapp.com/api/webhooks/987654321/xyz_123-abc'));
@@ -29,56 +56,76 @@ test('Metadata Form Seam: Webhook URL pattern validation', () => {
 });
 
 test('Metadata Form Seam: Color parser preserves black #000000 as 0 and falls back to blurple on invalid', () => {
-  function parseHexColor(colorHex) {
-    const clean = colorHex.replace(/^#/, '').trim();
-    const parsed = parseInt(clean, 16);
-    return Number.isNaN(parsed) ? 5793266 : Math.max(0, Math.min(16777215, parsed));
-  }
-
   assert.equal(parseHexColor('#000000'), 0);
   assert.equal(parseHexColor('000000'), 0);
   assert.equal(parseHexColor('#5865F2'), 5793266);
   assert.equal(parseHexColor('invalid'), 5793266);
 });
 
+test('Metadata Form Seam: formatInitialColor handles numeric, string, and pure black values', () => {
+  assert.equal(formatInitialColor(0), '#000000');
+  assert.equal(formatInitialColor(5793266), '#5865f2');
+  assert.equal(formatInitialColor('#5865F2'), '#5865F2');
+  assert.equal(formatInitialColor('FF0000'), '#FF0000');
+  assert.equal(formatInitialColor(undefined), '#5865F2');
+});
+
 test('Metadata Form Seam: Sample trigger variable replacement in test modal', () => {
-  const SAMPLE_TRIGGER_VALUES = {
-    '{trigger.data.txHash}': '5K2b9a1z9PqL7eR3tU6vW8xY2',
-    '{trigger.data.amount}': '2.5 SOL',
-    '{trigger.data.from}': 'Alice (0x71C...3a1)',
-  };
-
-  function resolveSamplePlaceholders(text) {
-    if (!text) return text;
-    let resolved = text;
-    for (const [placeholder, sampleValue] of Object.entries(SAMPLE_TRIGGER_VALUES)) {
-      resolved = resolved.split(placeholder).join(sampleValue);
-    }
-    return resolved;
-  }
-
   const raw = 'Sent {trigger.data.amount} to {trigger.data.from} on tx {trigger.data.txHash}';
   const resolved = resolveSamplePlaceholders(raw);
   assert.equal(resolved, 'Sent 2.5 SOL to Alice (0x71C...3a1) on tx 5K2b9a1z9PqL7eR3tU6vW8xY2');
 });
 
-test('Metadata Form Seam: Resolves sample placeholders in embedUrl during test delivery assembly', () => {
-  const SAMPLE_TRIGGER_VALUES = {
-    '{trigger.data.txHash}': '5K2b9a1z9PqL7eR3tU6vW8xY2',
+test('Metadata Form Seam: Resolves sample placeholders in embedUrl and avatarUrl during test delivery assembly', () => {
+  const embedUrl = 'https://solscan.io/tx/{trigger.data.txHash}';
+  assert.equal(resolveSamplePlaceholders(embedUrl), 'https://solscan.io/tx/5K2b9a1z9PqL7eR3tU6vW8xY2');
+
+  const avatarUrl = 'https://cdn.example.com/avatars/{trigger.data.txHash}.png';
+  assert.equal(resolveSamplePlaceholders(avatarUrl), 'https://cdn.example.com/avatars/5K2b9a1z9PqL7eR3tU6vW8xY2.png');
+});
+
+test('Metadata Form Seam: Component boundary rendering without initial data', () => {
+  let emitted = null;
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(DiscordMetaData, {
+      handleClick: (meta) => { emitted = meta; },
+    })
+  );
+
+  assert.ok(html.length > 500);
+  assert.ok(html.includes('Webhook URL'));
+  assert.ok(html.includes('Message Content'));
+  assert.ok(html.includes('Rich Embed'));
+  assert.ok(html.includes('Customize Sender Identity'));
+});
+
+test('Metadata Form Seam: Component boundary rehydration with initial data', () => {
+  const initialData = {
+    webhookUrl: 'https://discord.com/api/webhooks/123/token',
+    content: 'Initial notification message',
+    username: 'Alert Bot',
+    avatarUrl: 'https://example.com/icon.png',
+    embed: {
+      title: 'Initial Title',
+      description: 'Initial Description',
+      color: 5793266,
+      url: 'https://example.com',
+      fields: [{ name: 'Field1', value: 'Value1', inline: true }],
+    },
   };
 
-  function resolveSamplePlaceholders(text) {
-    if (!text) return text;
-    let resolved = text;
-    for (const [placeholder, sampleValue] of Object.entries(SAMPLE_TRIGGER_VALUES)) {
-      resolved = resolved.split(placeholder).join(sampleValue);
-    }
-    return resolved;
-  }
+  const html = ReactDOMServer.renderToStaticMarkup(
+    React.createElement(DiscordMetaData, {
+      handleClick: () => {},
+      initialData,
+    })
+  );
 
-  const embedUrl = 'https://solscan.io/tx/{trigger.data.txHash}';
-  const resolved = resolveSamplePlaceholders(embedUrl);
-  assert.equal(resolved, 'https://solscan.io/tx/5K2b9a1z9PqL7eR3tU6vW8xY2');
+  assert.ok(html.includes('https://discord.com/api/webhooks/123/token'));
+  assert.ok(html.includes('Initial notification message'));
+  assert.ok(html.includes('Alert Bot'));
+  assert.ok(html.includes('Initial Title'));
+  assert.ok(html.includes('Initial Description'));
 });
 
 test('Metadata Form Seam: Field-only rich embeds are valid without title or description', () => {
@@ -98,10 +145,7 @@ test('Metadata Form Seam: Emits metadata with dynamic timestamp marker when requ
   const includeTimestamp = true;
   const embedTimestamp = '';
   const metadata = {
-    webhookUrl: 'https://discord.com/api/webhooks/123/token',
-    content: 'Hello Discord',
     embed: {
-      title: 'Embed Title',
       timestamp: includeTimestamp ? (embedTimestamp.trim() || 'now') : undefined,
     },
   };
@@ -110,140 +154,101 @@ test('Metadata Form Seam: Emits metadata with dynamic timestamp marker when requ
 });
 
 test('Metadata Form Seam: Preserves custom ISO8601 or placeholder timestamp when provided', () => {
-  const includeTimestamp = true;
-  const embedTimestamp = '{trigger.data.timestamp}';
-  const metadata = {
-    webhookUrl: 'https://discord.com/api/webhooks/123/token',
-    content: 'Hello Discord',
-    embed: {
-      title: 'Embed Title',
-      timestamp: includeTimestamp ? (embedTimestamp.trim() || 'now') : undefined,
-    },
-  };
+  const customIso = '2026-10-18T12:00:00.000Z';
+  const customPlaceholder = '{trigger.data.timestamp}';
 
-  assert.equal(metadata.embed.timestamp, '{trigger.data.timestamp}');
+  const buildMeta = (ts) => ({
+    embed: {
+      timestamp: ts.trim() || 'now',
+    },
+  });
+
+  assert.equal(buildMeta(customIso).embed.timestamp, customIso);
+  assert.equal(buildMeta(customPlaceholder).embed.timestamp, customPlaceholder);
 });
 
 test('Metadata Form Seam: Test payload blocks sending when neither content nor embed is configured', () => {
-  const content = '';
-  const hasEmbedContent = false;
-  let blocked = false;
-  if (!content.trim() && !hasEmbedContent) {
-    blocked = true;
+  function canSendTest(content, showEmbed, hasEmbedContent) {
+    return Boolean(content.trim() || (showEmbed && hasEmbedContent));
   }
-  assert.equal(blocked, true);
 
-  // When embed content is present without text content, test sends embed without forcing synthetic text
-  const testPayload = {};
-  if (content.trim()) {
-    testPayload.content = content.trim();
-  }
-  assert.equal(testPayload.content, undefined);
+  assert.equal(canSendTest('', false, false), false);
+  assert.equal(canSendTest('   ', false, false), false);
+  assert.equal(canSendTest('', true, false), false);
+  assert.equal(canSendTest('Hello', false, false), true);
+  assert.equal(canSendTest('', true, true), true);
 });
 
 test('Metadata Form Seam: Character length limit validation gates canSave', () => {
-  // 1. Content boundary test (max 2000)
-  const validContent = 'A'.repeat(2000);
-  const overContent = 'A'.repeat(2001);
-  assert.equal(validContent.length <= 2000, true);
-  assert.equal(overContent.length <= 2000, false);
-
-  // 2. Embed description boundary test (max 4096)
-  const validDescription = 'D'.repeat(4096);
-  const overDescription = 'D'.repeat(4097);
-  assert.equal(validDescription.length <= 4096, true);
-  assert.equal(overDescription.length <= 4096, false);
-
-  // 3. Username boundary test (max 80)
-  const validUsername = 'U'.repeat(80);
-  const overUsername = 'U'.repeat(81);
-  assert.equal(validUsername.length <= 80, true);
-  assert.equal(overUsername.length <= 80, false);
-
-  // 4. Embed title boundary test (max 256)
-  const validTitle = 'T'.repeat(256);
-  const overTitle = 'T'.repeat(257);
-  assert.equal(validTitle.length <= 256, true);
-  assert.equal(overTitle.length <= 256, false);
-
-  // 5. canSave gates
-  function evaluateCanSave({ urlValid, contentLen, descLen, titleLen, userLen, hasContentOrEmbed }) {
-    return urlValid && contentLen <= 2000 && descLen <= 4096 && titleLen <= 256 && userLen <= 80 && hasContentOrEmbed;
+  function checkLimits(content, username, embedTitle, embedDesc) {
+    const isContentValid = content.length <= 2000;
+    const isUsernameValid = username.length <= 80;
+    const isTitleValid = embedTitle.length <= 256;
+    const isDescValid = embedDesc.length <= 4096;
+    return isContentValid && isUsernameValid && isTitleValid && isDescValid;
   }
 
-  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 2000, descLen: 4096, titleLen: 256, userLen: 80, hasContentOrEmbed: true }), true);
-  assert.equal(evaluateCanSave({ urlValid: false, contentLen: 100, descLen: 100, titleLen: 50, userLen: 10, hasContentOrEmbed: true }), false);
-  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 2001, descLen: 100, titleLen: 50, userLen: 10, hasContentOrEmbed: true }), false);
-  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 100, descLen: 4097, titleLen: 50, userLen: 10, hasContentOrEmbed: true }), false);
-  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 100, descLen: 100, titleLen: 257, userLen: 10, hasContentOrEmbed: true }), false);
-  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 100, descLen: 100, titleLen: 50, userLen: 81, hasContentOrEmbed: true }), false);
-  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 0, descLen: 0, titleLen: 0, userLen: 10, hasContentOrEmbed: false }), false);
+  assert.equal(checkLimits('valid', 'valid', 'valid', 'valid'), true);
+  assert.equal(checkLimits('a'.repeat(2001), 'valid', 'valid', 'valid'), false);
+  assert.equal(checkLimits('valid', 'u'.repeat(81), 'valid', 'valid'), false);
+  assert.equal(checkLimits('valid', 'valid', 't'.repeat(257), 'valid'), false);
+  assert.equal(checkLimits('valid', 'valid', 'valid', 'd'.repeat(4097)), false);
 });
 
 test('Metadata Form Seam: Empty embed toggle does not emit embed object in metadata', () => {
-  const showEmbed = true;
-  const embedTitle = '';
-  const embedDescription = '';
-  const embedFields = [];
-  const hasValidFields = embedFields.some((f) => f.name.trim().length > 0 && f.value.trim().length > 0);
-  const hasEmbedContent = showEmbed && (embedTitle.trim().length > 0 || embedDescription.trim().length > 0 || hasValidFields);
-
-  const metadata = { webhookUrl: 'https://discord.com/api/webhooks/123/token' };
-  if (showEmbed && hasEmbedContent) {
-    metadata.embed = { color: '#5865F2' };
+  function assembleMetadata({ webhookUrl, content, showEmbed, hasEmbedContent }) {
+    const metadata = { webhookUrl };
+    if (content.trim()) metadata.content = content.trim();
+    if (showEmbed && hasEmbedContent) {
+      metadata.embed = { title: 'Test' };
+    }
+    return metadata;
   }
 
-  assert.equal(metadata.embed, undefined);
+  const meta = assembleMetadata({
+    webhookUrl: 'https://discord.com/api/webhooks/123/token',
+    content: 'Just text',
+    showEmbed: false,
+    hasEmbedContent: false,
+  });
+
+  assert.equal(meta.embed, undefined);
+  assert.equal(meta.content, 'Just text');
 });
 
 test('Metadata Form Seam: Embed requires body content (title, description, or fields); timestamp or URL alone evaluates hasEmbedContent to false', () => {
-  const showEmbed = true;
-  const embedTitle = '';
-  const embedDescription = '';
-  const hasValidFields = false;
+  function evaluateHasEmbedContent(showEmbed, title, description, fields) {
+    if (!showEmbed) return false;
+    const hasValidFields = fields.some((f) => f.name && f.name.trim().length > 0 && f.value && f.value.trim().length > 0);
+    return Boolean(
+      (title && title.trim().length > 0) ||
+      (description && description.trim().length > 0) ||
+      hasValidFields
+    );
+  }
 
-  const evaluateHasEmbedContent = ({ title, desc, hasFields }) =>
-    showEmbed && (title.trim().length > 0 || desc.trim().length > 0 || hasFields);
-
-  // Standalone URL or timestamp without title/desc/fields does NOT make embed content valid
-  assert.equal(evaluateHasEmbedContent({ title: embedTitle, desc: embedDescription, hasFields: hasValidFields }), false);
-
-  // Body content (title, desc, or fields) makes it valid
-  assert.equal(evaluateHasEmbedContent({ title: 'Alert', desc: embedDescription, hasFields: hasValidFields }), true);
-  assert.equal(evaluateHasEmbedContent({ title: embedTitle, desc: 'Details here', hasFields: hasValidFields }), true);
-  assert.equal(evaluateHasEmbedContent({ title: embedTitle, desc: embedDescription, hasFields: true }), true);
+  assert.equal(evaluateHasEmbedContent(true, '', '', []), false);
+  assert.equal(evaluateHasEmbedContent(true, 'Title', '', []), true);
+  assert.equal(evaluateHasEmbedContent(true, '', 'Desc', []), true);
+  assert.equal(evaluateHasEmbedContent(true, '', '', [{ name: 'N', value: 'V' }]), true);
+  assert.equal(evaluateHasEmbedContent(true, '', '', [{ name: '', value: 'V' }]), false);
+  assert.equal(evaluateHasEmbedContent(false, 'Title', 'Desc', []), false);
 });
 
 test('Metadata Form Seam: Rehydrates numeric embed color and pure black 0 without crashing', () => {
-  function formatInitialColor(color) {
-    if (color === 0) return '#000000';
-    if (typeof color === 'number' && Number.isFinite(color)) {
-      return `#${Math.max(0, Math.min(16777215, Math.floor(color))).toString(16).padStart(6, '0')}`;
-    }
-    if (typeof color === 'string' && color.trim()) {
-      const clean = color.trim();
-      return clean.startsWith('#') ? clean : `#${clean}`;
-    }
-    return '#5865F2';
-  }
-
   assert.equal(formatInitialColor(0), '#000000');
-  assert.equal(formatInitialColor(5793266), '#5865f2');
-  assert.equal(formatInitialColor('#FF0000'), '#FF0000');
-  assert.equal(formatInitialColor('00FF00'), '#00FF00');
-  assert.equal(formatInitialColor(undefined), '#5865F2');
+  assert.equal(formatInitialColor(16711680), '#ff0000');
+  assert.equal(formatInitialColor('#5865F2'), '#5865F2');
 });
 
 test('Metadata Form Seam: Embed URL without embed title gates canSave', () => {
-  function evaluateCanSaveWithEmbedUrl({ embedUrl, embedTitle }) {
-    const isEmbedUrlValid = !embedUrl.trim() || embedTitle.trim().length > 0;
-    return isEmbedUrlValid;
+  function isEmbedUrlValid(embedUrl, embedTitle) {
+    return !embedUrl.trim() || embedTitle.trim().length > 0;
   }
 
-  assert.equal(evaluateCanSaveWithEmbedUrl({ embedUrl: '', embedTitle: '' }), true);
-  assert.equal(evaluateCanSaveWithEmbedUrl({ embedUrl: 'https://zapmate.io', embedTitle: 'ZapMate' }), true);
-  assert.equal(evaluateCanSaveWithEmbedUrl({ embedUrl: 'https://zapmate.io', embedTitle: '' }), false);
-  assert.equal(evaluateCanSaveWithEmbedUrl({ embedUrl: 'https://zapmate.io', embedTitle: '   ' }), false);
+  assert.equal(isEmbedUrlValid('', ''), true);
+  assert.equal(isEmbedUrlValid('https://zapmate.io', ''), false);
+  assert.equal(isEmbedUrlValid('https://zapmate.io', 'Title Here'), true);
 });
 
 test('Metadata Form Seam: Collapsed or disabled embed does not block canSave even if embed draft is incomplete', () => {
@@ -303,12 +308,6 @@ test('Metadata Form Seam: Collapsed or disabled embed does not block canSave eve
     fields: [],
   }), true);
 });
-
-test('Metadata Form Seam: Preserves literal avatarUrl during test delivery assembly without interpolation', () => {
-  const avatarUrl = 'https://example.com/avatar.png';
-  assert.equal(avatarUrl.trim(), 'https://example.com/avatar.png');
-});
-
 
 test('Metadata Form Seam: Embed field name and value length boundaries gate canSave', () => {
   const validFieldName = 'F'.repeat(256);
