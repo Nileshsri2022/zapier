@@ -73,7 +73,7 @@ export function resolveDiscordPlaceholders(
     ...options,
     content: options.content ? replaceKeys(options.content, metadata) : undefined,
     username: options.username ? replaceKeys(options.username, metadata) : undefined,
-    avatarUrl: options.avatarUrl,
+    avatarUrl: options.avatarUrl ? replaceKeys(options.avatarUrl, metadata) : undefined,
   };
 
   if (options.embed) {
@@ -166,14 +166,6 @@ export async function sendDiscordMessage(
       (resolvedEmbed.description && resolvedEmbed.description.trim().length > 0) ||
       (Array.isArray(resolvedEmbed.fields) && resolvedEmbed.fields.length > 0)
     );
-
-  if (options.embed && !hasEmbedContent) {
-    return {
-      success: false,
-      isFatal: true,
-      error: 'Either content or embed (with title, description, or fields) is required to send a Discord message.',
-    };
-  }
 
   if (!hasContent && !hasEmbedContent) {
     return {

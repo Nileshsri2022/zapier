@@ -106,8 +106,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
       hasValidFields
     );
 
-  const isEmbedValid = !showEmbed || (
-    hasEmbedContent &&
+  const isEmbedValid = !showEmbed || !hasEmbedContent || (
     isTitleValid &&
     isDescriptionValid &&
     isEmbedUrlValid &&
@@ -119,7 +118,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
     isContentValid &&
     isUsernameValid &&
     isEmbedValid &&
-    (content.trim().length > 0 || hasEmbedContent);
+    (content.trim().length > 0 || (showEmbed && hasEmbedContent));
 
   const handleAddField = () => {
     // Discord allows up to 25 fields per embed
@@ -173,7 +172,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
       testPayload.username = resolveSamplePlaceholders(username.trim()).slice(0, 80);
     }
     if (showIdentity && avatarUrl.trim()) {
-      testPayload.avatar_url = avatarUrl.trim();
+      testPayload.avatar_url = resolveSamplePlaceholders(avatarUrl.trim());
     }
 
     if (showEmbed && hasEmbedContent) {
@@ -497,7 +496,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
             </div>
 
             {showEmbed && !hasEmbedContent && (
-              <p className="meta-form__error-text">
+              <p className="meta-form__hint">
                 An embed requires a title, description, or at least one field to be attached.
               </p>
             )}
