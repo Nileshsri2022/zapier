@@ -50,10 +50,10 @@ describe('Worker Action Execution Seam: Discord Send Message', () => {
     expect(result.success).toBe(true);
     expect(result.data?.success).toBe(true);
     expect(result.data?.message).toBe('Discord message delivered');
-    // Ensure output webhook token is masked
-    expect(result.data?.output.webhookUrl).toBe('https://discord.com/api/webhooks/123456789/****');
     expect(result.data?.output.messageId).toBe('discord-msg-999');
     expect(result.data?.output.timestamp).toBe('2026-10-20T05:30:00.000Z');
+    expect(result.data?.output.sentAt).toBeDefined();
+    expect(result.data?.output.webhookUrl).toBeUndefined();
 
     const [, calledBody] = post.mock.calls[0];
     expect(calledBody.content).toBe('Payment of 5.0 SOL received');
@@ -96,5 +96,35 @@ describe('Worker Action Execution Seam: Discord Send Message', () => {
     expect(result.attempts).toBe(1); // Only 1 attempt due to fatal status 404
     expect(result.error?.message).toContain('Unknown Webhook');
     expect(post).toHaveBeenCalledTimes(1);
+  });
+
+
+  it('retries dynamic backoff on HTTP 429 rate limit and succeeds within execution seam', async () => {
+    // Attempt 1: 429 Rate limited with retry_after = 0.01s
+    post.mockRejectedValueOnce({
+      response: {
+        status: 429,
+        data: { message: 'Rate limited', retry_after: 0.01 },
+      },
+    });
+
+    // Attempt 2: 200 Success
+    post.mockResolvedValueOnce({
+      data: {
+        id: 'msg-recovered-429',
+        timestamp: '2026-10-20T06:00:00.000Z',
+      },
+    });
+
+    const metadata = {
+      webhookUrl: validWebhookUrl,
+      content: 'Testing 429 retry at worker seam',
+    };
+
+    const result = await executeActionWithRetry('Discord Send Message', metadata, {});
+
+    expect(result.success).toBe(true);
+    expect(result.data?.output.messageId).toBe('msg-recovered-429');
+    expect(post).toHaveBeenCalledTimes(2);
   });
 });

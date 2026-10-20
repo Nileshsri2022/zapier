@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import { sendEmailWithTextBody, sendZapFailureNotification } from '@repo/email';
 import { withRetry, RetryResult } from './utils/retry';
 import { sendSol, getSolanaPrivateKey } from './sendSolana';
-import { sendDiscordMessage, resolveDiscordPlaceholders, maskDiscordWebhookUrl } from './sendDiscord';
+import { sendDiscordMessage, resolveDiscordPlaceholders } from './sendDiscord';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
 import { isKnownActionType } from './utils/actionTypes';
 import { prepareRunMetadata } from './utils/runMetadata';
@@ -196,10 +196,6 @@ export async function executeActionWithRetry(
 
       if (actionType === 'Discord Send Message') {
         const { webhookUrl, content, username, avatarUrl, embed } = metadata;
-        const resolvedWebhookUrl = replaceKeys(webhookUrl || '', zapRunMetadata);
-
-
-
 
         const resolvedOptions = resolveDiscordPlaceholders(
           {
@@ -207,12 +203,11 @@ export async function executeActionWithRetry(
             username: username || undefined,
             avatarUrl: avatarUrl || undefined,
             embed,
-
           },
           zapRunMetadata
         );
 
-        const result = await sendDiscordMessage(resolvedWebhookUrl, resolvedOptions);
+        const result = await sendDiscordMessage(webhookUrl || '', resolvedOptions);
 
         if (!result.success) {
           const err = new Error(`Discord send failed: ${result.error}${result.isFatal ? ' [FATAL]' : ''}`);
@@ -225,7 +220,6 @@ export async function executeActionWithRetry(
           success: true,
           message: `Discord message delivered`,
           output: {
-            webhookUrl: maskDiscordWebhookUrl(resolvedWebhookUrl),
             messageId: result.messageId,
             timestamp: result.timestamp || new Date().toISOString(),
             sentAt: new Date().toISOString(),

@@ -127,7 +127,7 @@ export async function sendDiscordMessage(
       description: embed.description ? String(embed.description).slice(0, 4096) : undefined,
       color: normalizeDiscordColor(embed.color),
       url: embed.url || undefined,
-      timestamp: embed.timestamp || undefined,
+      timestamp: (embed.timestamp === 'now' || embed.timestamp === true) ? new Date().toISOString() : (embed.timestamp || undefined),
       fields: Array.isArray(embed.fields)
         ? embed.fields.slice(0, 25).map((f) => ({
             name: String(f.name || '').slice(0, 256),
@@ -179,7 +179,7 @@ export async function sendDiscordMessage(
   url.searchParams.set('wait', 'true');
   const targetUrl = url.toString();
 
-  const maxAttempts = 3;
+  const maxAttempts = 4; // 1 initial attempt + 3 retries (spec line 86)
   let lastErrorMsg = 'Unknown Discord error';
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {

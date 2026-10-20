@@ -249,9 +249,9 @@ describe('sendDiscordMessage', () => {
     expect(post).toHaveBeenCalledTimes(2);
   });
 
-  it('fails with rate limit error and flags isFatal if HTTP 429 persists through all retry attempts', async () => {
-    // 3 successive 429s
-    for (let i = 0; i < 3; i++) {
+  it('fails with rate limit error and flags isFatal if HTTP 429 persists through all 3 retries (4 attempts total)', async () => {
+    // 4 successive 429s (1 initial + 3 retries)
+    for (let i = 0; i < 4; i++) {
       post.mockRejectedValueOnce({
         response: {
           status: 429,
@@ -267,7 +267,28 @@ describe('sendDiscordMessage', () => {
     expect(result.success).toBe(false);
     expect(result.isFatal).toBe(true);
     expect(result.error).toContain('You are being rate limited');
-    expect(post).toHaveBeenCalledTimes(3);
+    expect(post).toHaveBeenCalledTimes(4);
+  });
+
+  it('generates dynamic ISO8601 timestamp at execution time when embed.timestamp is "now"', async () => {
+    post.mockResolvedValueOnce({
+      data: { id: 'now-timestamp-123' },
+    });
+
+    const before = new Date().toISOString();
+    const result = await sendDiscordMessage(validWebhookUrl, {
+      embed: {
+        title: 'Dynamic timestamp test',
+        timestamp: 'now',
+      },
+    });
+    const after = new Date().toISOString();
+
+    expect(result.success).toBe(true);
+    const [, calledBody] = post.mock.calls[0];
+    expect(typeof calledBody.embeds[0].timestamp).toBe('string');
+    expect(Date.parse(calledBody.embeds[0].timestamp)).toBeGreaterThanOrEqual(Date.parse(before));
+    expect(Date.parse(calledBody.embeds[0].timestamp)).toBeLessThanOrEqual(Date.parse(after));
   });
 
   it('masks the sensitive webhook token in Discord webhook URLs', () => {

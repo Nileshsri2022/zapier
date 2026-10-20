@@ -37,7 +37,7 @@ function resolveSamplePlaceholders(text: string): string {
 function parseHexColor(colorHex: string): number {
   const clean = colorHex.replace(/^#/, '').trim();
   const parsed = parseInt(clean, 16);
-  // Pure black (#000000 -> 0) is valid; only fall back if not a number
+  // Pure black (#000000 -> 0) is valid; only fall back to blurple if not a number
   return Number.isNaN(parsed) ? 5793266 : Math.max(0, Math.min(16777215, parsed));
 }
 
@@ -74,11 +74,19 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
   const isValidUrl = webhookUrl.trim().length > 0 && DISCORD_WEBHOOK_PATTERN.test(webhookUrl.trim());
   const isDescriptionValid = embedDescription.length <= 4096;
   const isContentValid = content.length <= 2000;
+  const isUsernameValid = username.length <= 80;
+
+  // Rich embed is valid if it has title, description, OR any valid field (spec §72)
+  const hasValidFields = embedFields.some((f) => f.name.trim().length > 0 && f.value.trim().length > 0);
+  const hasEmbedContent =
+    showEmbed && (embedTitle.trim().length > 0 || embedDescription.trim().length > 0 || hasValidFields);
+
   const canSave =
     isValidUrl &&
     isDescriptionValid &&
     isContentValid &&
-    (content.trim().length > 0 || (showEmbed && (embedTitle.trim().length > 0 || embedDescription.trim().length > 0)));
+    isUsernameValid &&
+    (content.trim().length > 0 || hasEmbedContent);
 
   const handleAddField = () => {
     // Discord allows up to 25 fields per embed
@@ -117,7 +125,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
     };
 
     if (showIdentity && username.trim()) {
-      testPayload.username = resolveSamplePlaceholders(username.trim());
+      testPayload.username = resolveSamplePlaceholders(username.trim()).slice(0, 80);
     }
     if (showIdentity && avatarUrl.trim()) {
       testPayload.avatar_url = avatarUrl.trim();
@@ -172,7 +180,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
     }
 
     if (showIdentity && username.trim()) {
-      metadata.username = username.trim();
+      metadata.username = username.trim().slice(0, 80);
     }
 
     if (showIdentity && avatarUrl.trim()) {
@@ -194,7 +202,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
         description: embedDescription.trim() ? embedDescription.trim().slice(0, 4096) : undefined,
         color: embedColor,
         url: embedUrl.trim() || undefined,
-        timestamp: includeTimestamp ? new Date().toISOString() : undefined,
+        timestamp: includeTimestamp ? 'now' : undefined,
         fields: validFields.length > 0 ? validFields : undefined,
       };
     }
@@ -213,16 +221,16 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
           onChange={(e: any) => setWebhookUrl(e.target.value)}
         />
         {webhookUrl.length > 0 && !isValidUrl && (
-          <p className="text-xs text-red-400 mt-1">
+          <p className="meta-form__error-text">
             Must be a valid Discord webhook URL (e.g. https://discord.com/api/webhooks/&#123;id&#125;/&#123;token&#125;)
           </p>
         )}
       </div>
 
       <div>
-        <div className="flex justify-between items-center mb-1">
+        <div className="meta-form__row">
           <label className="meta-form__label">Message Content</label>
-          <span className={`text-xs ${content.length > 2000 ? 'text-red-400 font-semibold' : 'text-slate-400'}`}>
+          <span className={content.length > 2000 ? 'meta-form__counter meta-form__counter--danger' : 'meta-form__counter'}>
             {content.length}/2000
           </span>
         </div>
@@ -230,22 +238,22 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
           name="content"
           value={content}
           rows={3}
-          className="meta-form__input w-full resize-y font-mono text-sm"
+          className="meta-form__textarea"
           placeholder="New event! Amount: {trigger.data.amount} SOL from {trigger.data.from}"
           onChange={(e) => setContent(e.target.value)}
         />
         {content.length > 2000 && (
-          <p className="text-xs text-red-400 mt-1">Message content exceeds Discord&apos;s 2,000-character limit.</p>
+          <p className="meta-form__error-text">Message content exceeds Discord&apos;s 2,000-character limit.</p>
         )}
 
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="text-xs text-slate-400">Insert variable:</span>
+        <div className="meta-form__pills">
+          <span className="meta-form__hint">Insert variable:</span>
           {COMMON_PLACEHOLDERS.map((ph) => (
             <button
               key={ph}
               type="button"
               onClick={() => handleInsertPlaceholder(ph)}
-              className="text-xs bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 px-2 py-0.5 rounded transition-colors"
+              className="meta-form__pill-btn"
             >
               {ph}
             </button>
@@ -254,22 +262,21 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
       </div>
 
       {/* Rich Embed Section */}
-      <div className="border border-slate-800 rounded-lg p-3 bg-slate-900/50">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-slate-200 cursor-pointer flex items-center gap-2">
+      <div className="meta-form__card">
+        <div className="meta-form__card-header">
+          <label className="meta-form__checkbox-label">
             <input
               type="checkbox"
               checked={showEmbed}
               onChange={(e) => setShowEmbed(e.target.checked)}
-              className="rounded border-slate-700 text-indigo-500 focus:ring-indigo-400"
             />
             Attach Rich Embed
           </label>
-          <span className="text-xs text-slate-400">Structured card with accent colors</span>
+          <span className="meta-form__hint">Structured card with accent colors</span>
         </div>
 
         {showEmbed && (
-          <div className="mt-3 space-y-3 pt-3 border-t border-slate-800">
+          <div className="meta-form__section">
             <FormInput
               label="Embed Title"
               name="embedTitle"
@@ -279,9 +286,9 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
             />
 
             <div>
-              <div className="flex justify-between items-center mb-1">
+              <div className="meta-form__row">
                 <label className="meta-form__label">Embed Description</label>
-                <span className={`text-xs ${embedDescription.length > 4096 ? 'text-red-400 font-semibold' : 'text-slate-400'}`}>
+                <span className={embedDescription.length > 4096 ? 'meta-form__counter meta-form__counter--danger' : 'meta-form__counter'}>
                   {embedDescription.length}/4096
                 </span>
               </div>
@@ -289,30 +296,30 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
                 name="embedDescription"
                 value={embedDescription}
                 rows={3}
-                className="meta-form__input w-full resize-y font-mono text-sm"
+                className="meta-form__textarea"
                 placeholder="Detailed summary or markdown description..."
                 onChange={(e) => setEmbedDescription(e.target.value)}
               />
               {embedDescription.length > 4096 && (
-                <p className="text-xs text-red-400 mt-1">Embed description exceeds Discord&apos;s 4,096-character limit.</p>
+                <p className="meta-form__error-text">Embed description exceeds Discord&apos;s 4,096-character limit.</p>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="meta-form__grid">
               <div>
                 <label className="meta-form__label">Accent Color</label>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="meta-form__color-row">
                   <input
                     type="color"
                     value={embedColor.startsWith('#') ? embedColor : '#5865F2'}
                     onChange={(e) => setEmbedColor(e.target.value)}
-                    className="w-9 h-9 rounded cursor-pointer border border-slate-700 bg-transparent p-0.5"
+                    className="meta-form__color-picker"
                   />
                   <input
                     type="text"
                     value={embedColor}
                     onChange={(e) => setEmbedColor(e.target.value)}
-                    className="meta-form__input flex-1 text-sm font-mono"
+                    className="meta-form__input"
                     placeholder="#5865F2"
                   />
                 </div>
@@ -326,63 +333,61 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
               />
             </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <label className="text-xs text-slate-300 cursor-pointer flex items-center gap-2">
+            <div>
+              <label className="meta-form__checkbox-label">
                 <input
                   type="checkbox"
                   checked={includeTimestamp}
                   onChange={(e) => setIncludeTimestamp(e.target.checked)}
-                  className="rounded border-slate-700 text-indigo-500"
                 />
                 Include timestamp on embed
               </label>
             </div>
 
             {/* Embed Fields */}
-            <div className="pt-2 border-t border-slate-800">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-300">
+            <div>
+              <div className="meta-form__row">
+                <span className="meta-form__label">
                   Embed Fields ({embedFields.length}/25)
                 </span>
                 <button
                   type="button"
                   onClick={handleAddField}
                   disabled={embedFields.length >= 25}
-                  className="text-xs text-indigo-400 hover:text-indigo-300 disabled:opacity-40 font-medium"
+                  className="meta-form__btn-ghost"
                 >
                   + Add Field
                 </button>
               </div>
 
               {embedFields.map((field, idx) => (
-                <div key={idx} className="flex items-center gap-2 mb-2 bg-slate-950/40 p-2 rounded border border-slate-800">
+                <div key={idx} className="meta-form__field-row">
                   <input
                     type="text"
                     placeholder="Field Name (max 256)"
                     value={field.name}
                     onChange={(e) => handleUpdateField(idx, 'name', e.target.value)}
-                    className="meta-form__input text-xs flex-1"
+                    className="meta-form__input"
                   />
                   <input
                     type="text"
                     placeholder="Field Value (max 1024)"
                     value={field.value}
                     onChange={(e) => handleUpdateField(idx, 'value', e.target.value)}
-                    className="meta-form__input text-xs flex-1"
+                    className="meta-form__input"
                   />
-                  <label className="text-xs text-slate-400 flex items-center gap-1 cursor-pointer">
+                  <label className="meta-form__checkbox-label">
                     <input
                       type="checkbox"
                       checked={field.inline ?? true}
                       onChange={(e) => handleUpdateField(idx, 'inline', e.target.checked)}
-                      className="rounded border-slate-700"
                     />
                     Inline
                   </label>
                   <button
                     type="button"
                     onClick={() => handleRemoveField(idx)}
-                    className="text-red-400 hover:text-red-300 text-xs px-1"
+                    className="meta-form__btn-ghost"
                   >
                     ✕
                   </button>
@@ -394,22 +399,21 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
       </div>
 
       {/* Sender Identity Section (Collapsible) */}
-      <div className="border border-slate-800 rounded-lg p-3 bg-slate-900/50">
-        <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-slate-200 cursor-pointer flex items-center gap-2">
+      <div className="meta-form__card">
+        <div className="meta-form__card-header">
+          <label className="meta-form__checkbox-label">
             <input
               type="checkbox"
               checked={showIdentity}
               onChange={(e) => setShowIdentity(e.target.checked)}
-              className="rounded border-slate-700 text-indigo-500 focus:ring-indigo-400"
             />
             Customize Sender Identity
           </label>
-          <span className="text-xs text-slate-400">Override name and avatar</span>
+          <span className="meta-form__hint">Override name and avatar</span>
         </div>
 
         {showIdentity && (
-          <div className="mt-3 pt-3 border-t border-slate-800 grid grid-cols-2 gap-3">
+          <div className="meta-form__grid">
             <FormInput
               label="Sender Name Override (Optional)"
               name="username"
@@ -430,22 +434,22 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
 
       {testMessage && (
         <div
-          className={`p-2.5 rounded text-xs ${
+          className={
             testMessage.type === 'success'
-              ? 'bg-emerald-950/70 border border-emerald-800 text-emerald-300'
-              : 'bg-red-950/70 border border-red-800 text-red-300'
-          }`}
+              ? 'meta-form__feedback--success'
+              : 'meta-form__feedback--error'
+          }
         >
           {testMessage.text}
         </div>
       )}
 
-      <div className="flex items-center justify-between pt-2">
+      <div className="meta-form__actions">
         <button
           type="button"
           onClick={handleTestWebhook}
           disabled={!isValidUrl || testLoading}
-          className="px-3 py-2 text-xs font-medium rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="meta-form__btn-ghost"
         >
           {testLoading ? 'Sending test...' : '🧪 Send Test Message'}
         </button>

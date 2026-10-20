@@ -275,3 +275,118 @@
     inline-size: 100%;
   }
 }
+
+
+/* Discord and extended form semantics */
+.meta-form__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-top: var(--space-xs);
+}
+
+.meta-form__card {
+  padding: var(--space-sm);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-lg);
+  background: hsl(var(--muted) / 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.meta-form__card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.meta-form__checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.meta-form__field-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.meta-form__counter {
+  font-size: var(--text-xs);
+  color: hsl(var(--muted-foreground));
+  margin-left: auto;
+}
+
+.meta-form__counter--danger {
+  color: hsl(var(--destructive));
+  font-weight: 600;
+}
+
+.meta-form__color-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.meta-form__color-picker {
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  padding: 0.1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid hsl(var(--border));
+  background: transparent;
+  cursor: pointer;
+}
+
+.meta-form__pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.meta-form__pill-btn {
+  font-size: var(--text-xs);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  cursor: pointer;
+}
+
+.meta-form__pill-btn:hover {
+  background: hsl(var(--accent));
+}
+
+.meta-form__feedback--success {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  background: hsl(var(--success) / 0.15);
+  border: 1px solid hsl(var(--success) / 0.35);
+  color: hsl(var(--success));
+}
+
+.meta-form__feedback--error {
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  background: hsl(var(--destructive) / 0.15);
+  border: 1px solid hsl(var(--destructive) / 0.35);
+  color: hsl(var(--destructive));
+}
+
+.meta-form__error-text {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--text-xs);
+  color: hsl(var(--destructive));
+}

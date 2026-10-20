@@ -65,6 +65,35 @@ describe('ActionsController - Fetch Available Actions', () => {
         })
       );
     });
+
+    it('returns Discord Send Message with correct image asset when present in database', async () => {
+      mockRequest = {};
+      const mockActions = [
+        {
+          id: 'discord-action-id',
+          type: 'Discord Send Message',
+          name: 'Discord',
+          image: '/apps/discord.svg',
+        },
+      ];
+
+      (client.availableActions.findMany as jest.Mock).mockResolvedValue(mockActions);
+
+      await ActionsController.fetchAvailableActions(
+        mockRequest as Request,
+        mockResponse as Response
+      );
+
+      expect(statusMock).toHaveBeenCalledWith(200);
+      expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({
+        availableActions: expect.arrayContaining([
+          expect.objectContaining({
+            type: 'Discord Send Message',
+            image: '/apps/discord.svg',
+          }),
+        ]),
+      }));
+    });
   });
 });
 
