@@ -253,20 +253,21 @@ test('Metadata Form Seam: Collapsed or disabled embed does not block canSave eve
     const isDescValid = embedDesc.length <= 4096;
     const areFieldsValid = fields.every((f) => f.name.length <= 256 && f.value.length <= 1024);
 
-    const isEmbedValid = !showEmbed || (
-      isTitleValid &&
-      isDescValid &&
-      isEmbedUrlValid &&
-      areFieldsValid
-    );
-
     const hasEmbedContent = showEmbed && (
       embedTitle.trim().length > 0 ||
       embedDesc.trim().length > 0 ||
       fields.some((f) => f.name.trim() && f.value.trim())
     );
 
-    return isValidUrl && isEmbedValid && (content.trim().length > 0 || (showEmbed && hasEmbedContent));
+    const isEmbedValid = !showEmbed || (
+      hasEmbedContent &&
+      isTitleValid &&
+      isDescValid &&
+      isEmbedUrlValid &&
+      areFieldsValid
+    );
+
+    return isValidUrl && isEmbedValid && (content.trim().length > 0 || hasEmbedContent);
   }
 
   // When showEmbed is false, incomplete embedUrl without title does NOT block saving text message

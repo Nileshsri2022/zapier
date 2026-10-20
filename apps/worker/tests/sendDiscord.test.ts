@@ -235,11 +235,7 @@ describe('sendDiscordMessage', () => {
     expect(result.error).toContain('Either content or embed (with title, description, or fields) is required');
   });
 
-  it('omits bodyless embed (only color or timestamp) and sends content successfully without triggering Discord 400', async () => {
-    post.mockResolvedValueOnce({
-      data: { id: 'msg-content-only' },
-    });
-
+  it('rejects configured embed lacking body content (title, description, or fields) with clear error instead of silently dropping', async () => {
     const result = await sendDiscordMessage(validWebhookUrl, {
       content: 'Here is your update',
       embed: {
@@ -248,10 +244,9 @@ describe('sendDiscordMessage', () => {
       },
     });
 
-    expect(result.success).toBe(true);
-    const [, calledBody] = post.mock.calls[0];
-    expect(calledBody.content).toBe('Here is your update');
-    expect(calledBody.embeds).toBeUndefined();
+    expect(result.success).toBe(false);
+    expect(result.isFatal).toBe(true);
+    expect(result.error).toContain('Either content or embed (with title, description, or fields) is required');
   });
 
   it('preserves avatarUrl without attempting key interpolation per spec scope', () => {

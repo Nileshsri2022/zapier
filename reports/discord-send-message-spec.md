@@ -93,7 +93,7 @@ interface DiscordActionMetadata {
   - Input field for Discord Webhook URL with URL pattern validation.
   - Textarea for message content with dynamic variable pill inserter and live 2,000-character counter.
   - Collapsible "Rich Embed" toggle with fields for Title, Description, Color picker/hex input, URL, and dynamic embed fields (up to 25 items).
-  - Collapsible "Sender Identity" override for custom username and avatar URL with live character counters.
+  - Collapsible "Sender Identity" override for custom username (with 80-character limit counter) and avatar URL.
   - "Send Test Message" button to verify the webhook directly before saving.
 
 ---

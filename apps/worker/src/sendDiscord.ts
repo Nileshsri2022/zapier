@@ -167,6 +167,14 @@ export async function sendDiscordMessage(
       (Array.isArray(resolvedEmbed.fields) && resolvedEmbed.fields.length > 0)
     );
 
+  if (options.embed && !hasEmbedContent) {
+    return {
+      success: false,
+      isFatal: true,
+      error: 'Either content or embed (with title, description, or fields) is required to send a Discord message.',
+    };
+  }
+
   if (!hasContent && !hasEmbedContent) {
     return {
       success: false,
