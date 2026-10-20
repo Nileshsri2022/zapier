@@ -63,6 +63,11 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
   const [embedColor, setEmbedColor] = useState(initialData?.embed?.color || '#5865F2');
   const [embedUrl, setEmbedUrl] = useState(initialData?.embed?.url || '');
   const [includeTimestamp, setIncludeTimestamp] = useState(Boolean(initialData?.embed?.timestamp));
+  const [embedTimestamp, setEmbedTimestamp] = useState(
+    initialData?.embed?.timestamp && initialData.embed.timestamp !== 'now'
+      ? String(initialData.embed.timestamp)
+      : ''
+  );
   const [embedFields, setEmbedFields] = useState<EmbedFieldState[]>(
     Array.isArray(initialData?.embed?.fields) ? initialData.embed.fields : []
   );
@@ -120,9 +125,13 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
     setTestMessage(null);
 
     const resolvedContent = resolveSamplePlaceholders(content.trim());
-    const testPayload: Record<string, any> = {
-      content: resolvedContent || '🧪 Test message from ZapMate! Your webhook is configured correctly.',
-    };
+    const testPayload: Record<string, any> = {};
+
+    if (resolvedContent) {
+      testPayload.content = resolvedContent;
+    } else if (!hasEmbedContent) {
+      testPayload.content = '🧪 Test message from ZapMate! Your webhook is configured correctly.';
+    }
 
     if (showIdentity && username.trim()) {
       testPayload.username = resolveSamplePlaceholders(username.trim()).slice(0, 80);
@@ -141,15 +150,21 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
           inline: Boolean(f.inline),
         }));
 
+      const testTimestamp = includeTimestamp
+        ? (embedTimestamp.trim() && embedTimestamp.trim() !== 'now'
+            ? resolveSamplePlaceholders(embedTimestamp.trim())
+            : new Date().toISOString())
+        : undefined;
+
       testPayload.embeds = [
         {
-          title: resolveSamplePlaceholders(embedTitle.trim()).slice(0, 256) || 'Sample Embed Title',
-          description:
-            resolveSamplePlaceholders(embedDescription.trim()).slice(0, 4096) ||
-            'Sample rich embed description from ZapMate test run.',
+          title: embedTitle.trim() ? resolveSamplePlaceholders(embedTitle.trim()).slice(0, 256) : undefined,
+          description: embedDescription.trim()
+            ? resolveSamplePlaceholders(embedDescription.trim()).slice(0, 4096)
+            : undefined,
           color: parseHexColor(embedColor),
           url: embedUrl.trim() || undefined,
-          timestamp: includeTimestamp ? new Date().toISOString() : undefined,
+          timestamp: testTimestamp,
           fields: validFields.length > 0 ? validFields : undefined,
         },
       ];
@@ -197,12 +212,16 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
           inline: Boolean(f.inline),
         }));
 
+      const resolvedEmbedTimestamp = includeTimestamp
+        ? (embedTimestamp.trim() || 'now')
+        : undefined;
+
       metadata.embed = {
         title: embedTitle.trim() ? embedTitle.trim().slice(0, 256) : undefined,
         description: embedDescription.trim() ? embedDescription.trim().slice(0, 4096) : undefined,
         color: embedColor,
         url: embedUrl.trim() || undefined,
-        timestamp: includeTimestamp ? 'now' : undefined,
+        timestamp: resolvedEmbedTimestamp,
         fields: validFields.length > 0 ? validFields : undefined,
       };
     }
@@ -338,10 +357,24 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
                 <input
                   type="checkbox"
                   checked={includeTimestamp}
-                  onChange={(e) => setIncludeTimestamp(e.target.checked)}
+                  onChange={(e) => {
+                    setIncludeTimestamp(e.target.checked);
+                    if (!e.target.checked) setEmbedTimestamp('');
+                  }}
                 />
                 Include timestamp on embed
               </label>
+              {includeTimestamp && (
+                <div className="meta-form__subgroup">
+                  <FormInput
+                    label="Custom Timestamp (ISO8601 or placeholder, optional)"
+                    name="embedTimestamp"
+                    value={embedTimestamp}
+                    placeholder="Leave blank for dynamic run time ('now'), or {trigger.data.timestamp}"
+                    onChange={(e: any) => setEmbedTimestamp(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Embed Fields */}

@@ -66,7 +66,7 @@ describe('ActionsController - Fetch Available Actions', () => {
       );
     });
 
-    it('returns Discord Send Message with correct image asset when present in database', async () => {
+    it('returns Discord Send Message with correct image asset and catalog entry schema when present in database', async () => {
       mockRequest = {};
       const mockActions = [
         {
@@ -88,6 +88,7 @@ describe('ActionsController - Fetch Available Actions', () => {
       expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({
         availableActions: expect.arrayContaining([
           expect.objectContaining({
+            id: 'discord-action-id',
             type: 'Discord Send Message',
             image: '/apps/discord.svg',
           }),

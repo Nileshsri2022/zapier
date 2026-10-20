@@ -84,22 +84,14 @@ export function resolveDiscordPlaceholders(
       url: options.embed.url ? replaceKeys(options.embed.url, metadata) : undefined,
       timestamp: options.embed.timestamp ? replaceKeys(options.embed.timestamp, metadata) : undefined,
       fields: options.embed.fields?.slice(0, 25).map((field) => ({
-        name: replaceKeys(field.name, metadata).slice(0, 256),
-        value: replaceKeys(field.value, metadata).slice(0, 1024),
+        name: replaceKeys(String(field.name || ''), metadata).slice(0, 256),
+        value: replaceKeys(String(field.value || ''), metadata).slice(0, 1024),
         inline: field.inline,
       })),
     };
   }
 
   return resolved;
-}
-
-/**
- * Mask the webhook secret token from a Discord incoming webhook URL to prevent credential leakage.
- */
-export function maskDiscordWebhookUrl(url: string): string {
-  if (!url || typeof url !== 'string') return '';
-  return url.replace(/\/webhooks\/(\d+)\/([A-Za-z0-9_-]+)/, '/webhooks/$1/****');
 }
 
 /**
@@ -127,7 +119,7 @@ export async function sendDiscordMessage(
       description: embed.description ? String(embed.description).slice(0, 4096) : undefined,
       color: normalizeDiscordColor(embed.color),
       url: embed.url || undefined,
-      timestamp: (embed.timestamp === 'now' || embed.timestamp === true) ? new Date().toISOString() : (embed.timestamp || undefined),
+      timestamp: embed.timestamp === 'now' ? new Date().toISOString() : (embed.timestamp || undefined),
       fields: Array.isArray(embed.fields)
         ? embed.fields.slice(0, 25).map((f) => ({
             name: String(f.name || '').slice(0, 256),

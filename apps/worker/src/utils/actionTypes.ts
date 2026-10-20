@@ -10,7 +10,7 @@
  */
 
 /** Exact action-type matches. */
-export const KNOWN_ACTION_TYPES = ['Email', 'Solana', 'Webhook', 'AI Transform'] as const;
+export const KNOWN_ACTION_TYPES = ['Email', 'Solana', 'Webhook', 'AI Transform', 'Discord Send Message'] as const;
 
 /** Prefix matches — e.g. 'WhatsApp Send Message', 'Telegram Send Message', 'Discord Send Message'. */
 export const KNOWN_ACTION_PREFIXES = ['WhatsApp', 'Telegram', 'Discord'] as const;

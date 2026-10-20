@@ -194,7 +194,7 @@ export async function executeActionWithRetry(
         };
       }
 
-      if (actionType === 'Discord Send Message') {
+      if (actionType === 'Discord Send Message' || actionType.startsWith('Discord')) {
         const { webhookUrl, content, username, avatarUrl, embed } = metadata;
 
         const resolvedOptions = resolveDiscordPlaceholders(

@@ -7,7 +7,6 @@ import axios from 'axios';
 import {
   sendDiscordMessage,
   resolveDiscordPlaceholders,
-  maskDiscordWebhookUrl,
   isValidDiscordWebhookUrl,
   normalizeDiscordColor,
 } from '../src/sendDiscord';
@@ -291,9 +290,22 @@ describe('sendDiscordMessage', () => {
     expect(Date.parse(calledBody.embeds[0].timestamp)).toBeLessThanOrEqual(Date.parse(after));
   });
 
-  it('masks the sensitive webhook token in Discord webhook URLs', () => {
-    const raw = 'https://discord.com/api/webhooks/123456789/abcdef_secret-token';
-    const masked = maskDiscordWebhookUrl(raw);
-    expect(masked).toBe('https://discord.com/api/webhooks/123456789/****');
+  it('handles non-string or unresolvable field values gracefully without throwing', () => {
+    const unresolvedOptions = {
+      embed: {
+        fields: [
+          { name: undefined as any, value: null as any },
+          { name: 'Count', value: 42 as any },
+          { name: 'Unknown', value: '{trigger.data.missingField}' },
+        ],
+      },
+    };
+
+    const resolved = resolveDiscordPlaceholders(unresolvedOptions, {});
+    expect(resolved.embed?.fields?.[0].name).toBe('');
+    expect(resolved.embed?.fields?.[0].value).toBe('');
+    expect(resolved.embed?.fields?.[1].name).toBe('Count');
+    expect(resolved.embed?.fields?.[1].value).toBe('42');
+    expect(resolved.embed?.fields?.[2].value).toBe('{trigger.data.missingField}');
   });
 });

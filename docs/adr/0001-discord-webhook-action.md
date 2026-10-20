@@ -4,7 +4,7 @@
 ZapMate automates workflows by executing actions in response to trigger events. Users need to send real-time notifications to Discord channels (e.g. sales alerts, Solana transaction confirmations, new form leads). 
 
 There were two technical routes considered:
-1. **Discord Bot with OAuth2 Token**: Requiring users to create a Discord Application in the Discord Developer Portal, configure bot scopes/permissions, invite the bot to their server, and manage bot tokens.
+1. **Discord Application with OAuth2 / Gateway Connection**: Requiring users to create an application in the Discord Developer Portal, configure application scopes/permissions, invite the application to their server, and manage application tokens.
 2. **Discord Incoming Webhooks**: Allowing users to create a webhook URL in their Discord channel settings (`https://discord.com/api/webhooks/{id}/{token}`) and paste it directly into the action configuration.
 
 ## Decision
@@ -17,4 +17,4 @@ Why:
 
 ## Consequences
 - The action is strictly one-way (outbound messaging and alerts).
-- Interactive bot features (slash commands, listening to messages in Discord, role management) are out of scope for this action.
+- Interactive features (slash commands, listening to messages in Discord, role management) are out of scope for this action.

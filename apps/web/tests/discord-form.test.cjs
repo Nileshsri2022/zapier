@@ -77,14 +77,43 @@ test('Metadata Form Seam: Field-only rich embeds are valid without title or desc
 
 test('Metadata Form Seam: Emits metadata with dynamic timestamp marker when requested', () => {
   const includeTimestamp = true;
+  const embedTimestamp = '';
   const metadata = {
     webhookUrl: 'https://discord.com/api/webhooks/123/token',
     content: 'Hello Discord',
     embed: {
       title: 'Embed Title',
-      timestamp: includeTimestamp ? 'now' : undefined,
+      timestamp: includeTimestamp ? (embedTimestamp.trim() || 'now') : undefined,
     },
   };
 
   assert.equal(metadata.embed.timestamp, 'now');
+});
+
+test('Metadata Form Seam: Preserves custom ISO8601 or placeholder timestamp when provided', () => {
+  const includeTimestamp = true;
+  const embedTimestamp = '{trigger.data.timestamp}';
+  const metadata = {
+    webhookUrl: 'https://discord.com/api/webhooks/123/token',
+    content: 'Hello Discord',
+    embed: {
+      title: 'Embed Title',
+      timestamp: includeTimestamp ? (embedTimestamp.trim() || 'now') : undefined,
+    },
+  };
+
+  assert.equal(metadata.embed.timestamp, '{trigger.data.timestamp}');
+});
+
+test('Metadata Form Seam: Test payload does not force text content onto embed-only actions', () => {
+  const content = '';
+  const hasEmbedContent = true;
+  const testPayload = {};
+  if (content.trim()) {
+    testPayload.content = content.trim();
+  } else if (!hasEmbedContent) {
+    testPayload.content = '🧪 Test message from ZapMate! Your webhook is configured correctly.';
+  }
+
+  assert.equal(testPayload.content, undefined);
 });
