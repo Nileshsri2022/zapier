@@ -94,7 +94,6 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
   const isTitleValid = embedTitle.length <= 256;
   const isContentValid = content.length <= 2000;
   const isUsernameValid = username.length <= 80;
-  const isAvatarUrlValid = avatarUrl.length <= 2048;
   const isEmbedUrlValid = !embedUrl.trim() || embedTitle.trim().length > 0;
   const areFieldsValid = embedFields.every((f) => f.name.length <= 256 && f.value.length <= 1024);
 
@@ -108,16 +107,19 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
       hasValidFields
     );
 
+  const isEmbedValid = !showEmbed || (
+    isTitleValid &&
+    isDescriptionValid &&
+    isEmbedUrlValid &&
+    areFieldsValid
+  );
+
   const canSave =
     isValidUrl &&
-    isDescriptionValid &&
-    isTitleValid &&
     isContentValid &&
     isUsernameValid &&
-    isAvatarUrlValid &&
-    isEmbedUrlValid &&
-    areFieldsValid &&
-    (content.trim().length > 0 || hasEmbedContent);
+    isEmbedValid &&
+    (content.trim().length > 0 || (showEmbed && hasEmbedContent));
 
   const handleAddField = () => {
     // Discord allows up to 25 fields per embed
@@ -171,7 +173,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
       testPayload.username = resolveSamplePlaceholders(username.trim()).slice(0, 80);
     }
     if (showIdentity && avatarUrl.trim()) {
-      testPayload.avatar_url = avatarUrl.trim().slice(0, 2048);
+      testPayload.avatar_url = resolveSamplePlaceholders(avatarUrl.trim());
     }
 
     if (showEmbed && hasEmbedContent) {
@@ -493,6 +495,12 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
                 </div>
               ))}
             </div>
+
+            {showEmbed && !hasEmbedContent && (
+              <p className="meta-form__hint">
+                An embed requires a title, description, timestamp, or at least one field to be attached.
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -532,25 +540,13 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
                 <p className="meta-form__error-text">Sender name exceeds Discord&apos;s 80-character limit.</p>
               )}
             </div>
-            <div>
-              <div className="meta-form__row">
-                <label className="meta-form__label">Avatar URL (Optional)</label>
-                <span className={avatarUrl.length > 2048 ? 'meta-form__counter meta-form__counter--danger' : 'meta-form__counter'}>
-                  {avatarUrl.length}/2048
-                </span>
-              </div>
-              <input
-                type="text"
-                name="avatarUrl"
-                value={avatarUrl}
-                className="meta-form__input"
-                placeholder="https://.../avatar.png"
-                onChange={(e: any) => setAvatarUrl(e.target.value)}
-              />
-              {avatarUrl.length > 2048 && (
-                <p className="meta-form__error-text">Avatar URL exceeds 2,048-character limit.</p>
-              )}
-            </div>
+            <FormInput
+              label="Avatar URL (Optional)"
+              name="avatarUrl"
+              value={avatarUrl}
+              placeholder="https://.../avatar.png"
+              onChange={(e: any) => setAvatarUrl(e.target.value)}
+            />
           </div>
         )}
       </div>

@@ -225,6 +225,52 @@ test('Metadata Form Seam: Embed URL without embed title gates canSave', () => {
   assert.equal(evaluateCanSaveWithEmbedUrl({ embedUrl: 'https://zapmate.io', embedTitle: '   ' }), false);
 });
 
+test('Metadata Form Seam: Collapsed or disabled embed does not block canSave even if embed draft is incomplete', () => {
+  function evaluateCanSave({ isValidUrl, content, showEmbed, embedUrl, embedTitle, embedDesc, fields }) {
+    const isEmbedUrlValid = !embedUrl.trim() || embedTitle.trim().length > 0;
+    const isTitleValid = embedTitle.length <= 256;
+    const isDescValid = embedDesc.length <= 4096;
+    const areFieldsValid = fields.every((f) => f.name.length <= 256 && f.value.length <= 1024);
+
+    const isEmbedValid = !showEmbed || (
+      isTitleValid &&
+      isDescValid &&
+      isEmbedUrlValid &&
+      areFieldsValid
+    );
+
+    const hasEmbedContent = showEmbed && (
+      embedTitle.trim().length > 0 ||
+      embedDesc.trim().length > 0 ||
+      fields.some((f) => f.name.trim() && f.value.trim())
+    );
+
+    return isValidUrl && isEmbedValid && (content.trim().length > 0 || (showEmbed && hasEmbedContent));
+  }
+
+  // When showEmbed is false, incomplete embedUrl without title does NOT block saving text message
+  assert.equal(evaluateCanSave({
+    isValidUrl: true,
+    content: 'Hello channel',
+    showEmbed: false,
+    embedUrl: 'https://zapmate.io',
+    embedTitle: '',
+    embedDesc: '',
+    fields: [],
+  }), true);
+
+  // When showEmbed is true, incomplete embedUrl without title DOES block saving
+  assert.equal(evaluateCanSave({
+    isValidUrl: true,
+    content: 'Hello channel',
+    showEmbed: true,
+    embedUrl: 'https://zapmate.io',
+    embedTitle: '',
+    embedDesc: '',
+    fields: [],
+  }), false);
+});
+
 
 test('Metadata Form Seam: Embed field name and value length boundaries gate canSave', () => {
   const validFieldName = 'F'.repeat(256);
