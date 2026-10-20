@@ -73,7 +73,7 @@ export function resolveDiscordPlaceholders(
     ...options,
     content: options.content ? replaceKeys(options.content, metadata) : undefined,
     username: options.username ? replaceKeys(options.username, metadata) : undefined,
-    avatarUrl: options.avatarUrl ? replaceKeys(options.avatarUrl, metadata) : undefined,
+    avatarUrl: options.avatarUrl || undefined,
   };
 
   if (options.embed) {

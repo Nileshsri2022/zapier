@@ -193,23 +193,36 @@ test('Metadata Form Seam: Non-text embeds with timestamp evaluate hasEmbedConten
   assert.equal(evaluateHasEmbedContent({ title: embedTitle, desc: embedDescription, hasFields: hasValidFields, timestamp: true }), true);
 });
 
-test('Metadata Form Seam: Resolves avatarUrl placeholders for test modal payload', () => {
-  const SAMPLE_TRIGGER_VALUES = {
-    '{trigger.data.icon}': 'https://example.com/dynamic-avatar.png',
-  };
-
-  function resolveSamplePlaceholders(text) {
-    if (!text) return text;
-    let resolved = text;
-    for (const [placeholder, sampleValue] of Object.entries(SAMPLE_TRIGGER_VALUES)) {
-      resolved = resolved.split(placeholder).join(sampleValue);
+test('Metadata Form Seam: Rehydrates numeric embed color and pure black 0 without crashing', () => {
+  function formatInitialColor(color) {
+    if (color === 0) return '#000000';
+    if (typeof color === 'number' && Number.isFinite(color)) {
+      return `#${Math.max(0, Math.min(16777215, Math.floor(color))).toString(16).padStart(6, '0')}`;
     }
-    return resolved;
+    if (typeof color === 'string' && color.trim()) {
+      const clean = color.trim();
+      return clean.startsWith('#') ? clean : `#${clean}`;
+    }
+    return '#5865F2';
   }
 
-  const rawAvatarUrl = '{trigger.data.icon}';
-  const resolved = resolveSamplePlaceholders(rawAvatarUrl);
-  assert.equal(resolved, 'https://example.com/dynamic-avatar.png');
+  assert.equal(formatInitialColor(0), '#000000');
+  assert.equal(formatInitialColor(5793266), '#5865f2');
+  assert.equal(formatInitialColor('#FF0000'), '#FF0000');
+  assert.equal(formatInitialColor('00FF00'), '#00FF00');
+  assert.equal(formatInitialColor(undefined), '#5865F2');
+});
+
+test('Metadata Form Seam: Embed URL without embed title gates canSave', () => {
+  function evaluateCanSaveWithEmbedUrl({ embedUrl, embedTitle }) {
+    const isEmbedUrlValid = !embedUrl.trim() || embedTitle.trim().length > 0;
+    return isEmbedUrlValid;
+  }
+
+  assert.equal(evaluateCanSaveWithEmbedUrl({ embedUrl: '', embedTitle: '' }), true);
+  assert.equal(evaluateCanSaveWithEmbedUrl({ embedUrl: 'https://zapmate.io', embedTitle: 'ZapMate' }), true);
+  assert.equal(evaluateCanSaveWithEmbedUrl({ embedUrl: 'https://zapmate.io', embedTitle: '' }), false);
+  assert.equal(evaluateCanSaveWithEmbedUrl({ embedUrl: 'https://zapmate.io', embedTitle: '   ' }), false);
 });
 
 
