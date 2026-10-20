@@ -36,13 +36,13 @@ Users configure their action by pasting an incoming Discord Webhook URL and draf
 6. As a Zap creator, I want to override the displayed webhook username per Zap, so that my notifications look like they come from "Solana Tracker" or "Support Desk".
 7. As a Zap creator, I want to override the avatar icon with a custom image URL, so that the message visually aligns with the triggering service.
 8. As a Zap creator, I want the web editor to validate that my webhook URL matches the canonical Discord format (`https://discord.com/api/webhooks/...` or `https://discordapp.com/api/webhooks/...`), so that I catch copy-paste mistakes before publishing.
-9. As a Zap creator, I want a live character counter showing my progress toward the 2,000-character content limit, so that I don't craft messages that Discord will reject.
-10. As a Zap creator, I want the editor to warn me if an embed description exceeds Discord's 4,096-character limit, so that my structured embeds are guaranteed to be accepted.
+9. As a Zap creator, I want live character counters showing my progress toward limits (2,000 for content, 4,096 for embed description, 256 for embed title, 80 for sender username), so that I don't craft messages that Discord will reject.
+10. As a Zap creator, I want the editor to warn me if any field exceeds Discord's character limits, so that my structured messages are guaranteed to be accepted.
 11. As a Zap creator, I want to test my Discord webhook with sample trigger data right from the modal, so that I can verify it posts to my channel before publishing the Zap.
 12. As a developer running the background worker, I want Discord actions to execute reliably within the transactional outbox pipeline, so that no messages are lost if a service momentarily restarts.
 13. As a developer running the background worker, I want HTTP 429 rate limits from Discord to be parsed for `retry_after` and safely waited out, so that the worker does not get IP-banned by Cloudflare.
 14. As a developer, I want unresolvable placeholders (e.g. `{trigger.data.nonexistent}`) to fall back gracefully to the literal string placeholder rather than crashing the worker run.
-15. As a developer, I want Discord API 400 (Bad Request) or 404 (Unknown Webhook) errors to immediately fail the specific action and mark the ZapRun as `failed` with a clear diagnostic message, so that users can diagnose broken webhooks in their run logs.
+15. As a developer, I want Discord API 400 (Bad Request), 401 (Unauthorized), or 404 (Unknown Webhook) errors to immediately fail the specific action and mark the ZapRun as `failed` with a clear diagnostic message, so that users can diagnose broken or deauthorized webhooks in their run logs.
 16. As a user reviewing run history, I want the ZapRun details to show the Discord execution output (including the Discord message ID and timestamp), so that I have an audit trail of when the message was delivered.
 17. As an admin, I want the Discord action to be seeded into `AvailableActions` alongside Email and Solana during database setup, so that it is available immediately out of the box in new environments.
 
@@ -53,6 +53,7 @@ Users configure their action by pasting an incoming Discord Webhook URL and draf
 ### Architectural Decisions
 - **Stateless Webhook Integration**: Webhooks are stateless HTTP POST endpoints. We do not maintain WebSocket gateway connections or application credential state. The webhook URL is stored directly in `Action.metadata`. (Recorded in `docs/adr/0001-discord-webhook-action.md`).
 - **Standard Action Catalog Entry**: Registered under `AvailableActions.type = "Discord Send Message"`. The worker registers `"Discord Send Message"` in its known exact action types (`KNOWN_ACTION_TYPES`).
+- **Glossary Alignment**: Defined in `GLOSSARY.md` under "Discord Action" as an exact match to `AvailableActions.type = "Discord Send Message"`.
 - **Dynamic Key Interpolation**: Reuses the core placeholder engine (`replaceKeys`) so `{key}` and `{a.b.c}` paths from trigger metadata and previous action outputs interpolate cleanly across content, username, and embed fields.
 
 ### Action Metadata Schema
@@ -91,8 +92,8 @@ interface DiscordActionMetadata {
 - Features:
   - Input field for Discord Webhook URL with URL pattern validation.
   - Textarea for message content with dynamic variable pill inserter and live 2,000-character counter.
-  - Collapsible "Rich Embed" toggle with fields for Title, Description, Color picker/hex input, and URL.
-  - Collapsible "Sender Identity" override for custom username and avatar URL.
+  - Collapsible "Rich Embed" toggle with fields for Title, Description, Color picker/hex input, URL, and dynamic embed fields (up to 25 items).
+  - Collapsible "Sender Identity" override for custom username and avatar URL with live character counters.
   - "Send Test Message" button to verify the webhook directly before saving.
 
 ---

@@ -321,10 +321,9 @@ describe('sendDiscordMessage', () => {
     };
 
     const resolved = resolveDiscordPlaceholders(unresolvedOptions, {});
-    expect(resolved.embed?.fields?.[0].name).toBe('');
-    expect(resolved.embed?.fields?.[0].value).toBe('');
-    expect(resolved.embed?.fields?.[1].name).toBe('Count');
-    expect(resolved.embed?.fields?.[1].value).toBe('42');
-    expect(resolved.embed?.fields?.[2].value).toBe('{trigger.data.missingField}');
+    expect(resolved.embed?.fields).toHaveLength(2);
+    expect(resolved.embed?.fields?.[0].name).toBe('Count');
+    expect(resolved.embed?.fields?.[0].value).toBe('42');
+    expect(resolved.embed?.fields?.[1].value).toBe('{trigger.data.missingField}');
   });
 });

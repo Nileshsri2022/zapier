@@ -97,6 +97,28 @@ describe('Worker Action Execution Seam: Discord Send Message', () => {
     expect(post).toHaveBeenCalledTimes(1);
   });
 
+  it('fails immediately and halts retries after 1 attempt when Discord returns HTTP 400 (Bad Request / Malformed Payload)', async () => {
+    post.mockRejectedValueOnce({
+      response: {
+        status: 400,
+        data: { message: 'Cannot send an empty message', code: 50006 },
+      },
+    });
+
+    const metadata = {
+      webhookUrl: validWebhookUrl,
+      content: '',
+      embed: { title: 'Test' },
+    };
+
+    const result = await executeActionWithRetry('Discord Send Message', metadata, {});
+
+    expect(result.success).toBe(false);
+    expect(result.attempts).toBe(1); // Halts immediately on 400
+    expect(result.error?.message).toContain('Cannot send an empty message');
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
 
   it('retries dynamic backoff on HTTP 429 rate limit and succeeds within execution seam', async () => {
     // Attempt 1: 429 Rate limited with retry_after = 0.01s

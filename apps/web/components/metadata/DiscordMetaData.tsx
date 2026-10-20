@@ -23,6 +23,7 @@ const SAMPLE_TRIGGER_VALUES: Record<string, string> = {
   '{trigger.data.from}': 'Alice (0x71C...3a1)',
   '{trigger.data.email}': 'user@example.com',
   '{trigger.data.subject}': 'Payment Notification',
+  '{trigger.data.timestamp}': new Date().toISOString(),
 };
 
 function resolveSamplePlaceholders(text: string): string {
@@ -158,11 +159,18 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
           inline: Boolean(f.inline),
         }));
 
-      const testTimestamp = includeTimestamp
-        ? (embedTimestamp.trim() && embedTimestamp.trim() !== 'now'
-            ? resolveSamplePlaceholders(embedTimestamp.trim())
-            : new Date().toISOString())
-        : undefined;
+      let testTimestamp: string | undefined = undefined;
+      if (includeTimestamp) {
+        if (!embedTimestamp.trim() || embedTimestamp.trim() === 'now') {
+          testTimestamp = new Date().toISOString();
+        } else {
+          const resolved = resolveSamplePlaceholders(embedTimestamp.trim());
+          const parsedMs = Date.parse(resolved);
+          if (!Number.isNaN(parsedMs)) {
+            testTimestamp = new Date(parsedMs).toISOString();
+          }
+        }
+      }
 
       testPayload.embeds = [
         {

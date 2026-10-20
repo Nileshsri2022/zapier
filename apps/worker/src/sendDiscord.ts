@@ -83,11 +83,14 @@ export function resolveDiscordPlaceholders(
       description: options.embed.description ? replaceKeys(options.embed.description, metadata) : undefined,
       url: options.embed.url ? replaceKeys(options.embed.url, metadata) : undefined,
       timestamp: options.embed.timestamp ? replaceKeys(options.embed.timestamp, metadata) : undefined,
-      fields: options.embed.fields?.slice(0, 25).map((field) => ({
-        name: replaceKeys(String(field.name || ''), metadata).slice(0, 256),
-        value: replaceKeys(String(field.value || ''), metadata).slice(0, 1024),
-        inline: field.inline,
-      })),
+      fields: options.embed.fields
+        ?.filter((field) => field && String(field.name || '').trim().length > 0 && String(field.value || '').trim().length > 0)
+        .slice(0, 25)
+        .map((field) => ({
+          name: replaceKeys(String(field.name), metadata).slice(0, 256),
+          value: replaceKeys(String(field.value), metadata).slice(0, 1024),
+          inline: field.inline,
+        })),
     };
   }
 
@@ -125,19 +128,24 @@ export async function sendDiscordMessage(
       }
     }
 
+    const sanitizedFields = Array.isArray(embed.fields)
+      ? embed.fields
+          .filter((f) => f && String(f.name || '').trim().length > 0 && String(f.value || '').trim().length > 0)
+          .slice(0, 25)
+          .map((f) => ({
+            name: String(f.name).trim().slice(0, 256),
+            value: String(f.value).trim().slice(0, 1024),
+            inline: Boolean(f.inline),
+          }))
+      : undefined;
+
     resolvedEmbed = {
       title: embed.title ? String(embed.title).slice(0, 256) : undefined,
       description: embed.description ? String(embed.description).slice(0, 4096) : undefined,
       color: normalizeDiscordColor(embed.color),
       url: embed.url || undefined,
       timestamp: resolvedTimestamp,
-      fields: Array.isArray(embed.fields)
-        ? embed.fields.slice(0, 25).map((f) => ({
-            name: String(f.name || '').slice(0, 256),
-            value: String(f.value || '').slice(0, 1024),
-            inline: Boolean(f.inline),
-          }))
-        : undefined,
+      fields: sanitizedFields && sanitizedFields.length > 0 ? sanitizedFields : undefined,
     };
 
     // Remove undefined properties
