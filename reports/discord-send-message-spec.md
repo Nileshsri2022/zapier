@@ -52,7 +52,7 @@ Users configure their action by pasting an incoming Discord Webhook URL and draf
 
 ### Architectural Decisions
 - **Stateless Webhook Integration**: Webhooks are stateless HTTP POST endpoints. We do not maintain WebSocket gateway connections or application credential state. The webhook URL is stored directly in `Action.metadata`. (Recorded in `docs/adr/0001-discord-webhook-action.md`).
-- **Standard Action Catalog Entry**: Registered under `AvailableActions.type = "Discord Send Message"`. The worker registers `'Discord'` in its known action prefixes (`KNOWN_ACTION_PREFIXES`).
+- **Standard Action Catalog Entry**: Registered under `AvailableActions.type = "Discord Send Message"`. The worker registers `"Discord Send Message"` in its known exact action types (`KNOWN_ACTION_TYPES`).
 - **Dynamic Key Interpolation**: Reuses the core placeholder engine (`replaceKeys`) so `{key}` and `{a.b.c}` paths from trigger metadata and previous action outputs interpolate cleanly across content, username, and embed fields.
 
 ### Action Metadata Schema
@@ -68,7 +68,7 @@ interface DiscordActionMetadata {
     description?: string;           // Max 4096 chars
     color?: string | number;        // Hex string ("#5865F2") or integer
     url?: string;                   // URL linked from the embed title
-    timestamp?: string;             // Optional: ISO8601 timestamp string
+    timestamp?: string;             // Optional: ISO8601 timestamp string or 'now' for dynamic execution time
     fields?: Array<{                // Up to 25 fields
       name: string;                 // Max 256 chars
       value: string;                // Max 1024 chars
@@ -112,7 +112,7 @@ interface DiscordActionMetadata {
      - Exponential backoff / dynamic delay on HTTP 429 `retry_after`.
      - Explicit error throwing and `ZapRun` failure transition on HTTP 400 (malformed payload) or HTTP 404 (deleted webhook).
 2. **The Catalog Ingress Seam (`GET /api/v1/actions`)**:
-   - Verifies that `"Discord Send Message"` is returned in the available actions list with correct icon and metadata schema.
+   - Verifies that `"Discord Send Message"` is returned in the available actions list with correct icon and catalog entry schema.
 3. **The Metadata Form Seam (`DiscordMetaData`)**:
    - Verifies user interaction: webhook URL validation, character length limits, and emitting valid metadata objects through `handleClick`.
 

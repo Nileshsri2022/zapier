@@ -15,7 +15,7 @@ describe('isKnownActionType', () => {
     expect(isKnownActionType(type)).toBe(true);
   });
 
-  it.each(['WhatsApp Send Message', 'WhatsApp', 'Telegram Send Message', 'Telegram', 'Discord Send Message', 'Discord'])(
+  it.each(['WhatsApp Send Message', 'WhatsApp', 'Telegram Send Message', 'Telegram'])(
     'accepts prefix match %s',
     (type) => {
       expect(isKnownActionType(type)).toBe(true);
@@ -37,6 +37,8 @@ describe('isKnownActionType', () => {
     'Gmail Mark as Read',
     'Gmail Archive',
     'Slack Message',
+    'Discord',
+    'Discord Alert',
     'AI',
     'OpenAI',
     'ai transform',

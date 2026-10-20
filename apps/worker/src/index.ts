@@ -194,7 +194,7 @@ export async function executeActionWithRetry(
         };
       }
 
-      if (actionType === 'Discord Send Message' || actionType.startsWith('Discord')) {
+      if (actionType === 'Discord Send Message') {
         const { webhookUrl, content, username, avatarUrl, embed } = metadata;
 
         const resolvedOptions = resolveDiscordPlaceholders(
@@ -210,7 +210,7 @@ export async function executeActionWithRetry(
         const result = await sendDiscordMessage(webhookUrl || '', resolvedOptions);
 
         if (!result.success) {
-          const err = new Error(`Discord send failed: ${result.error}${result.isFatal ? ' [FATAL]' : ''}`);
+          const err = new Error(`Discord send failed: ${result.error}`);
           (err as any).isFatal = result.isFatal;
           throw err;
         }

@@ -114,12 +114,23 @@ export async function sendDiscordMessage(
 
   let resolvedEmbed: Record<string, any> | undefined = undefined;
   if (embed && typeof embed === 'object') {
+    let resolvedTimestamp: string | undefined = undefined;
+    if (embed.timestamp === 'now') {
+      resolvedTimestamp = new Date().toISOString();
+    } else if (typeof embed.timestamp === 'string' && embed.timestamp.trim().length > 0) {
+      const trimmed = embed.timestamp.trim();
+      const parsedMs = Date.parse(trimmed);
+      if (!Number.isNaN(parsedMs)) {
+        resolvedTimestamp = new Date(parsedMs).toISOString();
+      }
+    }
+
     resolvedEmbed = {
       title: embed.title ? String(embed.title).slice(0, 256) : undefined,
       description: embed.description ? String(embed.description).slice(0, 4096) : undefined,
       color: normalizeDiscordColor(embed.color),
       url: embed.url || undefined,
-      timestamp: embed.timestamp === 'now' ? new Date().toISOString() : (embed.timestamp || undefined),
+      timestamp: resolvedTimestamp,
       fields: Array.isArray(embed.fields)
         ? embed.fields.slice(0, 25).map((f) => ({
             name: String(f.name || '').slice(0, 256),
@@ -174,7 +185,7 @@ export async function sendDiscordMessage(
   const maxAttempts = 4; // 1 initial attempt + 3 retries (spec line 86)
   let lastErrorMsg = 'Unknown Discord error';
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  for (let attempt = 1; ; attempt++) {
     try {
       const response = await axios.post(targetUrl, payload, {
         timeout: REQUEST_TIMEOUT_MS,
@@ -223,10 +234,4 @@ export async function sendDiscordMessage(
       };
     }
   }
-
-  return {
-    success: false,
-    isFatal: true,
-    error: `Discord webhook delivery failed: ${lastErrorMsg}`,
-  };
 }

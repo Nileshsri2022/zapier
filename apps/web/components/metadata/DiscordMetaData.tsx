@@ -140,7 +140,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
       testPayload.avatar_url = avatarUrl.trim();
     }
 
-    if (showEmbed) {
+    if (showEmbed && hasEmbedContent) {
       const validFields = embedFields
         .filter((f) => f.name.trim() && f.value.trim())
         .slice(0, 25)
@@ -202,7 +202,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
       metadata.avatarUrl = avatarUrl.trim();
     }
 
-    if (showEmbed) {
+    if (showEmbed && hasEmbedContent) {
       const validFields = embedFields
         .filter((f) => f.name.trim().length > 0 && f.value.trim().length > 0)
         .slice(0, 25)

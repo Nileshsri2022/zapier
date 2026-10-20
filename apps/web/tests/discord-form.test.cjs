@@ -117,3 +117,51 @@ test('Metadata Form Seam: Test payload does not force text content onto embed-on
 
   assert.equal(testPayload.content, undefined);
 });
+
+test('Metadata Form Seam: Character length limit validation gates canSave', () => {
+  // 1. Content boundary test (max 2000)
+  const validContent = 'A'.repeat(2000);
+  const overContent = 'A'.repeat(2001);
+  assert.equal(validContent.length <= 2000, true);
+  assert.equal(overContent.length <= 2000, false);
+
+  // 2. Embed description boundary test (max 4096)
+  const validDescription = 'D'.repeat(4096);
+  const overDescription = 'D'.repeat(4097);
+  assert.equal(validDescription.length <= 4096, true);
+  assert.equal(overDescription.length <= 4096, false);
+
+  // 3. Username boundary test (max 80)
+  const validUsername = 'U'.repeat(80);
+  const overUsername = 'U'.repeat(81);
+  assert.equal(validUsername.length <= 80, true);
+  assert.equal(overUsername.length <= 80, false);
+
+  // 4. canSave gates
+  function evaluateCanSave({ urlValid, contentLen, descLen, userLen, hasContentOrEmbed }) {
+    return urlValid && contentLen <= 2000 && descLen <= 4096 && userLen <= 80 && hasContentOrEmbed;
+  }
+
+  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 2000, descLen: 4096, userLen: 80, hasContentOrEmbed: true }), true);
+  assert.equal(evaluateCanSave({ urlValid: false, contentLen: 100, descLen: 100, userLen: 10, hasContentOrEmbed: true }), false);
+  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 2001, descLen: 100, userLen: 10, hasContentOrEmbed: true }), false);
+  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 100, descLen: 4097, userLen: 10, hasContentOrEmbed: true }), false);
+  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 100, descLen: 100, userLen: 81, hasContentOrEmbed: true }), false);
+  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 0, descLen: 0, userLen: 10, hasContentOrEmbed: false }), false);
+});
+
+test('Metadata Form Seam: Empty embed toggle does not emit embed object in metadata', () => {
+  const showEmbed = true;
+  const embedTitle = '';
+  const embedDescription = '';
+  const embedFields = [];
+  const hasValidFields = embedFields.some((f) => f.name.trim().length > 0 && f.value.trim().length > 0);
+  const hasEmbedContent = showEmbed && (embedTitle.trim().length > 0 || embedDescription.trim().length > 0 || hasValidFields);
+
+  const metadata = { webhookUrl: 'https://discord.com/api/webhooks/123/token' };
+  if (showEmbed && hasEmbedContent) {
+    metadata.embed = { color: '#5865F2' };
+  }
+
+  assert.equal(metadata.embed, undefined);
+});

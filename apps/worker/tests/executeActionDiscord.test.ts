@@ -73,7 +73,7 @@ describe('Worker Action Execution Seam: Discord Send Message', () => {
 
     expect(result.success).toBe(false);
     expect(result.attempts).toBe(1); // Halts immediately
-    expect(result.error?.message).toMatch(/Discord send failed.*FATAL/);
+    expect(result.error?.message).toMatch(/Discord send failed.*Invalid Discord webhook URL/);
     expect(post).not.toHaveBeenCalled();
   });
 
