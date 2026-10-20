@@ -157,13 +157,21 @@ export async function sendDiscordMessage(
   }
 
   const hasContent = typeof content === 'string' && content.trim().length > 0;
-  const hasEmbed = resolvedEmbed !== undefined && Object.keys(resolvedEmbed).length > 0;
+  const hasEmbedContent =
+    resolvedEmbed !== undefined &&
+    Boolean(
+      (resolvedEmbed.title && resolvedEmbed.title.trim().length > 0) ||
+      (resolvedEmbed.description && resolvedEmbed.description.trim().length > 0) ||
+      (resolvedEmbed.url && resolvedEmbed.url.trim().length > 0) ||
+      resolvedEmbed.timestamp ||
+      (Array.isArray(resolvedEmbed.fields) && resolvedEmbed.fields.length > 0)
+    );
 
-  if (!hasContent && !hasEmbed) {
+  if (!hasContent && !hasEmbedContent) {
     return {
       success: false,
       isFatal: true,
-      error: 'Either content or embed is required to send a Discord message.',
+      error: 'Either content or embed (with title, description, url, timestamp, or fields) is required to send a Discord message.',
     };
   }
 
@@ -174,7 +182,7 @@ export async function sendDiscordMessage(
     payload.content = content!.slice(0, 2000);
   }
 
-  if (hasEmbed) {
+  if (hasEmbedContent) {
     payload.embeds = [resolvedEmbed];
   }
 

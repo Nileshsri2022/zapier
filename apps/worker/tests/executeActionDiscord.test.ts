@@ -1,10 +1,21 @@
+const mockUpdateMany = jest.fn();
+
+jest.mock('@repo/db', () => ({
+  __esModule: true,
+  default: {
+    zapRun: {
+      updateMany: (...args: any[]) => mockUpdateMany(...args),
+    },
+  },
+}));
+
 jest.mock('axios', () => ({
   __esModule: true,
   default: { post: jest.fn() },
 }));
 
 import axios from 'axios';
-import { executeActionWithRetry } from '../src/index';
+import { executeActionWithRetry, markRunFailed } from '../src/index';
 
 const post = axios.post as jest.Mock;
 
@@ -147,5 +158,24 @@ describe('Worker Action Execution Seam: Discord Send Message', () => {
     expect(result.success).toBe(true);
     expect(result.data?.output.messageId).toBe('msg-recovered-429');
     expect(post).toHaveBeenCalledTimes(2);
+  });
+
+
+  it('transitions ZapRun status to failed in database on fatal Discord error', async () => {
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 });
+
+    const zapRunId = 'test-zap-run-discord-123';
+    const errorMsg = 'Discord send failed: Invalid Discord webhook URL';
+
+    await markRunFailed(zapRunId, errorMsg);
+
+    expect(mockUpdateMany).toHaveBeenCalledWith({
+      where: { id: zapRunId, status: { in: ['pending', 'running'] } },
+      data: {
+        status: 'failed',
+        errorMessage: errorMsg,
+        completedAt: expect.any(Date),
+      },
+    });
   });
 });

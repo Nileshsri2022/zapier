@@ -72,7 +72,18 @@ describe('sendDiscordMessage', () => {
 
     expect(result.success).toBe(false);
     expect(result.isFatal).toBe(true);
-    expect(result.error).toMatch(/content or embed is required/i);
+    expect(result.error).toMatch(/content or embed.*is required/i);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('fails gracefully and flags fatal when embed contains only color without content', async () => {
+    const result = await sendDiscordMessage(validWebhookUrl, {
+      embed: { color: '#5865F2' },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.isFatal).toBe(true);
+    expect(result.error).toMatch(/content or embed.*is required/i);
     expect(post).not.toHaveBeenCalled();
   });
 

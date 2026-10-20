@@ -60,7 +60,7 @@ export const APPS: App[] = [
     id: 'discord',
     name: 'Discord',
     icon: '/apps/discord.svg',
-    prefix: 'Discord',
+    exact: 'Discord Send Message',
   },
   {
     id: 'schedule',

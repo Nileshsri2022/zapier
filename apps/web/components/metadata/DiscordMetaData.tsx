@@ -82,6 +82,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
   const isTitleValid = embedTitle.length <= 256;
   const isContentValid = content.length <= 2000;
   const isUsernameValid = username.length <= 80;
+  const areFieldsValid = embedFields.every((f) => f.name.length <= 256 && f.value.length <= 1024);
 
   // Rich embed is valid if it has title, description, url, timestamp, OR any valid field (spec §23, §72)
   const hasValidFields = embedFields.some((f) => f.name.trim().length > 0 && f.value.trim().length > 0);
@@ -100,6 +101,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
     isTitleValid &&
     isContentValid &&
     isUsernameValid &&
+    areFieldsValid &&
     (content.trim().length > 0 || hasEmbedContent);
 
   const handleAddField = () => {
@@ -422,36 +424,44 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
               </div>
 
               {embedFields.map((field, idx) => (
-                <div key={idx} className="meta-form__field-row">
-                  <input
-                    type="text"
-                    placeholder="Field Name (max 256)"
-                    value={field.name}
-                    onChange={(e) => handleUpdateField(idx, 'name', e.target.value)}
-                    className="meta-form__input"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Field Value (max 1024)"
-                    value={field.value}
-                    onChange={(e) => handleUpdateField(idx, 'value', e.target.value)}
-                    className="meta-form__input"
-                  />
-                  <label className="meta-form__checkbox-label">
+                <div key={idx}>
+                  <div className="meta-form__field-row">
                     <input
-                      type="checkbox"
-                      checked={field.inline ?? true}
-                      onChange={(e) => handleUpdateField(idx, 'inline', e.target.checked)}
+                      type="text"
+                      placeholder="Field Name (max 256)"
+                      value={field.name}
+                      onChange={(e) => handleUpdateField(idx, 'name', e.target.value)}
+                      className="meta-form__input"
                     />
-                    Inline
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveField(idx)}
-                    className="meta-form__btn-ghost"
-                  >
-                    ✕
-                  </button>
+                    <input
+                      type="text"
+                      placeholder="Field Value (max 1024)"
+                      value={field.value}
+                      onChange={(e) => handleUpdateField(idx, 'value', e.target.value)}
+                      className="meta-form__input"
+                    />
+                    <label className="meta-form__checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={field.inline ?? true}
+                        onChange={(e) => handleUpdateField(idx, 'inline', e.target.checked)}
+                      />
+                      Inline
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveField(idx)}
+                      className="meta-form__btn-ghost"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {field.name.length > 256 && (
+                    <p className="meta-form__error-text">Field name exceeds 256 characters ({field.name.length}/256).</p>
+                  )}
+                  {field.value.length > 1024 && (
+                    <p className="meta-form__error-text">Field value exceeds 1,024 characters ({field.value.length}/1024).</p>
+                  )}
                 </div>
               ))}
             </div>

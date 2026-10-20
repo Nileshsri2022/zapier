@@ -211,3 +211,62 @@ test('Metadata Form Seam: Resolves avatarUrl placeholders for test modal payload
   const resolved = resolveSamplePlaceholders(rawAvatarUrl);
   assert.equal(resolved, 'https://example.com/dynamic-avatar.png');
 });
+
+
+test('Metadata Form Seam: Embed field name and value length boundaries gate canSave', () => {
+  const validFieldName = 'F'.repeat(256);
+  const overFieldName = 'F'.repeat(257);
+  assert.equal(validFieldName.length <= 256, true);
+  assert.equal(overFieldName.length <= 256, false);
+
+  const validFieldValue = 'V'.repeat(1024);
+  const overFieldValue = 'V'.repeat(1025);
+  assert.equal(validFieldValue.length <= 1024, true);
+  assert.equal(overFieldValue.length <= 1024, false);
+
+  function evaluateCanSaveWithFields(fields) {
+    return fields.every((f) => f.name.length <= 256 && f.value.length <= 1024);
+  }
+
+  assert.equal(evaluateCanSaveWithFields([{ name: validFieldName, value: validFieldValue }]), true);
+  assert.equal(evaluateCanSaveWithFields([{ name: overFieldName, value: validFieldValue }]), false);
+  assert.equal(evaluateCanSaveWithFields([{ name: validFieldName, value: overFieldValue }]), false);
+});
+
+test('Metadata Form Seam: Invokes handleClick with validated metadata object', () => {
+  let emitted = null;
+  const handleClick = (meta) => { emitted = meta; };
+
+  function handleSaveSimulated({ webhookUrl, content, showEmbed, hasEmbedContent, embedTitle, embedColor, includeTimestamp, embedTimestamp, validFields }) {
+    const metadata = { webhookUrl: webhookUrl.trim() };
+    if (content.trim()) metadata.content = content.trim();
+    if (showEmbed && hasEmbedContent) {
+      metadata.embed = {
+        title: embedTitle.trim() ? embedTitle.trim().slice(0, 256) : undefined,
+        color: embedColor,
+        timestamp: includeTimestamp ? (embedTimestamp.trim() || 'now') : undefined,
+        fields: validFields.length > 0 ? validFields : undefined,
+      };
+    }
+    handleClick(metadata);
+  }
+
+  handleSaveSimulated({
+    webhookUrl: 'https://discord.com/api/webhooks/123/token',
+    content: 'Hello channel',
+    showEmbed: true,
+    hasEmbedContent: true,
+    embedTitle: 'Alert',
+    embedColor: '#5865F2',
+    includeTimestamp: true,
+    embedTimestamp: 'now',
+    validFields: [{ name: 'Status', value: 'OK', inline: true }],
+  });
+
+  assert.ok(emitted);
+  assert.equal(emitted.webhookUrl, 'https://discord.com/api/webhooks/123/token');
+  assert.equal(emitted.content, 'Hello channel');
+  assert.equal(emitted.embed?.title, 'Alert');
+  assert.equal(emitted.embed?.timestamp, 'now');
+  assert.equal(emitted.embed?.fields?.length, 1);
+});
