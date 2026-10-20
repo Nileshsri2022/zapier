@@ -627,10 +627,7 @@ const Modal = ({
           ) : selectedItem?.type?.includes('Gmail') ? (
             <GmailMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} />
           ) : selectedItem?.type === 'Discord Send Message' ? (
-            <DiscordMetaData
-              handleClick={handleSaveMetaData}
-              initialData={selectedItem?.metadata || selectedItem?.actionMetaData}
-            />
+            <DiscordMetaData handleClick={handleSaveMetaData} />
           ) : (
             <div className="modal-notice">No configuration needed</div>
           )}

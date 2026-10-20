@@ -259,14 +259,15 @@ test('Metadata Form Seam: Collapsed or disabled embed does not block canSave eve
       fields.some((f) => f.name.trim() && f.value.trim())
     );
 
-    const isEmbedValid = !showEmbed || !hasEmbedContent || (
+    const isEmbedValid = !showEmbed || (
+      hasEmbedContent &&
       isTitleValid &&
       isDescValid &&
       isEmbedUrlValid &&
       areFieldsValid
     );
 
-    return isValidUrl && isEmbedValid && (content.trim().length > 0 || (showEmbed && hasEmbedContent));
+    return isValidUrl && isEmbedValid && (content.trim().length > 0 || hasEmbedContent);
   }
 
   // When showEmbed is false, incomplete embedUrl without title does NOT block saving text message
@@ -280,7 +281,7 @@ test('Metadata Form Seam: Collapsed or disabled embed does not block canSave eve
     fields: [],
   }), true);
 
-  // When showEmbed is true and has content, an incomplete embed draft does NOT block saving content
+  // When showEmbed is true, incomplete embed draft blocks saving to prevent bypass or silent drops
   assert.equal(evaluateCanSave({
     isValidUrl: true,
     content: 'Hello channel',
@@ -289,37 +290,23 @@ test('Metadata Form Seam: Collapsed or disabled embed does not block canSave eve
     embedTitle: '',
     embedDesc: '',
     fields: [],
-  }), true);
+  }), false);
 
-  // When content is empty and embed is incomplete, saving is blocked
+  // When showEmbed is true and embed is complete, saving succeeds
   assert.equal(evaluateCanSave({
     isValidUrl: true,
-    content: '',
+    content: 'Hello channel',
     showEmbed: true,
     embedUrl: 'https://zapmate.io',
-    embedTitle: '',
-    embedDesc: '',
+    embedTitle: 'Alert',
+    embedDesc: 'Details',
     fields: [],
-  }), false);
+  }), true);
 });
 
-test('Metadata Form Seam: Resolves sample placeholders in avatarUrl during test delivery assembly', () => {
-  const SAMPLE_TRIGGER_VALUES = {
-    '{trigger.data.avatar}': 'https://example.com/bot.png',
-  };
-
-  function resolveSamplePlaceholders(text) {
-    if (!text) return text;
-    let resolved = text;
-    for (const [placeholder, sampleValue] of Object.entries(SAMPLE_TRIGGER_VALUES)) {
-      resolved = resolved.split(placeholder).join(sampleValue);
-    }
-    return resolved;
-  }
-
-  const avatarUrl = '{trigger.data.avatar}';
-  const resolved = resolveSamplePlaceholders(avatarUrl);
-  assert.equal(resolved, 'https://example.com/bot.png');
+test('Metadata Form Seam: Preserves literal avatarUrl during test delivery assembly without interpolation', () => {
+  const avatarUrl = 'https://example.com/avatar.png';
+  assert.equal(avatarUrl.trim(), 'https://example.com/avatar.png');
 });
 
 

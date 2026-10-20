@@ -54,7 +54,7 @@ Users configure their action by pasting an incoming Discord Webhook URL and draf
 - **Stateless Webhook Integration**: Webhooks are stateless HTTP POST endpoints. We do not maintain WebSocket gateway connections or application credential state. The webhook URL is stored directly in `Action.metadata`. (Recorded in `docs/adr/0001-discord-webhook-action.md`).
 - **Standard Action Catalog Entry**: Registered under `AvailableActions.type = "Discord Send Message"`. The worker registers `"Discord Send Message"` in its known exact action types (`KNOWN_ACTION_TYPES`).
 - **Glossary Alignment**: Defined in `GLOSSARY.md` under "Discord Action" as an exact match to `AvailableActions.type = "Discord Send Message"`.
-- **Dynamic Key Interpolation**: Reuses the core placeholder engine (`replaceKeys`) so `{key}` and `{a.b.c}` paths from trigger metadata and previous action outputs interpolate cleanly across content, username, avatarUrl, and embed fields.
+- **Dynamic Key Interpolation**: Reuses the core placeholder engine (`replaceKeys`) so `{key}` and `{a.b.c}` paths from trigger metadata and previous action outputs interpolate cleanly across content, username, and embed fields.
 
 ### Action Metadata Schema
 Stored in `Action.metadata` JSON:

@@ -144,6 +144,27 @@ export function ZapRunHistory({ zapId, zapName, isOpen, onClose }: ZapRunHistory
                 {/* Expanded Details */}
                 {expandedRun === run.id && (
                   <div className="history-details">
+                    {run.metadata?.stepOutputs && Object.keys(run.metadata.stepOutputs).length > 0 && (
+                      <div>
+                        <p className="history-details__label">Execution Outputs:</p>
+                        {Object.entries(run.metadata.stepOutputs).map(([stepIdx, out]: [string, any]) => (
+                          out?.messageId ? (
+                            <div key={stepIdx} className="history-audit-card">
+                              <div className="history-audit-row">
+                                <span>Step {stepIdx} (Discord Action)</span>
+                                <span className="history-audit-val">Message ID: {out.messageId}</span>
+                              </div>
+                              {out.timestamp && (
+                                <div className="history-audit-row">
+                                  <span>Delivered At</span>
+                                  <span className="history-audit-val">{new Date(out.timestamp).toLocaleString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : null
+                        ))}
+                      </div>
+                    )}
                     <p className="history-details__label">Trigger Data:</p>
                     <pre className="history-pre">
                       {JSON.stringify(run.metadata, null, 2)}
