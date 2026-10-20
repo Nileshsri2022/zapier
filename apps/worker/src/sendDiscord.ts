@@ -210,7 +210,7 @@ export async function sendDiscordMessage(
         error.message ||
         'Unknown Discord error';
 
-      const isFatal = status === 400 || status === 404 || (status === 429 && attempt >= maxAttempts);
+      const isFatal = status === 400 || status === 401 || status === 404 || (status === 429 && attempt >= maxAttempts);
 
       if (status === 429 && attempt < maxAttempts) {
         // Parse retry_after in seconds from body or headers (spec: Math.ceil(retry_after * 1000) + 100ms)

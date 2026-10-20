@@ -222,7 +222,6 @@ export async function executeActionWithRetry(
           output: {
             messageId: result.messageId,
             timestamp: result.timestamp || new Date().toISOString(),
-            sentAt: new Date().toISOString(),
           },
         };
       }

@@ -78,17 +78,25 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
 
   const isValidUrl = webhookUrl.trim().length > 0 && DISCORD_WEBHOOK_PATTERN.test(webhookUrl.trim());
   const isDescriptionValid = embedDescription.length <= 4096;
+  const isTitleValid = embedTitle.length <= 256;
   const isContentValid = content.length <= 2000;
   const isUsernameValid = username.length <= 80;
 
-  // Rich embed is valid if it has title, description, OR any valid field (spec §72)
+  // Rich embed is valid if it has title, description, url, timestamp, OR any valid field (spec §23, §72)
   const hasValidFields = embedFields.some((f) => f.name.trim().length > 0 && f.value.trim().length > 0);
   const hasEmbedContent =
-    showEmbed && (embedTitle.trim().length > 0 || embedDescription.trim().length > 0 || hasValidFields);
+    showEmbed && (
+      embedTitle.trim().length > 0 ||
+      embedDescription.trim().length > 0 ||
+      embedUrl.trim().length > 0 ||
+      Boolean(includeTimestamp) ||
+      hasValidFields
+    );
 
   const canSave =
     isValidUrl &&
     isDescriptionValid &&
+    isTitleValid &&
     isContentValid &&
     isUsernameValid &&
     (content.trim().length > 0 || hasEmbedContent);
@@ -137,7 +145,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
       testPayload.username = resolveSamplePlaceholders(username.trim()).slice(0, 80);
     }
     if (showIdentity && avatarUrl.trim()) {
-      testPayload.avatar_url = avatarUrl.trim();
+      testPayload.avatar_url = resolveSamplePlaceholders(avatarUrl.trim());
     }
 
     if (showEmbed && hasEmbedContent) {
@@ -296,13 +304,25 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
 
         {showEmbed && (
           <div className="meta-form__section">
-            <FormInput
-              label="Embed Title"
-              name="embedTitle"
-              value={embedTitle}
-              placeholder="e.g. Transaction Confirmed"
-              onChange={(e: any) => setEmbedTitle(e.target.value)}
-            />
+            <div>
+              <div className="meta-form__row">
+                <label className="meta-form__label">Embed Title</label>
+                <span className={embedTitle.length > 256 ? 'meta-form__counter meta-form__counter--danger' : 'meta-form__counter'}>
+                  {embedTitle.length}/256
+                </span>
+              </div>
+              <input
+                type="text"
+                name="embedTitle"
+                value={embedTitle}
+                className="meta-form__input"
+                placeholder="e.g. Transaction Confirmed"
+                onChange={(e: any) => setEmbedTitle(e.target.value)}
+              />
+              {embedTitle.length > 256 && (
+                <p className="meta-form__error-text">Embed title exceeds Discord&apos;s 256-character limit.</p>
+              )}
+            </div>
 
             <div>
               <div className="meta-form__row">
@@ -447,13 +467,25 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
 
         {showIdentity && (
           <div className="meta-form__grid">
-            <FormInput
-              label="Sender Name Override (Optional)"
-              name="username"
-              value={username}
-              placeholder="e.g. ZapMate Alerts"
-              onChange={(e: any) => setUsername(e.target.value)}
-            />
+            <div>
+              <div className="meta-form__row">
+                <label className="meta-form__label">Sender Name Override (Optional)</label>
+                <span className={username.length > 80 ? 'meta-form__counter meta-form__counter--danger' : 'meta-form__counter'}>
+                  {username.length}/80
+                </span>
+              </div>
+              <input
+                type="text"
+                name="username"
+                value={username}
+                className="meta-form__input"
+                placeholder="e.g. ZapMate Alerts"
+                onChange={(e: any) => setUsername(e.target.value)}
+              />
+              {username.length > 80 && (
+                <p className="meta-form__error-text">Sender name exceeds Discord&apos;s 80-character limit.</p>
+              )}
+            </div>
             <FormInput
               label="Avatar URL (Optional)"
               name="avatarUrl"

@@ -106,7 +106,26 @@ describe('sendDiscordMessage', () => {
     });
 
     expect(result.success).toBe(false);
+    expect(result.isFatal).toBe(true);
     expect(result.error).toContain('Unknown Webhook');
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  it('captures Discord HTTP 401 Unauthorized / Invalid Token and marks error as fatal without retrying', async () => {
+    post.mockRejectedValueOnce({
+      response: {
+        status: 401,
+        data: { message: '401: Unauthorized', code: 0 },
+      },
+    });
+
+    const result = await sendDiscordMessage(validWebhookUrl, {
+      content: 'Testing 401',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.isFatal).toBe(true);
+    expect(result.error).toContain('401: Unauthorized');
     expect(post).toHaveBeenCalledTimes(1);
   });
 

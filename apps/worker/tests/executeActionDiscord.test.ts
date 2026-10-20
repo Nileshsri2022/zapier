@@ -52,7 +52,6 @@ describe('Worker Action Execution Seam: Discord Send Message', () => {
     expect(result.data?.message).toBe('Discord message delivered');
     expect(result.data?.output.messageId).toBe('discord-msg-999');
     expect(result.data?.output.timestamp).toBe('2026-10-20T05:30:00.000Z');
-    expect(result.data?.output.sentAt).toBeDefined();
     expect(result.data?.output.webhookUrl).toBeUndefined();
 
     const [, calledBody] = post.mock.calls[0];

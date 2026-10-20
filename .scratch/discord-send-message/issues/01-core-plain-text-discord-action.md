@@ -8,7 +8,7 @@ Deliver the initial vertical slice of the Discord action. Users can configure a 
 **Status:** ready-for-agent
 
 - [x] Add "Discord Send Message" to `AvailableActions` catalog and seed in `SEEDED_ACTIONS` with `/apps/discord.svg`
-- [x] Register "Discord" in `KNOWN_ACTION_PREFIXES` in `apps/worker/src/utils/actionTypes.ts`
+- [x] Register "Discord Send Message" in `KNOWN_ACTION_TYPES` in `apps/worker/src/utils/actionTypes.ts`
 - [x] Implement `sendDiscordMessage` in `apps/worker/src/sendDiscord.ts` with Axios POST, timeout, and placeholder interpolation
 - [x] Integrate into `executeAction` in `apps/worker/src/index.ts`
 - [x] Unit tests in `apps/worker/tests/sendDiscord.test.ts` verifying payload formatting, `{placeholder}` replacement, and error handling
