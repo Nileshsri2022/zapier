@@ -213,7 +213,7 @@ const Modal = ({
       selectedItem.type === 'Email' ||
       selectedItem.type === 'Solana' ||
       selectedItem.type === 'AI Transform' ||
-      selectedItem.type.startsWith('Discord') ||
+      selectedItem.type === 'Discord Send Message' ||
       selectedItem.type.startsWith('Schedule'); // Add Schedule
 
     if (needsMetadata) {
@@ -626,7 +626,7 @@ const Modal = ({
             <SolanaMetaData handleClick={handleSaveMetaData} />
           ) : selectedItem?.type?.includes('Gmail') ? (
             <GmailMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} />
-          ) : selectedItem?.type?.includes('Discord') ? (
+          ) : selectedItem?.type === 'Discord Send Message' ? (
             <DiscordMetaData handleClick={handleSaveMetaData} />
           ) : (
             <div className="modal-notice">No configuration needed</div>

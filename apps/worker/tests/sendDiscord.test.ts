@@ -8,6 +8,8 @@ import {
   sendDiscordMessage,
   resolveDiscordPlaceholders,
   maskDiscordWebhookUrl,
+  isValidDiscordWebhookUrl,
+  normalizeDiscordColor,
 } from '../src/sendDiscord';
 
 const post = axios.post as jest.Mock;
@@ -58,6 +60,14 @@ describe('sendDiscordMessage', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
+  it('rejects unanchored webhook URLs with trailing paths or invalid domains', () => {
+    expect(isValidDiscordWebhookUrl('https://discord.com/api/webhooks/123/token/extra-path')).toBe(false);
+    expect(isValidDiscordWebhookUrl('https://ptb.discord.com/api/webhooks/123/token')).toBe(false);
+    expect(isValidDiscordWebhookUrl('https://malicious-site.com/api/webhooks/123/token')).toBe(false);
+    expect(isValidDiscordWebhookUrl('https://discord.com/api/webhooks/123/token')).toBe(true);
+    expect(isValidDiscordWebhookUrl('https://discordapp.com/api/webhooks/123/token')).toBe(true);
+  });
+
   it('fails gracefully and flags fatal when neither content nor embed is provided', async () => {
     const result = await sendDiscordMessage(validWebhookUrl, {});
 
@@ -101,7 +111,7 @@ describe('sendDiscordMessage', () => {
     expect(post).toHaveBeenCalledTimes(1);
   });
 
-  it('posts rich embed with hex color converted to decimal integer and identity overrides', async () => {
+  it('posts rich embed with hex color, timestamp, and identity overrides', async () => {
     post.mockResolvedValueOnce({
       data: { id: 'embed-msg-123' },
     });
@@ -114,6 +124,7 @@ describe('sendDiscordMessage', () => {
         description: 'Received 1.5 SOL from 8x...abc',
         color: '#5865F2', // Discord blurple = 5793266
         url: 'https://explorer.solana.com/tx/123',
+        timestamp: '2026-10-20T05:00:00.000Z',
         fields: [
           { name: 'Amount', value: '1.5 SOL', inline: true },
           { name: 'Status', value: 'Confirmed', inline: true },
@@ -134,6 +145,7 @@ describe('sendDiscordMessage', () => {
       description: 'Received 1.5 SOL from 8x...abc',
       color: 5793266,
       url: 'https://explorer.solana.com/tx/123',
+      timestamp: '2026-10-20T05:00:00.000Z',
       fields: [
         { name: 'Amount', value: '1.5 SOL', inline: true },
         { name: 'Status', value: 'Confirmed', inline: true },
@@ -141,7 +153,14 @@ describe('sendDiscordMessage', () => {
     });
   });
 
-  it('enforces character limits on long content and embed descriptions', async () => {
+  it('normalizes pure black color #000000 to decimal 0 without treating it as falsy', () => {
+    expect(normalizeDiscordColor('#000000')).toBe(0);
+    expect(normalizeDiscordColor('000000')).toBe(0);
+    expect(normalizeDiscordColor(0)).toBe(0);
+    expect(normalizeDiscordColor('#FFFFFF')).toBe(16777215);
+  });
+
+  it('enforces character limits on long content, embed descriptions, and caps fields to 25', async () => {
     post.mockResolvedValueOnce({
       data: { id: 'trunc-123' },
     });
@@ -149,12 +168,18 @@ describe('sendDiscordMessage', () => {
     const longContent = 'A'.repeat(2500);
     const longTitle = 'T'.repeat(300);
     const longDescription = 'D'.repeat(5000);
+    const fields = Array.from({ length: 30 }, (_, i) => ({
+      name: `Field ${i} `.repeat(30), // > 256 chars
+      value: `Value ${i} `.repeat(150), // > 1024 chars
+      inline: true,
+    }));
 
     const result = await sendDiscordMessage(validWebhookUrl, {
       content: longContent,
       embed: {
         title: longTitle,
         description: longDescription,
+        fields,
       },
     });
 
@@ -163,6 +188,9 @@ describe('sendDiscordMessage', () => {
     expect(calledBody.content.length).toBe(2000);
     expect(calledBody.embeds[0].title.length).toBe(256);
     expect(calledBody.embeds[0].description.length).toBe(4096);
+    expect(calledBody.embeds[0].fields).toHaveLength(25);
+    expect(calledBody.embeds[0].fields[0].name.length).toBeLessThanOrEqual(256);
+    expect(calledBody.embeds[0].fields[0].value.length).toBeLessThanOrEqual(1024);
   });
 
   it('interpolates nested placeholders across embed title, description, and fields', () => {
@@ -248,4 +276,3 @@ describe('sendDiscordMessage', () => {
     expect(masked).toBe('https://discord.com/api/webhooks/123456789/****');
   });
 });
-

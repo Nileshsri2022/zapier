@@ -10,7 +10,7 @@
 
 When an automation event triggers in ZapMate (such as receiving a Solana payment, a new Gmail message, or an inbound webhook), users need an immediate, friction-free way to broadcast alerts into their team communication channels. 
 
-Currently, users must rely on generic raw webhooks (which require manually crafting Discord-specific JSON payloads and headers) or Telegram/Email. Setting up a dedicated Discord Bot requires creating an application in the Discord Developer Portal, managing bot secrets, requesting guild permissions, and handling OAuth token refreshes. Users want a dead-simple way to pipe dynamic trigger data into a Discord channel by simply pasting a Discord Webhook URL.
+Currently, users must rely on generic raw webhooks (which require manually crafting Discord-specific JSON payloads and headers) or Telegram/Email. Setting up a dedicated Discord application requires creating an application in the Discord Developer Portal, managing client credentials, requesting guild permissions, and handling OAuth token refreshes. Users want a dead-simple way to pipe dynamic trigger data into a Discord channel by simply pasting a Discord Webhook URL.
 
 ---
 
@@ -51,7 +51,7 @@ Users configure their action by pasting an incoming Discord Webhook URL and draf
 ## Implementation Decisions
 
 ### Architectural Decisions
-- **Stateless Webhook Integration**: Webhooks are stateless HTTP POST endpoints. We do not maintain WebSocket gateway connections or bot token state. The webhook URL is stored directly in `Action.metadata`. (Recorded in `docs/adr/0001-discord-webhook-action.md`).
+- **Stateless Webhook Integration**: Webhooks are stateless HTTP POST endpoints. We do not maintain WebSocket gateway connections or application credential state. The webhook URL is stored directly in `Action.metadata`. (Recorded in `docs/adr/0001-discord-webhook-action.md`).
 - **Standard Action Catalog Entry**: Registered under `AvailableActions.type = "Discord Send Message"`. The worker registers `'Discord'` in its known action prefixes (`KNOWN_ACTION_PREFIXES`).
 - **Dynamic Key Interpolation**: Reuses the core placeholder engine (`replaceKeys`) so `{key}` and `{a.b.c}` paths from trigger metadata and previous action outputs interpolate cleanly across content, username, and embed fields.
 
@@ -68,6 +68,7 @@ interface DiscordActionMetadata {
     description?: string;           // Max 4096 chars
     color?: string | number;        // Hex string ("#5865F2") or integer
     url?: string;                   // URL linked from the embed title
+    timestamp?: string;             // Optional: ISO8601 timestamp string
     fields?: Array<{                // Up to 25 fields
       name: string;                 // Max 256 chars
       value: string;                // Max 1024 chars
@@ -125,7 +126,7 @@ interface DiscordActionMetadata {
 
 ## Out of Scope
 
-- **Discord Inbound Triggers**: Listening for messages posted in Discord channels (requires a persistent WebSocket gateway bot with Message Content intents).
+- **Discord Inbound Triggers**: Listening for messages posted in Discord channels (requires a persistent WebSocket gateway connection with Message Content intents).
 - **Interactive Components**: Discord buttons, select menus, or modal popups inside Discord.
 - **Voice/Audio Channels**: Joining voice channels or sending audio clips.
 - **Channel / Guild Administration**: Creating channels, banning users, or assigning roles.

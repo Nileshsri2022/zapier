@@ -6,7 +6,8 @@ import FormInput from '../FormInput';
 import Button from '../Button';
 import { MetaDataFormProps } from '../modal/types';
 
-const DISCORD_WEBHOOK_PATTERN = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+/;
+// Canonical Discord webhook pattern, anchored to prevent trailing path bypass
+const DISCORD_WEBHOOK_PATTERN = /^https:\/\/(?:discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
 
 const COMMON_PLACEHOLDERS = [
   '{trigger.data.txHash}',
@@ -15,6 +16,30 @@ const COMMON_PLACEHOLDERS = [
   '{trigger.data.email}',
   '{trigger.data.subject}',
 ];
+
+const SAMPLE_TRIGGER_VALUES: Record<string, string> = {
+  '{trigger.data.txHash}': '5K2b9a1z9PqL7eR3tU6vW8xY2',
+  '{trigger.data.amount}': '2.5 SOL',
+  '{trigger.data.from}': 'Alice (0x71C...3a1)',
+  '{trigger.data.email}': 'user@example.com',
+  '{trigger.data.subject}': 'Payment Notification',
+};
+
+function resolveSamplePlaceholders(text: string): string {
+  if (!text) return text;
+  let resolved = text;
+  for (const [placeholder, sampleValue] of Object.entries(SAMPLE_TRIGGER_VALUES)) {
+    resolved = resolved.split(placeholder).join(sampleValue);
+  }
+  return resolved;
+}
+
+function parseHexColor(colorHex: string): number {
+  const clean = colorHex.replace(/^#/, '').trim();
+  const parsed = parseInt(clean, 16);
+  // Pure black (#000000 -> 0) is valid; only fall back if not a number
+  return Number.isNaN(parsed) ? 5793266 : Math.max(0, Math.min(16777215, parsed));
+}
 
 interface EmbedFieldState {
   name: string;
@@ -37,6 +62,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
   const [embedDescription, setEmbedDescription] = useState(initialData?.embed?.description || '');
   const [embedColor, setEmbedColor] = useState(initialData?.embed?.color || '#5865F2');
   const [embedUrl, setEmbedUrl] = useState(initialData?.embed?.url || '');
+  const [includeTimestamp, setIncludeTimestamp] = useState(Boolean(initialData?.embed?.timestamp));
   const [embedFields, setEmbedFields] = useState<EmbedFieldState[]>(
     Array.isArray(initialData?.embed?.fields) ? initialData.embed.fields : []
   );
@@ -46,12 +72,17 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
   const [testMessage, setTestMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const isValidUrl = webhookUrl.trim().length > 0 && DISCORD_WEBHOOK_PATTERN.test(webhookUrl.trim());
+  const isDescriptionValid = embedDescription.length <= 4096;
+  const isContentValid = content.length <= 2000;
   const canSave =
     isValidUrl &&
+    isDescriptionValid &&
+    isContentValid &&
     (content.trim().length > 0 || (showEmbed && (embedTitle.trim().length > 0 || embedDescription.trim().length > 0)));
 
   const handleAddField = () => {
-    if (embedFields.length >= 10) return;
+    // Discord allows up to 25 fields per embed
+    if (embedFields.length >= 25) return;
     setEmbedFields([...embedFields, { name: '', value: '', inline: true }]);
   };
 
@@ -80,31 +111,46 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
     setTestLoading(true);
     setTestMessage(null);
 
+    const resolvedContent = resolveSamplePlaceholders(content.trim());
     const testPayload: Record<string, any> = {
-      content: content.trim() || '🧪 Test message from ZapMate! Your webhook is configured correctly.',
+      content: resolvedContent || '🧪 Test message from ZapMate! Your webhook is configured correctly.',
     };
 
     if (showIdentity && username.trim()) {
-      testPayload.username = username.trim();
+      testPayload.username = resolveSamplePlaceholders(username.trim());
     }
     if (showIdentity && avatarUrl.trim()) {
       testPayload.avatar_url = avatarUrl.trim();
     }
 
     if (showEmbed) {
+      const validFields = embedFields
+        .filter((f) => f.name.trim() && f.value.trim())
+        .slice(0, 25)
+        .map((f) => ({
+          name: resolveSamplePlaceholders(f.name.trim()).slice(0, 256),
+          value: resolveSamplePlaceholders(f.value.trim()).slice(0, 1024),
+          inline: Boolean(f.inline),
+        }));
+
       testPayload.embeds = [
         {
-          title: embedTitle.trim() || 'Sample Embed Title',
-          description: embedDescription.trim() || 'Sample rich embed description from ZapMate test run.',
-          color: parseInt(embedColor.replace(/^#/, ''), 16) || 5793266,
+          title: resolveSamplePlaceholders(embedTitle.trim()).slice(0, 256) || 'Sample Embed Title',
+          description:
+            resolveSamplePlaceholders(embedDescription.trim()).slice(0, 4096) ||
+            'Sample rich embed description from ZapMate test run.',
+          color: parseHexColor(embedColor),
           url: embedUrl.trim() || undefined,
-          fields: embedFields.filter((f) => f.name.trim() && f.value.trim()),
+          timestamp: includeTimestamp ? new Date().toISOString() : undefined,
+          fields: validFields.length > 0 ? validFields : undefined,
         },
       ];
     }
 
     try {
-      await axios.post(`${webhookUrl}?wait=true`, testPayload, { timeout: 8000 });
+      const url = new URL(webhookUrl.trim());
+      url.searchParams.set('wait', 'true');
+      await axios.post(url.toString(), testPayload, { timeout: 8000 });
       setTestMessage({ type: 'success', text: '✅ Test message sent to your Discord channel!' });
     } catch (err: any) {
       const errMsg = err.response?.data?.message || err.message || 'Failed to deliver test message';
@@ -134,12 +180,21 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
     }
 
     if (showEmbed) {
-      const validFields = embedFields.filter((f) => f.name.trim().length > 0 && f.value.trim().length > 0);
+      const validFields = embedFields
+        .filter((f) => f.name.trim().length > 0 && f.value.trim().length > 0)
+        .slice(0, 25)
+        .map((f) => ({
+          name: f.name.trim().slice(0, 256),
+          value: f.value.trim().slice(0, 1024),
+          inline: Boolean(f.inline),
+        }));
+
       metadata.embed = {
-        title: embedTitle.trim() || undefined,
-        description: embedDescription.trim() || undefined,
+        title: embedTitle.trim() ? embedTitle.trim().slice(0, 256) : undefined,
+        description: embedDescription.trim() ? embedDescription.trim().slice(0, 4096) : undefined,
         color: embedColor,
         url: embedUrl.trim() || undefined,
+        timestamp: includeTimestamp ? new Date().toISOString() : undefined,
         fields: validFields.length > 0 ? validFields : undefined,
       };
     }
@@ -159,7 +214,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
         />
         {webhookUrl.length > 0 && !isValidUrl && (
           <p className="text-xs text-red-400 mt-1">
-            Must be a valid Discord webhook URL (e.g. https://discord.com/api/webhooks/...)
+            Must be a valid Discord webhook URL (e.g. https://discord.com/api/webhooks/&#123;id&#125;/&#123;token&#125;)
           </p>
         )}
       </div>
@@ -175,11 +230,13 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
           name="content"
           value={content}
           rows={3}
-          maxLength={2000}
           className="meta-form__input w-full resize-y font-mono text-sm"
           placeholder="New event! Amount: {trigger.data.amount} SOL from {trigger.data.from}"
           onChange={(e) => setContent(e.target.value)}
         />
+        {content.length > 2000 && (
+          <p className="text-xs text-red-400 mt-1">Message content exceeds Discord&apos;s 2,000-character limit.</p>
+        )}
 
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-slate-400">Insert variable:</span>
@@ -232,11 +289,13 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
                 name="embedDescription"
                 value={embedDescription}
                 rows={3}
-                maxLength={4096}
                 className="meta-form__input w-full resize-y font-mono text-sm"
                 placeholder="Detailed summary or markdown description..."
                 onChange={(e) => setEmbedDescription(e.target.value)}
               />
+              {embedDescription.length > 4096 && (
+                <p className="text-xs text-red-400 mt-1">Embed description exceeds Discord&apos;s 4,096-character limit.</p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -267,15 +326,29 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
               />
             </div>
 
+            <div className="flex items-center justify-between pt-1">
+              <label className="text-xs text-slate-300 cursor-pointer flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={includeTimestamp}
+                  onChange={(e) => setIncludeTimestamp(e.target.checked)}
+                  className="rounded border-slate-700 text-indigo-500"
+                />
+                Include timestamp on embed
+              </label>
+            </div>
+
             {/* Embed Fields */}
             <div className="pt-2 border-t border-slate-800">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold text-slate-300">Embed Fields</span>
+                <span className="text-xs font-semibold text-slate-300">
+                  Embed Fields ({embedFields.length}/25)
+                </span>
                 <button
                   type="button"
                   onClick={handleAddField}
-                  disabled={embedFields.length >= 10}
-                  className="text-xs text-indigo-400 hover:text-indigo-300 font-medium"
+                  disabled={embedFields.length >= 25}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 disabled:opacity-40 font-medium"
                 >
                   + Add Field
                 </button>
@@ -285,14 +358,14 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
                 <div key={idx} className="flex items-center gap-2 mb-2 bg-slate-950/40 p-2 rounded border border-slate-800">
                   <input
                     type="text"
-                    placeholder="Field Name"
+                    placeholder="Field Name (max 256)"
                     value={field.name}
                     onChange={(e) => handleUpdateField(idx, 'name', e.target.value)}
                     className="meta-form__input text-xs flex-1"
                   />
                   <input
                     type="text"
-                    placeholder="Field Value"
+                    placeholder="Field Value (max 1024)"
                     value={field.value}
                     onChange={(e) => handleUpdateField(idx, 'value', e.target.value)}
                     className="meta-form__input text-xs flex-1"

@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { replaceKeys } from './utils/replaceKeys';
 
-// Discord incoming webhook URL pattern
-const DISCORD_WEBHOOK_REGEX = /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+/;
+// Canonical Discord incoming webhook URL pattern (anchored, canonical domains only)
+const DISCORD_WEBHOOK_REGEX = /^https:\/\/(?:discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
 
 // Bound every outbound call: a stalled Discord connection must not block the worker.
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -27,7 +27,6 @@ export interface DiscordMessageOptions {
   username?: string;
   avatarUrl?: string;
   embed?: DiscordEmbed;
-  embeds?: DiscordEmbed[];
 }
 
 export interface DiscordMessageResult {
@@ -47,16 +46,18 @@ export function isValidDiscordWebhookUrl(url: string): boolean {
 }
 
 /**
- * Convert a hex color string (e.g. "#5865F2") or numeric color to decimal integer.
+ * Convert a hex color string (e.g. "#5865F2", "#000000") or numeric color to decimal integer.
+ * Pure black (#000000 -> 0) is preserved as a valid Discord color.
  */
 export function normalizeDiscordColor(color?: string | number): number | undefined {
-  if (color === undefined || color === null) return undefined;
+  if (color === undefined || color === null || color === '') return undefined;
   if (typeof color === 'number') {
-    return Number.isFinite(color) ? Math.max(0, Math.min(16777215, color)) : undefined;
+    return Number.isFinite(color) ? Math.max(0, Math.min(16777215, Math.floor(color))) : undefined;
   }
-  const cleanHex = color.replace(/^#/, '').trim();
+  const cleanHex = String(color).replace(/^#/, '').trim();
+  if (!cleanHex) return undefined;
   const parsed = parseInt(cleanHex, 16);
-  return isNaN(parsed) ? undefined : Math.max(0, Math.min(16777215, parsed));
+  return Number.isNaN(parsed) ? undefined : Math.max(0, Math.min(16777215, parsed));
 }
 
 /**
@@ -75,23 +76,19 @@ export function resolveDiscordPlaceholders(
     avatarUrl: options.avatarUrl ? replaceKeys(options.avatarUrl, metadata) : undefined,
   };
 
-  const resolveEmbed = (embed: DiscordEmbed): DiscordEmbed => ({
-    ...embed,
-    title: embed.title ? replaceKeys(embed.title, metadata) : undefined,
-    description: embed.description ? replaceKeys(embed.description, metadata) : undefined,
-    url: embed.url ? replaceKeys(embed.url, metadata) : undefined,
-    fields: embed.fields?.map((field) => ({
-      name: replaceKeys(field.name, metadata),
-      value: replaceKeys(field.value, metadata),
-      inline: field.inline,
-    })),
-  });
-
   if (options.embed) {
-    resolved.embed = resolveEmbed(options.embed);
-  }
-  if (Array.isArray(options.embeds)) {
-    resolved.embeds = options.embeds.map(resolveEmbed);
+    resolved.embed = {
+      ...options.embed,
+      title: options.embed.title ? replaceKeys(options.embed.title, metadata) : undefined,
+      description: options.embed.description ? replaceKeys(options.embed.description, metadata) : undefined,
+      url: options.embed.url ? replaceKeys(options.embed.url, metadata) : undefined,
+      timestamp: options.embed.timestamp ? replaceKeys(options.embed.timestamp, metadata) : undefined,
+      fields: options.embed.fields?.slice(0, 25).map((field) => ({
+        name: replaceKeys(field.name, metadata).slice(0, 256),
+        value: replaceKeys(field.value, metadata).slice(0, 1024),
+        inline: field.inline,
+      })),
+    };
   }
 
   return resolved;
@@ -112,7 +109,8 @@ export async function sendDiscordMessage(
   webhookUrl: string,
   options: DiscordMessageOptions
 ): Promise<DiscordMessageResult> {
-  if (!isValidDiscordWebhookUrl(webhookUrl)) {
+  const trimmedUrl = (webhookUrl || '').trim();
+  if (!isValidDiscordWebhookUrl(trimmedUrl)) {
     return {
       success: false,
       isFatal: true,
@@ -120,27 +118,37 @@ export async function sendDiscordMessage(
     };
   }
 
-  const { content, username, avatarUrl, embed, embeds } = options;
+  const { content, username, avatarUrl, embed } = options;
 
-  const resolvedEmbeds: any[] = [];
-  if (Array.isArray(embeds)) {
-    for (const e of embeds) {
-      resolvedEmbeds.push({
-        ...e,
-        color: normalizeDiscordColor(e.color),
-      });
-    }
-  } else if (embed && typeof embed === 'object') {
-    resolvedEmbeds.push({
-      ...embed,
+  let resolvedEmbed: Record<string, any> | undefined = undefined;
+  if (embed && typeof embed === 'object') {
+    resolvedEmbed = {
+      title: embed.title ? String(embed.title).slice(0, 256) : undefined,
+      description: embed.description ? String(embed.description).slice(0, 4096) : undefined,
       color: normalizeDiscordColor(embed.color),
+      url: embed.url || undefined,
+      timestamp: embed.timestamp || undefined,
+      fields: Array.isArray(embed.fields)
+        ? embed.fields.slice(0, 25).map((f) => ({
+            name: String(f.name || '').slice(0, 256),
+            value: String(f.value || '').slice(0, 1024),
+            inline: Boolean(f.inline),
+          }))
+        : undefined,
+    };
+
+    // Remove undefined properties
+    Object.keys(resolvedEmbed).forEach((key) => {
+      if (resolvedEmbed![key] === undefined) {
+        delete resolvedEmbed![key];
+      }
     });
   }
 
   const hasContent = typeof content === 'string' && content.trim().length > 0;
-  const hasEmbeds = resolvedEmbeds.length > 0;
+  const hasEmbed = resolvedEmbed !== undefined && Object.keys(resolvedEmbed).length > 0;
 
-  if (!hasContent && !hasEmbeds) {
+  if (!hasContent && !hasEmbed) {
     return {
       success: false,
       isFatal: true,
@@ -155,12 +163,8 @@ export async function sendDiscordMessage(
     payload.content = content!.slice(0, 2000);
   }
 
-  if (hasEmbeds) {
-    payload.embeds = resolvedEmbeds.map((em) => ({
-      ...em,
-      title: em.title ? String(em.title).slice(0, 256) : undefined,
-      description: em.description ? String(em.description).slice(0, 4096) : undefined,
-    }));
+  if (hasEmbed) {
+    payload.embeds = [resolvedEmbed];
   }
 
   if (username && typeof username === 'string') {
@@ -171,7 +175,7 @@ export async function sendDiscordMessage(
     payload.avatar_url = avatarUrl;
   }
 
-  const url = new URL(webhookUrl);
+  const url = new URL(trimmedUrl);
   url.searchParams.set('wait', 'true');
   const targetUrl = url.toString();
 

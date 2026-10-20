@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { sendEmailWithTextBody, sendZapFailureNotification } from '@repo/email';
 import { withRetry, RetryResult } from './utils/retry';
 import { sendSol, getSolanaPrivateKey } from './sendSolana';
+import { sendDiscordMessage, resolveDiscordPlaceholders, maskDiscordWebhookUrl } from './sendDiscord';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
 import { isKnownActionType } from './utils/actionTypes';
 import { prepareRunMetadata } from './utils/runMetadata';
@@ -48,7 +49,7 @@ async function initKafka() {
 }
 
 // Execute action with retry - returns output data for chaining
-async function executeActionWithRetry(
+export async function executeActionWithRetry(
   actionType: string,
   metadata: any,
   zapRunMetadata: any,
@@ -193,20 +194,20 @@ async function executeActionWithRetry(
         };
       }
 
-      if (actionType.startsWith('Discord')) {
-        const { webhookUrl, content, message, username, avatarUrl, embed, embeds } = metadata;
+      if (actionType === 'Discord Send Message') {
+        const { webhookUrl, content, username, avatarUrl, embed } = metadata;
         const resolvedWebhookUrl = replaceKeys(webhookUrl || '', zapRunMetadata);
 
-        // Dynamic import for sendDiscord
-        const { sendDiscordMessage, resolveDiscordPlaceholders, maskDiscordWebhookUrl } = await import('./sendDiscord.js');
+
+
 
         const resolvedOptions = resolveDiscordPlaceholders(
           {
-            content: content || message || undefined,
+            content: content || undefined,
             username: username || undefined,
             avatarUrl: avatarUrl || undefined,
             embed,
-            embeds,
+
           },
           zapRunMetadata
         );
