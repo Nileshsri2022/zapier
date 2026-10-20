@@ -260,7 +260,7 @@ export async function executeActionWithRetry(
     {
       maxRetries: 3,
       initialDelayMs: 1000,
-      shouldRetry: (error: Error) => !(error as any).isFatal && !error.message.includes('[FATAL]'),
+      shouldRetry: (error: Error) => !(error as any).isFatal,
     }
   );
 }

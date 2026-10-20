@@ -141,31 +141,24 @@ test('Metadata Form Seam: Character length limit validation gates canSave', () =
   assert.equal(validUsername.length <= 80, true);
   assert.equal(overUsername.length <= 80, false);
 
-  // 4. Avatar URL boundary test (max 2048)
-  const validAvatarUrl = 'https://example.com/' + 'A'.repeat(2020);
-  const overAvatarUrl = 'https://example.com/' + 'A'.repeat(2050);
-  assert.equal(validAvatarUrl.length <= 2048, true);
-  assert.equal(overAvatarUrl.length <= 2048, false);
-
-  // 5. Embed title boundary test (max 256)
+  // 4. Embed title boundary test (max 256)
   const validTitle = 'T'.repeat(256);
   const overTitle = 'T'.repeat(257);
   assert.equal(validTitle.length <= 256, true);
   assert.equal(overTitle.length <= 256, false);
 
-  // 6. canSave gates
-  function evaluateCanSave({ urlValid, contentLen, descLen, titleLen, userLen, avatarLen, hasContentOrEmbed }) {
-    return urlValid && contentLen <= 2000 && descLen <= 4096 && titleLen <= 256 && userLen <= 80 && avatarLen <= 2048 && hasContentOrEmbed;
+  // 5. canSave gates
+  function evaluateCanSave({ urlValid, contentLen, descLen, titleLen, userLen, hasContentOrEmbed }) {
+    return urlValid && contentLen <= 2000 && descLen <= 4096 && titleLen <= 256 && userLen <= 80 && hasContentOrEmbed;
   }
 
-  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 2000, descLen: 4096, titleLen: 256, userLen: 80, avatarLen: 2048, hasContentOrEmbed: true }), true);
-  assert.equal(evaluateCanSave({ urlValid: false, contentLen: 100, descLen: 100, titleLen: 50, userLen: 10, avatarLen: 50, hasContentOrEmbed: true }), false);
-  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 2001, descLen: 100, titleLen: 50, userLen: 10, avatarLen: 50, hasContentOrEmbed: true }), false);
-  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 100, descLen: 4097, titleLen: 50, userLen: 10, avatarLen: 50, hasContentOrEmbed: true }), false);
-  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 100, descLen: 100, titleLen: 257, userLen: 10, avatarLen: 50, hasContentOrEmbed: true }), false);
-  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 100, descLen: 100, titleLen: 50, userLen: 81, avatarLen: 50, hasContentOrEmbed: true }), false);
-  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 100, descLen: 100, titleLen: 50, userLen: 10, avatarLen: 2049, hasContentOrEmbed: true }), false);
-  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 0, descLen: 0, titleLen: 0, userLen: 10, avatarLen: 50, hasContentOrEmbed: false }), false);
+  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 2000, descLen: 4096, titleLen: 256, userLen: 80, hasContentOrEmbed: true }), true);
+  assert.equal(evaluateCanSave({ urlValid: false, contentLen: 100, descLen: 100, titleLen: 50, userLen: 10, hasContentOrEmbed: true }), false);
+  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 2001, descLen: 100, titleLen: 50, userLen: 10, hasContentOrEmbed: true }), false);
+  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 100, descLen: 4097, titleLen: 50, userLen: 10, hasContentOrEmbed: true }), false);
+  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 100, descLen: 100, titleLen: 257, userLen: 10, hasContentOrEmbed: true }), false);
+  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 100, descLen: 100, titleLen: 50, userLen: 81, hasContentOrEmbed: true }), false);
+  assert.equal(evaluateCanSave({ urlValid: true, contentLen: 0, descLen: 0, titleLen: 0, userLen: 10, hasContentOrEmbed: false }), false);
 });
 
 test('Metadata Form Seam: Empty embed toggle does not emit embed object in metadata', () => {
