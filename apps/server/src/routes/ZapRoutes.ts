@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import { ZapController } from '../controllers';
 import { authMiddleware, validateBody } from '../middlewares';
-import { RenameZapSchema, EnableZapSchema, UpdateZapActionsSchema } from '@repo/types';
+import {
+  RenameZapSchema,
+  EnableZapSchema,
+  UpdateZapActionsSchema,
+  UpdateZapFiltersSchema,
+} from '@repo/types';
 
 const router = Router();
 
@@ -22,7 +27,12 @@ router.patch(
   validateBody(EnableZapSchema),
   ZapController.enableZapExecution
 );
-router.patch('/:zapId/filters', authMiddleware, ZapController.updateZapFilters);
+router.patch(
+  '/:zapId/filters',
+  authMiddleware,
+  validateBody(UpdateZapFiltersSchema),
+  ZapController.updateZapFilters
+);
 router.get('/:zapId/runs', authMiddleware, ZapController.fetchZapRuns);
 router.post('/', authMiddleware, ZapController.createZap);
 router.get('/', authMiddleware, ZapController.fetchZapList);
