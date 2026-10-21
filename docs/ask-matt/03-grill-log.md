@@ -248,6 +248,37 @@ Gate status: ⛔ **no implementation approved** — docs only.
 | Q-EMAIL-04 | Attachments + policy? | ✅ **URL-based ≤ 5 MB; unreachable ⇒ fail run** (no silent omission) |
 | Q-EMAIL-05 | From-address policy? | ✅ **User-configured**, constrained to what the Gmail account can send as (mailbox + its verified aliases) |
 
+### A2 — Email implementation notes
+
+- **A2 — Email:** the old inline worker branch (and its receiver-guessing
+  heuristic, which scraped `.com` out of the serialized run metadata when the
+  `to` field was not a literal address) is gone; the dead
+  `GmailActionsController` stub is untouched but unused. New
+  `apps/worker/src/sendEmail.ts` implements the grilled spec: shared
+  connection (active `GmailServer` for the run's `userId`), **full field set**
+  (to/cc/bcc/subject/bodyPlain/bodyHtml/fromName/fromEmail/replyTo) with
+  `{{mapped}}` **and** `{mapped}` templating, pre-send validation (≥1 valid
+  recipient, valid addresses, **bodyPlain required**, subject required, CRLF
+  rejected in subject/fromName so headers cannot be injected), **multipart
+  alternative** plain+HTML, RFC 2047 encoding for non-ASCII subjects,
+  attachments as `multipart/mixed`.
+- **Q-EMAIL-04:** URL attachments are fetched before sending with a **hard
+  5 MB cap** (declared `content-length` *and* streamed byte count) plus a 15 s
+  timeout; unreachable/oversize/empty ⇒ `attachment_fetch_failed` and the run
+  fails with nothing sent.
+- **Q-EMAIL-05:** `fromEmail` must equal the connected mailbox or a verified
+  `sendAs` identity, else `from_not_allowed` before dispatch; a provider-side
+  from rejection classifies the same way. Token refresh is lazy (expiry-aware)
+  and OAuth tokens never appear in logs or error messages.
+- Error classes: `validation` / `attachment_fetch_failed` / `from_not_allowed`
+  / `quota` / `auth` / `provider`; only transient provider errors are
+  retryable, enforced by a `shouldRetry` hook on the worker's existing bounded
+  backoff. Send remains **at-least-once** (Gmail has no idempotency key), as
+  documented in spec §5.
+- Tests: new `apps/worker/tests/sendEmail.test.ts` (22 fixtures — validation
+  with zero provider calls, multipart shapes, attachment cap/failure, alias vs
+  foreign from-address, quota/auth/5xx classes, token refresh, no token leaks).
+
 ## A3 — Solana (action) ✅ **grilled** (round 13)
 
 | ID | Question | Answer |

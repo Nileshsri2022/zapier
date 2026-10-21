@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import kafka from '@repo/kafka';
 import client from '@repo/db';
 import dotenv from 'dotenv';
-import { sendEmailWithTextBody, sendZapFailureNotification } from '@repo/email';
+import { sendZapFailureNotification } from '@repo/email';
 import { withRetry, RetryResult } from './utils/retry';
 import { sendSol, getSolanaPrivateKey } from './sendSolana';
 import { sendDiscordMessage, resolveDiscordPlaceholders } from './sendDiscord';
@@ -27,11 +27,6 @@ const TOPIC_NAME = 'zap-events';
 
 let consumer: any = null;
 let producer: any = null;
-
-const validateEmail = (email: string) => {
-  const regex = /^\S+@\S+\.\S+$/;
-  return regex.test(email);
-};
 
 // Initialize Kafka
 async function initKafka() {
@@ -60,6 +55,27 @@ export async function executeActionWithRetry(
     const { executeAiAction } = await import('./executeAiAction.js');
     return executeAiAction(metadata, zapRunMetadata, previousOutputs, context);
   }
+  // A2: Email sends via the Gmail API (shared Google connection). Validation,
+  // auth, quota and attachment failures never retry — only transient provider
+  // errors do (at-least-once; a duplicate is possible after an accepted timeout).
+  if (actionType === 'Email') {
+    const { sendEmailAction, EmailActionError } = await import('./sendEmail.js');
+    return withRetry(
+      async () => {
+        const output = await sendEmailAction(
+          metadata,
+          { ...zapRunMetadata, userId: zapRunMetadata?.userId ?? context?.userId },
+          {}
+        );
+        return {
+          success: true,
+          message: `Email sent to ${output.to}`,
+          output,
+        };
+      },
+      { shouldRetry: (error) => (error instanceof EmailActionError ? error.retryable : false) }
+    );
+  }
   return withRetry(
     async () => {
       // Fail loudly for actions the worker cannot execute. Previously an unknown
@@ -70,51 +86,6 @@ export async function executeActionWithRetry(
           `Unknown action type: "${actionType}". The worker does not implement this action; ` +
             `check the Zap's steps against the available action catalog.`
         );
-      }
-
-      if (actionType === 'Email') {
-        const { to, subject, body } = metadata;
-        let emailReceiver: string;
-
-        console.log('📧 [Worker] Processing Email action:');
-        console.log('  - Raw "to" from metadata:', to);
-        console.log('  - Subject:', subject);
-        console.log('  - Body (first 100 chars):', body?.substring(0, 100));
-
-        if (validateEmail(to)) {
-          emailReceiver = to;
-        } else {
-          const searchKey = JSON.stringify(zapRunMetadata);
-          emailReceiver = searchKey.slice(
-            searchKey.indexOf('email') + 8,
-            searchKey.indexOf('.com') + 4
-          );
-          console.log('  - Extracted email from metadata:', emailReceiver);
-        }
-
-        console.log('📧 [Worker] Sending email to:', emailReceiver);
-        const emailBody = replaceKeys(body, zapRunMetadata);
-        // Template the subject like the body. It previously went out raw, so
-        // "{previousOutput.…}" in a subject was delivered literally (the
-        // server-side inline Email executor templated all three fields —
-        // see reports/gmail-worker-routing-spec.md D8).
-        const emailSubject = subject ? replaceKeys(String(subject), zapRunMetadata) : subject;
-        console.log('  - Processed body (first 100 chars):', emailBody?.substring(0, 100));
-
-        const result = await sendEmailWithTextBody(emailReceiver, emailSubject, emailBody);
-        console.log('📧 [Worker] Email send result:', JSON.stringify(result));
-
-        // @ts-ignore - Handle both success and error response types
-        if (result && result.error) {
-          // @ts-ignore
-          throw new Error(`Email send failed: ${result.error}`);
-        }
-
-        return {
-          success: true,
-          message: `Email sent to ${emailReceiver}`,
-          output: { to: emailReceiver, subject: emailSubject, sentAt: new Date().toISOString() },
-        };
       }
 
       if (actionType === 'Solana') {
