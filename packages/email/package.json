@@ -5,7 +5,7 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc && cp -r src/templates dist/",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "keywords": [],
   "author": "",
@@ -20,7 +20,10 @@
   },
   "devDependencies": {
     "@types/lodash": "^4.17.13",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5"
   },
   "exports": {
     ".": {

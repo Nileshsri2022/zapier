@@ -155,6 +155,7 @@ export const handleGmailCallback = async (req: Request, res: Response): Promise<
     if (!isLocalHost) {
       try {
         const gmailService = new GmailService({
+          serverId: gmailServer.id,
           clientId: process.env.GOOGLE_CLIENT_ID!,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
           refreshToken: tokenSource.refresh_token!,
@@ -392,6 +393,7 @@ export const testGmailConnection = async (req: Request, res: Response): Promise<
     }
 
     const gmailService = new GmailService({
+      serverId: gmailServer.id,
       clientId: gmailServer.clientId,
       clientSecret: gmailServer.clientSecret,
       refreshToken: gmailServer.refreshToken,
@@ -427,6 +429,7 @@ export const getGmailService = async (serverId: string): Promise<GmailService | 
     }
 
     return new GmailService({
+      serverId: gmailServer.id,
       clientId: gmailServer.clientId,
       clientSecret: gmailServer.clientSecret,
       refreshToken: gmailServer.refreshToken,
@@ -459,6 +462,7 @@ export const getGmailRateLimitStatus = async (req: Request, res: Response): Prom
     }
 
     const gmailService = new GmailService({
+      serverId: gmailServer.id,
       clientId: gmailServer.clientId,
       clientSecret: gmailServer.clientSecret,
       refreshToken: gmailServer.refreshToken,
@@ -503,6 +507,7 @@ export const resetGmailCircuitBreaker = async (req: Request, res: Response): Pro
     }
 
     const gmailService = new GmailService({
+      serverId: gmailServer.id,
       clientId: gmailServer.clientId,
       clientSecret: gmailServer.clientSecret,
       refreshToken: gmailServer.refreshToken,

@@ -24,6 +24,8 @@ const SUITES = [
   ['packages', 'ingress'],
   // @repo/actions owns the catalog both the seed and the worker derive from.
   ['packages', 'actions'],
+  // @repo/email owns the rate-limit buckets every send path shares.
+  ['packages', 'email'],
 ];
 
 const results = [];
