@@ -144,7 +144,7 @@ export const fetchZapWithId = async (req: Request, res: Response): Promise<any> 
 // processWebhookTrigger / executeGmailZapInline) lived here until
 // gmail-worker-routing-spec P5. All trigger ingresses now enqueue
 // ZapRun + ZapRunOutbox and apps/worker is the single execution
-// engine — see TriggerController.handleWebhook and services/GmailDispatch.
+// engine — see TriggerController.handleWebhook and services/gmailIntake.
 
 export const deleteZapWithId = async (req: Request, res: Response): Promise<any> => {
   // @ts-ignore

@@ -47,6 +47,21 @@ intake: hooks webhooks, Telegram, WhatsApp, Google Calendar push, the server
 webhook and Gmail routes, cron schedules, GitHub webhooks, and integration
 pollers.
 
+## Gmail trigger intake
+
+The single deep module (`apps/server/src/services/gmailIntake.ts`) that turns one
+Gmail **delivery** into ZapRuns. A delivery is a discriminated union:
+`{source: 'pubsub'}` carries a mailbox + history cursor, `{source: 'legacy'}`
+carries a relayed message. The module resolves the mailbox's servers, reads the
+delta, hydrates each message, matches each Gmail trigger, dedups, and hands the
+payload to **run intake**; it returns `{runsEnqueued}`. The watch lifecycle
+(renewal, polling fallback) is its own module (`gmailWatch.ts`), because keeping
+the channel alive is a different question from routing one delivery.
+
+_Callers decode the wire envelope and hand over one delivery; they never resolve
+servers, hydrate, or match triggers themselves._
+_Avoid_: "Gmail dispatch" — that name belonged to the grab-bag this replaced._
+
 ## Placeholder resolution
 
 The single deep module (`@repo/placeholders`) that turns `{{a.b}}` / `{a.b}` in

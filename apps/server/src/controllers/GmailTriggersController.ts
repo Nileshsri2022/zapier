@@ -1,62 +1,11 @@
 import { Request, Response } from 'express';
 import client from '@repo/db';
-import {
-  dispatchGmailEvent,
-  mapGmailEventType,
-  resolveGmailServersByEmail,
-} from '../services/GmailDispatch';
 
 /**
- * Fan a Gmail event out to every Zap configured for one Gmail server:
- * resolve server(s) → hydrate + dedup + ZapRun/ZapRunOutbox for
- * apps/worker (services/GmailDispatch). The legacy server-inline
- * executor and its GMAIL_EXECUTION_PATH switch were deleted in
- * gmail-worker-routing-spec P5 — the worker is the only engine.
+ * Gmail trigger CRUD. Delivery handling — turning a Gmail notification into
+ * ZapRuns — lives in services/gmailIntake.ts; this controller only owns the
+ * rows the intake module reads.
  */
-export const processGmailTrigger = async (serverId: string, emailData: any) => {
-  try {
-    // Resolve the concrete server row(s). Callers pass either a
-    // GmailServer id (internal) or the mailbox email address (the
-    // webhook controller). Email resolution uses GmailServer.email
-    // (spec D3/B3) — rows predating that column resolve only after
-    // the backfill script runs. Unresolvable => log + no-op, never a
-    // synthetic run.
-    const byId = await client.gmailServer.findUnique({
-      where: { id: serverId },
-    });
-    const servers = byId
-      ? byId.isActive
-        ? [byId]
-        : []
-      : await resolveGmailServersByEmail(serverId);
-
-    if (servers.length === 0) {
-      console.warn(
-        `Gmail dispatch skipped: no active GmailServer for "${serverId}" ` +
-          '(unknown id, or email not yet backfilled — see backfillGmailServerEmail script)'
-      );
-      return;
-    }
-
-    const messageId = emailData?.id || emailData?.messageId;
-    if (!messageId) {
-      console.warn('Gmail dispatch skipped: event carries no message id');
-      return;
-    }
-
-    for (const server of servers) {
-      await dispatchGmailEvent(
-        server,
-        messageId,
-        mapGmailEventType(emailData?.eventType),
-        emailData?.eventType
-      );
-    }
-  } catch (error) {
-    console.error('Error processing Gmail trigger:', error);
-    throw error;
-  }
-};
 
 export const createGmailTrigger = async (req: Request, res: Response): Promise<any> => {
   try {

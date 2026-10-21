@@ -4,7 +4,7 @@
  *
  * History deltas do not carry a server-side query, so matching runs against
  * the hydrated run payload — same seam as the label/sender/subject filters
- * in GmailDispatch.shouldTrigger. Pure and synchronous: unit-testable with
+ * in gmailIntake.shouldTrigger. Pure and synchronous: unit-testable with
  * hand-built payloads, no Google calls.
  *
  * Supported syntax (documented subset of Gmail search, AND semantics):
