@@ -59,6 +59,65 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
         },
       });
 
+      // If this is a Gmail trigger, also create a GmailTrigger row so
+      // GmailDispatch (push/poll → shouldTrigger) can see it. The editor's
+      // modal flow previously only wrote the generic Trigger row, which left
+      // editor-created Gmail zaps unable to fire (docs/ask-matt/triggers/gmail.md).
+      if (availableTrigger?.type?.startsWith('Gmail ')) {
+        const triggerMeta = validation?.data?.triggerMetaData as any;
+
+        if (!triggerMeta?.serverId) {
+          throw new Error('Gmail trigger requires a connected Gmail server');
+        }
+
+        const ownedGmailServer = await tx.gmailServer.findFirst({
+          where: { id: triggerMeta.serverId, userId: parseInt(id) },
+        });
+        if (!ownedGmailServer) {
+          throw new Error('Gmail server not found');
+        }
+
+        const gmailTriggerTypeMap: Record<string, string> = {
+          'Gmail New Email': 'new_email',
+          'Gmail Labeled': 'labeled',
+          'Gmail Starred': 'starred',
+          // From-Sender is a new-email trigger carrying a sender filter.
+          'Gmail From Sender': 'new_email',
+          'Gmail Matching Search': 'matching_search',
+        };
+
+        const internalTriggerType = gmailTriggerTypeMap[availableTrigger.type];
+        if (internalTriggerType) {
+          const searchQuery =
+            typeof triggerMeta.searchQuery === 'string' ? triggerMeta.searchQuery.trim() : '';
+          if (internalTriggerType === 'matching_search' && !searchQuery) {
+            throw new Error('Gmail Matching Search trigger requires a search query');
+          }
+
+          const watchedLabels = Array.isArray(triggerMeta.watchedLabels)
+            ? triggerMeta.watchedLabels
+            : typeof triggerMeta.watchedLabels === 'string' && triggerMeta.watchedLabels.trim()
+              ? triggerMeta.watchedLabels
+                  .split(',')
+                  .map((s: string) => s.trim())
+                  .filter(Boolean)
+              : [];
+
+          await tx.gmailTrigger.create({
+            data: {
+              serverId: triggerMeta.serverId,
+              zapId: zap.id,
+              triggerType: internalTriggerType,
+              watchedLabels,
+              senderFilter: triggerMeta.senderFilter || null,
+              subjectFilter: triggerMeta.subjectFilter || null,
+              metadata: { ...triggerMeta, ...(searchQuery ? { searchQuery } : {}) },
+            },
+          });
+          console.log(`✉️ Created GmailTrigger (${internalTriggerType}) for zap ${zap.id}`);
+        }
+      }
+
       // If this is a Google Sheets trigger, also create GoogleSheetsTrigger entry
       if (availableTrigger?.type === 'Google Sheets Updated Row') {
         const triggerMeta = validation?.data?.triggerMetaData as any;

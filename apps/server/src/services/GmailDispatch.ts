@@ -1,6 +1,7 @@
 import client from '@repo/db';
 import { enqueueRun } from '@repo/runs';
-import { GmailService, EmailMetadata } from './GmailService';
+import { GmailService, EmailMetadata, EmailAttachment } from './GmailService';
+import { matchesGmailQuery } from './gmailSearchQuery';
 
 /**
  * Gmail trigger dispatch — the routing core of
@@ -81,13 +82,22 @@ function toIsoString(value: unknown): string {
 
 /**
  * The ZapRun.metadata payload contract for Gmail triggers
- * (reports/gmail-worker-routing-spec.md §4.3). This shape is what
- * downstream templates ({subject}, {body}, …), filters, and future AI
- * steps bind to — treat breaking changes like any public API change.
+ * (reports/gmail-worker-routing-spec.md §4.3 + docs/ask-matt/triggers/gmail.md §4).
+ * This shape is what downstream templates ({subject}, {body}, …), filters, and
+ * future AI steps bind to — treat breaking changes like any public API change.
+ *
+ * `bodyPlain`/`bodyHtml` (Q-GMAIL-03) and `attachments` (Q-GMAIL-04) are the
+ * grilled additions; `body`/`bodyTruncated` remain for backward compatibility.
  */
 export function buildGmailRunPayload(
   metadata: EmailMetadata,
-  content: { body: string; truncated: boolean },
+  content: {
+    body: string;
+    truncated: boolean;
+    plain?: string;
+    html?: string;
+    attachments?: EmailAttachment[];
+  },
   eventType: GmailEventType,
   serverId: string,
   rawEventType?: string
@@ -104,6 +114,9 @@ export function buildGmailRunPayload(
     snippet: metadata.snippet,
     body: content.body,
     bodyTruncated: content.truncated,
+    bodyPlain: content.plain ?? content.body,
+    bodyHtml: content.html ?? null,
+    attachments: content.attachments ?? [],
     labels: metadata.labels,
     labelIds: metadata.labels,
     date: toIsoString(metadata.date),
@@ -143,7 +156,21 @@ export async function dispatchGmailEvent(
     throw new Error(`Failed to hydrate Gmail message ${messageId} (body unavailable)`);
   }
 
-  const payload = buildGmailRunPayload(metadata, content, eventType, server.id, rawEventType);
+  // Attachments (Q-GMAIL-04): metadata always; content inlined when ≤ 5 MB.
+  // A failure here degrades to metadata-only inside getAttachments — it never
+  // fails hydration.
+  let attachments: EmailAttachment[] = [];
+  if (metadata.hasAttachments) {
+    attachments = (await gmailService.getAttachments?.(messageId)) ?? [];
+  }
+
+  const payload = buildGmailRunPayload(
+    metadata,
+    { ...content, attachments },
+    eventType,
+    server.id,
+    rawEventType
+  );
 
   const gmailTriggers = await client.gmailTrigger.findMany({
     where: { serverId: server.id },
@@ -384,6 +411,54 @@ export async function renewExpiringGmailWatches(
   return { renewed, failed, checked: servers.length };
 }
 
+/**
+ * Polling fallback (grilled Q-GMAIL-02: push primary + polling fallback).
+ * For every active server with a cursor, list the profile's current
+ * historyId and process the delta if it advanced — the same safe path push
+ * uses, so missed notifications (GCP outage, expired watch, lost push)
+ * are caught up without duplicate fires (dedup claims inside
+ * dispatchGmailEvent absorb overlap with push deliveries).
+ *
+ * Invoked by GET /api/cron/poll-gmail on the shared cron secret.
+ */
+export async function pollActiveGmailServers(): Promise<{
+  created: number;
+  skipped: number;
+  failed: number;
+  polled: number;
+  failedServers: number;
+  cursorReset: number;
+}> {
+  const totals = { created: 0, skipped: 0, failed: 0, polled: 0, failedServers: 0, cursorReset: 0 };
+
+  const servers = (await client.gmailServer.findMany({
+    where: { isActive: true },
+  })) as GmailServerLike[];
+
+  for (const server of servers) {
+    try {
+      const gmailService = createGmailService(server);
+      const profile = await gmailService.getProfileEmail();
+      const currentHistoryId = profile?.historyId;
+      if (!currentHistoryId) continue;
+
+      if (server.lastHistoryId && currentHistoryId !== server.lastHistoryId) {
+        const result = await processHistoryDelta(server, currentHistoryId);
+        totals.created += result.created;
+        totals.skipped += result.skipped;
+        totals.failed += result.failed;
+        if (result.cursorReset) totals.cursorReset++;
+        totals.polled++;
+      }
+    } catch (error) {
+      totals.failedServers++;
+      console.error(`Gmail poll fallback failed for server ${server.id}:`, error);
+    }
+  }
+
+  return totals;
+}
+
 // ---------------------------------------------------------------------------
 // Trigger filtering. Moved verbatim from GmailTriggersController — semantics
 // are unchanged; the fix (spec audit B4) is that these now run against a
@@ -409,6 +484,11 @@ export const shouldTrigger = async (gmailTrigger: any, emailData: any): Promise<
         return isStarredTrigger(emailData, metadata);
       case 'moved':
         return isMovedTrigger(emailData, metadata);
+      case 'matching_search':
+        // Grilled E2 (Q-GMAIL-01): only *new* mail may fire a search match —
+        // a later relabel/star of an old matching email must not re-fire it.
+        if (emailData.eventType && emailData.eventType !== 'new_email') return false;
+        return isMatchingSearchTrigger(emailData, metadata);
       default:
         return false;
     }
@@ -457,4 +537,10 @@ const isMovedTrigger = (emailData: any, metadata: any): boolean => {
   // Check if email was moved to specific folder
   const targetFolder = metadata?.targetFolder;
   return emailData.labels?.includes(targetFolder);
+};
+
+const isMatchingSearchTrigger = (emailData: any, metadata: any): boolean => {
+  const query = metadata?.searchQuery;
+  if (!query || !String(query).trim()) return false;
+  return matchesGmailQuery(String(query), emailData);
 };

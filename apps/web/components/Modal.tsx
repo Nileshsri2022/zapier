@@ -590,6 +590,12 @@ const Modal = ({
             />
           ) : selectedItem?.type?.startsWith('GitHub') ? (
             <GitHubMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} />
+          ) : selectedItem?.type?.includes('Gmail') ? (
+            <GmailMetaData
+              handleClick={handleSaveMetaData}
+              selectedType={selectedItem?.type}
+              preSelectedServerId={selectedServerId}
+            />
           ) : (
             <div className="modal-notice">No configuration needed</div>
           )}

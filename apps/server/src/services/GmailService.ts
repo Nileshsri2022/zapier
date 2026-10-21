@@ -33,6 +33,26 @@ export interface EmailMetadata {
   isRead: boolean;
 }
 
+/** 5 MB — grilled auto-fetch cap for trigger attachments (Q-GMAIL-04). */
+export const GMAIL_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Attachment contract for Gmail trigger run payloads (spec §4).
+ * `content` is the raw base64url blob from Gmail's attachments.get
+ * (`contentEncoding: 'base64url'`) and is present only when the attachment
+ * was ≤ GMAIL_ATTACHMENT_MAX_BYTES and fetchable. Anything larger or
+ * unfetchable is metadata-only with `contentTruncated: true`.
+ */
+export interface EmailAttachment {
+  filename: string;
+  mimeType: string;
+  size: number;
+  attachmentId: string;
+  content?: string;
+  contentEncoding?: 'base64url';
+  contentTruncated?: boolean;
+}
+
 export class GmailService {
   private oauth2Client: any;
   private gmail: gmail_v1.Gmail;
@@ -208,7 +228,12 @@ export class GmailService {
    * D4): trigger payloads need actual email content, not just headers.
    * Returns null on any Gmail API failure, mirroring getEmailMetadata.
    */
-  async getEmailContent(messageId: string): Promise<{ body: string; truncated: boolean } | null> {
+  async getEmailContent(messageId: string): Promise<{
+    plain: string;
+    html: string;
+    body: string;
+    truncated: boolean;
+  } | null> {
     await this.ensureValidToken();
 
     try {
@@ -218,10 +243,82 @@ export class GmailService {
         format: 'full',
       });
 
-      return extractEmailBody(response.data.payload);
+      return extractEmailParts(response.data.payload);
     } catch (error) {
       console.error('Error fetching email content:', error);
       return null;
+    }
+  }
+
+  /**
+   * Attachment details for a message, with content fetched inline when
+   * ≤ GMAIL_ATTACHMENT_MAX_BYTES (grilled answer Q-GMAIL-04: auto-fetch up
+   * to 5 MB, metadata-only beyond it). Never throws — hydration failure on
+   * one attachment must not take down the whole dispatch (metadata still
+   * flows with `contentTruncated: true`).
+   */
+  async getAttachments(messageId: string): Promise<EmailAttachment[]> {
+    await this.ensureValidToken();
+
+    try {
+      const response = await this.gmail.users.messages.get({
+        userId: 'me',
+        id: messageId,
+        format: 'full',
+      });
+
+      const attachmentParts: any[] = [];
+      const walk = (node: any): void => {
+        if (!node || typeof node !== 'object') return;
+        if (Array.isArray(node)) {
+          node.forEach(walk);
+          return;
+        }
+        if (node.filename && node.body?.attachmentId) attachmentParts.push(node);
+        if (Array.isArray(node.parts)) walk(node.parts);
+      };
+      walk(response.data.payload?.parts);
+
+      const out: EmailAttachment[] = [];
+      for (const part of attachmentParts) {
+        const meta = {
+          filename: String(part.filename),
+          mimeType: String(part.mimeType || 'application/octet-stream'),
+          size: Number(part.body?.size || 0),
+          attachmentId: String(part.body.attachmentId),
+        };
+
+        if (meta.size > GMAIL_ATTACHMENT_MAX_BYTES) {
+          out.push({ ...meta, contentTruncated: true });
+          continue;
+        }
+
+        try {
+          const att = await this.gmail.users.messages.attachments.get({
+            userId: 'me',
+            messageId,
+            id: meta.attachmentId,
+          });
+          const data = att.data?.data;
+          if (typeof data === 'string' && data.length > 0) {
+            const approxBytes = Math.floor((data.length * 3) / 4);
+            if (approxBytes > GMAIL_ATTACHMENT_MAX_BYTES) {
+              out.push({ ...meta, contentTruncated: true });
+            } else {
+              out.push({ ...meta, content: data, contentEncoding: 'base64url' });
+            }
+          } else {
+            out.push({ ...meta, contentTruncated: true });
+          }
+        } catch (error) {
+          console.error(`Error fetching attachment ${meta.attachmentId}:`, error);
+          out.push({ ...meta, contentTruncated: true });
+        }
+      }
+      return out;
+    } catch (error) {
+      console.error('Error listing attachments:', error);
+      return [];
     }
   }
 
@@ -570,12 +667,20 @@ function collectBodies(part: any, out: { plain: string[]; html: string[] }): voi
 }
 
 /**
- * Extract a plain-text body from a Gmail `users.messages.get` payload
- * (`format: 'full'`). Prefers text/plain parts; falls back to stripped
- * text/html. Pure and synchronous so it is unit-testable without the
- * Gmail API. Applies the GMAIL_BODY_MAX_CHARS cap.
+ * Extract plain + html bodies (and the derived plain-text body) from a
+ * Gmail `users.messages.get` payload (`format: 'full'`).
+ *
+ * `plain`/`html` satisfy the grilled payload contract (Q-GMAIL-03: both
+ * forms present; each capped at GMAIL_BODY_MAX_CHARS, `truncated` when any
+ * side was cut). `body` stays the historical plain-first derivation so
+ * existing consumers/tests are unchanged.
  */
-export function extractEmailBody(payload: any): { body: string; truncated: boolean } {
+export function extractEmailParts(payload: any): {
+  plain: string;
+  html: string;
+  body: string;
+  truncated: boolean;
+} {
   const found = { plain: [] as string[], html: [] as string[] };
   collectBodies(payload, found);
 
@@ -586,8 +691,24 @@ export function extractEmailBody(payload: any): { body: string; truncated: boole
         ? stripHtml(found.html.join('\n'))
         : '';
 
-  if (raw.length > GMAIL_BODY_MAX_CHARS) {
-    return { body: raw.slice(0, GMAIL_BODY_MAX_CHARS), truncated: true };
-  }
-  return { body: raw, truncated: false };
+  const htmlRaw = found.html.length > 0 ? found.html.join('\n').trim() : '';
+  const truncated = raw.length > GMAIL_BODY_MAX_CHARS || htmlRaw.length > GMAIL_BODY_MAX_CHARS;
+
+  return {
+    plain: raw.length > GMAIL_BODY_MAX_CHARS ? raw.slice(0, GMAIL_BODY_MAX_CHARS) : raw,
+    html: htmlRaw.length > GMAIL_BODY_MAX_CHARS ? htmlRaw.slice(0, GMAIL_BODY_MAX_CHARS) : htmlRaw,
+    body: raw.length > GMAIL_BODY_MAX_CHARS ? raw.slice(0, GMAIL_BODY_MAX_CHARS) : raw,
+    truncated,
+  };
+}
+
+/**
+ * Extract a plain-text body from a Gmail `users.messages.get` payload
+ * (`format: 'full'`). Prefers text/plain parts; falls back to stripped
+ * text/html. Pure and synchronous so it is unit-testable without the
+ * Gmail API. Applies the GMAIL_BODY_MAX_CHARS cap.
+ */
+export function extractEmailBody(payload: any): { body: string; truncated: boolean } {
+  const { body, truncated } = extractEmailParts(payload);
+  return { body, truncated };
 }

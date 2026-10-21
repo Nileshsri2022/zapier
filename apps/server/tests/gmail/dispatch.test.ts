@@ -12,12 +12,16 @@ import client from '@repo/db';
 
 const mockGetEmailMetadata = jest.fn();
 const mockGetEmailContent = jest.fn();
+const mockGetAttachments = jest.fn();
 const mockListHistory = jest.fn();
 const mockWatchEmails = jest.fn();
+const mockGetProfileEmail = jest.fn();
 jest.mock('../../src/services/GmailService', () => ({
   GmailService: jest.fn().mockImplementation(() => ({
     getEmailMetadata: mockGetEmailMetadata,
     getEmailContent: mockGetEmailContent,
+    getAttachments: mockGetAttachments,
+    getProfileEmail: mockGetProfileEmail,
     listHistory: mockListHistory,
     watchEmails: mockWatchEmails,
   })),
@@ -49,6 +53,7 @@ import {
   mapHistoryRecords,
   processHistoryDelta,
   renewExpiringGmailWatches,
+  pollActiveGmailServers,
 } from '../../src/services/GmailDispatch';
 import { processGmailTrigger } from '../../src/controllers/GmailTriggersController';
 
@@ -430,5 +435,127 @@ describe('renewExpiringGmailWatches', () => {
 
     const result = await renewExpiringGmailWatches(now);
     expect(result).toEqual({ renewed: 1, failed: 1, checked: 2 });
+  });
+});
+
+describe('GmailDispatch grilled additions (docs/ask-matt T1)', () => {
+  beforeEach(() => {
+    installIntakeFake();
+    mockGetEmailMetadata.mockResolvedValue({ ...hydratedMetadata });
+    mockGetEmailContent.mockResolvedValue({
+      body: 'Please pay invoice 42 by Friday.',
+      truncated: false,
+      plain: 'Please pay invoice 42 by Friday.',
+      html: '<p>Please pay invoice 42 by Friday.</p>',
+    });
+    mockGetAttachments.mockResolvedValue([]);
+  });
+
+  it('hydrates attachment metadata + ≤5MB content into the run payload', async () => {
+    mockGetEmailMetadata.mockResolvedValue({ ...hydratedMetadata, hasAttachments: true });
+    mockGetAttachments.mockResolvedValue([
+      {
+        filename: 'inv.pdf',
+        mimeType: 'application/pdf',
+        size: 1024,
+        attachmentId: 'att-1',
+        content: 'QUJD',
+        contentEncoding: 'base64url',
+      },
+      {
+        filename: 'huge.zip',
+        mimeType: 'application/zip',
+        size: 9 * 1024 * 1024,
+        attachmentId: 'att-2',
+        contentTruncated: true,
+      },
+    ]);
+    (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([triggerRow()]);
+
+    const result = await dispatchGmailEvent(server, 'msg-1', 'new_email');
+    expect(result.created).toBe(1);
+    expect(mockGetAttachments).toHaveBeenCalledWith('msg-1');
+    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
+    const payload = mockEnqueueRun.mock.calls[0][0].metadata;
+    expect(payload.attachments).toHaveLength(2);
+    expect(payload.attachments[0].content).toBe('QUJD');
+    expect(payload.attachments[1].contentTruncated).toBe(true);
+    expect(payload.bodyPlain).toContain('invoice 42');
+    expect(payload.bodyHtml).toBe('<p>Please pay invoice 42 by Friday.</p>');
+  });
+
+  it('does not call getAttachments when the message has none', async () => {
+    (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([triggerRow()]);
+    const result = await dispatchGmailEvent(server, 'msg-1', 'new_email');
+    expect(result.created).toBe(1);
+    expect(mockGetAttachments).not.toHaveBeenCalled();
+  });
+
+  it('fires a matching_search trigger row only on new_email ingress', async () => {
+    const searchRow = triggerRow({
+      triggerType: 'matching_search',
+      metadata: { searchQuery: 'from:priya subject:invoice' },
+    });
+
+    (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([searchRow]);
+    const matched = await dispatchGmailEvent(server, 'msg-1', 'new_email');
+    expect(matched.created).toBe(1);
+
+    installIntakeFake();
+    const relabeled = await dispatchGmailEvent(server, 'msg-9', 'labeled');
+    expect(relabeled.created).toBe(0);
+    expect(relabeled.skipped).toBe(1);
+  });
+
+  it('skips a matching_search row whose query does not match', async () => {
+    (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([
+      triggerRow({ triggerType: 'matching_search', metadata: { searchQuery: 'from:bob' } }),
+    ]);
+    const result = await dispatchGmailEvent(server, 'msg-1', 'new_email');
+    expect(result.created).toBe(0);
+    expect(result.skipped).toBe(1);
+  });
+});
+
+describe('GmailDispatch.pollActiveGmailServers (polling fallback)', () => {
+  beforeEach(() => {
+    installIntakeFake();
+  });
+
+  it('processes the delta only when the profile historyId advanced', async () => {
+    (client.gmailServer.findMany as jest.Mock).mockResolvedValue([{ ...server, lastHistoryId: '100' }]);
+    mockGetProfileEmail.mockResolvedValue({ email: 'a@b.c', historyId: '200' });
+    mockListHistory.mockResolvedValue([]);
+    (client.gmailServer.update as jest.Mock).mockResolvedValue({});
+
+    const result = await pollActiveGmailServers();
+    expect(result.polled).toBe(1);
+    expect(result.failedServers).toBe(0);
+    expect(mockListHistory).toHaveBeenCalledWith('100');
+  });
+
+  it('skips servers whose cursor already matches the profile', async () => {
+    (client.gmailServer.findMany as jest.Mock).mockResolvedValue([{ ...server, lastHistoryId: '100' }]);
+    mockGetProfileEmail.mockResolvedValue({ email: 'a@b.c', historyId: '100' });
+
+    const result = await pollActiveGmailServers();
+    expect(result.polled).toBe(0);
+    expect(mockListHistory).not.toHaveBeenCalled();
+  });
+
+  it('counts per-server failures without aborting the sweep', async () => {
+    (client.gmailServer.findMany as jest.Mock).mockResolvedValue([
+      { ...server, id: 'bad', lastHistoryId: '1' },
+      { ...server, id: 'good', lastHistoryId: '1' },
+    ]);
+    mockGetProfileEmail
+      .mockRejectedValueOnce(new Error('profile down'))
+      .mockResolvedValue({ email: 'a@b.c', historyId: '2' });
+    mockListHistory.mockResolvedValue([]);
+    (client.gmailServer.update as jest.Mock).mockResolvedValue({});
+
+    const result = await pollActiveGmailServers();
+    expect(result.failedServers).toBe(1);
+    expect(result.polled).toBe(1);
   });
 });

@@ -79,6 +79,10 @@ export async function seedDatabase() {
           image: '/apps/email.svg',
         },
         {
+          type: 'Gmail Matching Search',
+          image: '/apps/email.svg',
+        },
+        {
           type: 'GitHub Push',
           image: '/apps/github.svg',
         },

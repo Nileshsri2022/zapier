@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import client from '@repo/db';
 import { enqueueRun } from '@repo/runs';
-import { renewExpiringGmailWatches } from '../services/GmailDispatch';
+import { renewExpiringGmailWatches, pollActiveGmailServers } from '../services/GmailDispatch';
 import { computeNextRun } from '../services/schedule';
 
 const router = Router();
@@ -115,6 +115,33 @@ router.get('/renew-gmail-watches', async (req: Request, res: Response): Promise<
     console.error('Gmail watch renewal failed:', error);
     return res.status(500).json({
       error: 'Gmail watch renewal failed',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * GET /api/cron/poll-gmail
+ * Polling fallback for Gmail (grilled Q-GMAIL-02: push primary + polling
+ * fallback). Lists each active server's history delta from the stored
+ * cursor when the profile historyId advanced — catches missed push
+ * notifications without duplicate fires (dedup claims absorb overlap).
+ * Same x-cron-secret protection (fail closed).
+ */
+router.get('/poll-gmail', async (req: Request, res: Response): Promise<any> => {
+  const cronSecret = req.headers['x-cron-secret'];
+  if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
+    console.log('⚠️ Unauthorized cron request (poll-gmail)');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const result = await pollActiveGmailServers();
+    return res.json({ success: true, ...result, timestamp: new Date().toISOString() });
+  } catch (error) {
+    console.error('Gmail poll fallback failed:', error);
+    return res.status(500).json({
+      error: 'Gmail poll fallback failed',
       details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
