@@ -4,7 +4,7 @@
   "packageManager": "bun@1.2.22",
   "scripts": {
     "build": "bun run build:packages && bun run build:web",
-    "build:packages": "cd packages/types && bun run build && cd ../runs && bun run build && cd ../ingress && bun run build",
+    "build:packages": "cd packages/types && bun run build && cd ../runs && bun run build && cd ../placeholders && bun run build && cd ../ingress && bun run build",
     "build:web": "cd apps/web && bun run build",
     "dev": "turbo dev",
     "lint": "eslint . --ext .ts,.tsx",

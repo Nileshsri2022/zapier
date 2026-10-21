@@ -18,7 +18,9 @@ const SUITES = [
   ['apps', 'processor'],
   ['apps', 'web'],
   // Shared modules carry suites too — @repo/ingress owns every ingress
-  // verification decision, so its adversarial table must not be skipped.
+  // verification decision and @repo/placeholders owns placeholder resolution,
+  // so neither table may be skipped.
+  ['packages', 'placeholders'],
   ['packages', 'ingress'],
 ];
 

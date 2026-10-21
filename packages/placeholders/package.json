@@ -1,0 +1,26 @@
+{
+  "name": "@repo/placeholders",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Placeholder resolution: the one rule that turns step metadata into values before an action executes",
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.19.28",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "5.5.4"
+  }
+}
