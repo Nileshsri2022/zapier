@@ -16,6 +16,11 @@
 # token without that permission fails with "Resource not accessible by
 # integration"; the script detects this on the first write and stops.
 #
+# The 2026-10-21 pass was applied through commit references instead (the
+# sandbox token had no issues:write), so the nine issues below are already
+# closed. What remains here is the reproducible verification: each verdict
+# names the test that proves it. See docs/backlog-triage.md for the record.
+#
 set -uo pipefail
 
 APPLY=0
@@ -31,11 +36,11 @@ PLAN=$(cat <<'EOF'
 45	already-fixed	apps/server/src/routes/GitHubRoutes.ts:203 reads x-github-delivery and dedupes on it. Passing test: apps/server/tests/triggers/github-contract.test.ts > "same delivery id redelivered → duplicate skipped, zero extra runs".
 36	already-fixed	WhatsApp and Telegram outbound calls share one abort-signalled fetch transport. Passing test: apps/worker/tests/outboundTimeouts.test.ts > "sends through a bounded (abort-signalled) transport".
 28	already-fixed	apps/hooks/src/telegramHandler.ts:242 scopes the trigger lookup to bot: { id: botId }, so an update can only fire the bot that received it. Passing test: apps/hooks/tests/telegramHandler.test.ts > "only loads triggers for the bot that received the update".
-49	fixed-in-pr	Fixed by PR #64 ("fix(server): validate filter operators at write time"). Close once that PR merges.
-50	fixed-in-pr	Fixed by PR #64 ("fix(worker): fail closed when a filter operator cannot be evaluated"). Close once that PR merges.
-54	fixed-in-pr	Fixed by PR #64 ("fix(hooks): drop the @botname mention from Telegram commandArgs"). Close once that PR merges.
-56	fixed-in-pr	Fixed by PR #64 ("fix(hooks): refuse WhatsApp verification when no token is configured"). Items 1, 2, 4 and 5 were already on main; item 3 was the outstanding one. Close once that PR merges.
-58	fixed-in-pr	Fixed by PR #64 ("fix(web): offer the hook URL only for Webhook-triggered Zaps"). Close once that PR merges.
+49	fixed-in-64	Fixed by PR #64 ("fix(server): validate filter operators at write time"). Merged as a32de17.
+50	fixed-in-64	Fixed by PR #64 ("fix(worker): fail closed when a filter operator cannot be evaluated"). Merged as a32de17.
+54	fixed-in-64	Fixed by PR #64 ("fix(hooks): drop the @botname mention from Telegram commandArgs"). Merged as a32de17.
+56	fixed-in-64	Fixed by PR #64 ("fix(hooks): refuse WhatsApp verification when no token is configured"). Items 1, 2, 4 and 5 were already on main; item 3 was the outstanding one. Merged as a32de17.
+58	fixed-in-64	Fixed by PR #64 ("fix(web): offer the hook URL only for Webhook-triggered Zaps"). Merged as a32de17.
 EOF
 )
 
