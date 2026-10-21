@@ -211,6 +211,33 @@ Gate status: ⛔ **no implementation approved** — docs only.
 | Q-AI-04 | Limits? | ✅ **Balanced** — input ≤ 50k chars, timeout 30s, usage surfaced per run, no hard $ cap |
 | Q-AI-05 | Malformed output policy? | ✅ **Retry-once repair, then fail** (`malformed_output` + raw snippet) |
 
+### Implementation notes (continued)
+
+- **A1 — AI Transform:** shipped the grilled deltas on top of the existing AI
+  stack: all **six operations** (O1–O6) now exist end-to-end — `generate` and
+  `translate` added to `AiMode`, `validateAiConfig`, the zod metadata schema
+  and the builder's Transformation dropdown. Q-AI-04 limits enforced at the
+  policy layer: input **≤ 50,000 chars rejected BEFORE the provider call**
+  (the old silent `.slice()` truncation is gone; sample-input cap raised to
+  50k too) and provider timeout **30s**. §4 contract return added to
+  `AiStepOutput`: `result` (first-class — classify mirrors `label` alongside
+  the legacy `category`), `resultText` (always the raw model text), `ok:true`,
+  `error:null`, `usage` always present with **`promptTokens/completionTokens`**
+  (legacy `inputTokens/outputTokens` kept for existing consumers), `model`,
+  `latencyMs`, and `truncated` redefined per spec as *output hit max-tokens*
+  (OpenAI `finish_reason=length` / Anthropic `stop_reason=max_tokens` / Puter
+  length now set a flag instead of erroring). Error classes via new
+  `AiStepError.code`: **`malformed_output`** after the single repair attempt,
+  message carries a 200-char raw-output snippet (a provider/timeout failure
+  *during* repair keeps its own class); **`policy_refusal`** (refusal field /
+  content_filter / stop_reason refusal / Puter refusal IPC); **`timeout`**
+  (AbortError/timeouts classified retryable); plus `validation`/`config`/
+  `provider_unavailable`. Provider 429/5xx stay retryable-with-status for the
+  worker's bounded backoff (unchanged). Model catalog (`GET
+  /api/actions/ai/models`) + per-step picker already existed (Q-AI-02 ✓).
+  Tests: new `apps/worker/tests/aiStepA1.test.ts` (13 fixtures covering the
+  §6 acceptance list); the 20k sample-cap fixture updated to 50k.
+
 ## A2 — Email action (send) ✅ **grilled** (round 12)
 
 | ID | Question | Answer |

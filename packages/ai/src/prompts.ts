@@ -6,6 +6,10 @@ const modes = {
   classify: 'Choose exactly one category from the provided list, the single best fit.',
   extract:
     'Extract only values present in the input. Missing optional fields must be null. Numbers must be bare numbers.',
+  generate:
+    'Write new text that follows the workflow owner guidance, grounded only in the provided input.',
+  translate:
+    'Translate the input into the target language given by the workflow owner guidance. Preserve names, numbers, links and formatting exactly. Output only the translation.',
   custom: 'Perform the task specified by the workflow owner.',
 };
 export function systemPrompt(config: AiConfig, schema?: Record<string, unknown>): string {

@@ -22,7 +22,7 @@ export function validateAiConfig(raw: unknown): AiConfig {
   const mode = raw.mode as AiMode;
   if (
     !['openai', 'anthropic', 'puter', 'openai_compatible'].includes(provider) ||
-    !['summarize', 'classify', 'extract', 'custom'].includes(mode)
+    !['summarize', 'classify', 'extract', 'generate', 'translate', 'custom'].includes(mode)
   )
     return fail();
   const instructions =
@@ -107,9 +107,11 @@ export function readAiPolicy(env: NodeJS.ProcessEnv = process.env) {
   if (env.AI_BUDGET_FAIL_OPEN !== undefined && !['true', 'false'].includes(env.AI_BUDGET_FAIL_OPEN))
     throw new AiStepError('Invalid AI_BUDGET_FAIL_OPEN');
   return {
-    maxInputChars: integerEnv(env, 'AI_MAX_INPUT_CHARS', 20000, 20000, 1),
+    // Q-AI-04: input ≤ 50,000 chars (reject before the provider call, never
+    // silently truncate) and provider timeout 30s.
+    maxInputChars: integerEnv(env, 'AI_MAX_INPUT_CHARS', 50000, 50000, 1),
     maxOutputTokens: integerEnv(env, 'AI_MAX_OUTPUT_TOKENS', 2000, 2000, 16),
-    timeoutMs: integerEnv(env, 'AI_TIMEOUT_MS', 60000, 60000, 1),
+    timeoutMs: integerEnv(env, 'AI_TIMEOUT_MS', 30000, 30000, 1),
     maxResponseBytes: integerEnv(env, 'AI_MAX_RESPONSE_BYTES', 1048576, 1048576, 1),
     userCap: integerEnv(env, 'AI_DAILY_CALL_CAP_PER_USER', 200, 1000000),
     globalCap: integerEnv(env, 'AI_DAILY_CALL_CAP_GLOBAL', 0, 1000000000),

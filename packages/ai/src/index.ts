@@ -42,12 +42,23 @@ export async function runAiStep(
       throw new AiStepError('AI output repair attempt already exhausted');
     const state = context.state ?? createExecutionState();
     if (typeof resolvedInput !== 'string' || !resolvedInput.trim())
-      throw new AiStepError('AI step input resolved to empty text; check the input template');
-    const input = resolvedInput.slice(0, policy.maxInputChars);
-    if (!input.trim())
-      throw new AiStepError('AI step input resolved to empty text after truncation');
+      throw new AiStepError(
+        'AI step input resolved to empty text; check the input template',
+        false,
+        undefined,
+        'validation'
+      );
+    // Q-AI-04: over-limit input fails validation BEFORE the provider call — never truncated.
+    if (resolvedInput.length > policy.maxInputChars)
+      throw new AiStepError(
+        `AI step input exceeds the ${policy.maxInputChars}-character limit`,
+        false,
+        undefined,
+        'validation'
+      );
+    const input = resolvedInput;
     if (config.maxOutputTokens > policy.maxOutputTokens)
-      throw new AiStepError('AI output token setting exceeds the configured limit');
+      throw new AiStepError('AI output token setting exceeds the configured limit', false, undefined, 'config');
     if (config.provider === 'puter' && !policy.puterEnabled)
       throw new AiStepError('Puter is disabled pending provider verification');
     const connection =
@@ -107,21 +118,66 @@ export async function runAiStep(
         state.repairUsed = true;
         request.system +=
           '\nYour previous reply did not match the required format. Return only corrected JSON matching the schema, using the original input.';
-        // Repair gets exactly one dispatch; do not re-bill it after an ambiguous timeout.
+        // Q-AI-05: exactly one repair dispatch; a provider failure during repair keeps
+        // its own class (never re-classified as malformed), and a failed repair is final.
+        let phase: 'invoke' | 'validate' = 'invoke';
         try {
           result = await invoke();
+          phase = 'validate';
           fields = validate(result);
         } catch (error) {
           const safe = safeAiError(error);
-          throw new AiStepError(`AI output repair failed: ${safe.message}`, false, safe.status);
+          if (phase === 'invoke')
+            throw new AiStepError(
+              `AI output repair failed: ${safe.message}`,
+              false,
+              safe.status,
+              safe.code
+            );
+          const raw = (
+            typeof result.text === 'string' && result.text.trim()
+              ? result.text
+              : JSON.stringify(result.structured ?? '')
+          )
+            .replace(/\s+/g, ' ')
+            .slice(0, 200);
+          throw new AiStepError(
+            `AI output repair failed (${safe.message}); raw output: ${raw || '(empty)'}`,
+            false,
+            safe.status,
+            'malformed_output'
+          );
         }
       }
     } else {
       if (typeof result.text !== 'string' || !result.text.trim())
-        throw new AiStepError('AI provider returned empty text');
+        throw new AiStepError(
+          'AI provider returned empty text',
+          false,
+          undefined,
+          'malformed_output'
+        );
       if (config.mode === 'summarize') fields = { summary: result.text };
+      else if (config.mode === 'generate' || config.mode === 'translate')
+        fields = { text: result.text };
     }
+    // Spec §4 contract (Q-AI-03): result.* first-class (classify mirrors label),
+    // resultText always the raw model text, usage surfaced with prompt/completion names.
+    const contractResult: AiStepOutput['result'] =
+      config.mode === 'classify' && typeof fields.category === 'string'
+        ? { ...fields, label: fields.category }
+        : fields;
+    const resultText =
+      typeof result.text === 'string' && result.text
+        ? result.text
+        : result.structured !== undefined
+          ? JSON.stringify(result.structured)
+          : JSON.stringify(fields);
     return {
+      ok: true,
+      error: null,
+      result: contractResult,
+      resultText,
       output:
         config.mode === 'classify'
           ? String(fields.category)
@@ -132,8 +188,18 @@ export async function runAiStep(
       provider: config.provider,
       model,
       mode: config.mode,
-      ...(Object.keys(state.usage).length ? { usage: { ...state.usage } } : {}),
-      truncated: resolvedInput.length > input.length,
+      usage: {
+        promptTokens: state.usage.inputTokens ?? 0,
+        completionTokens: state.usage.outputTokens ?? 0,
+        ...(state.usage.inputTokens !== undefined
+          ? { inputTokens: state.usage.inputTokens }
+          : {}),
+        ...(state.usage.outputTokens !== undefined
+          ? { outputTokens: state.usage.outputTokens }
+          : {}),
+      },
+      // Spec: flag when OUTPUT hits the max-tokens limit (Q-AI-04/§5).
+      truncated: Boolean(result.truncated),
       latencyMs: Date.now() - state.startedAt,
     };
   } catch (error) {

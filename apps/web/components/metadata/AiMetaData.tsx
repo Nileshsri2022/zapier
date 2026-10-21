@@ -393,6 +393,8 @@ export default function AiMetaData({
           <option value="summarize">Summarize</option>
           <option value="classify">Classify / sentiment</option>
           <option value="extract">Extract structured fields</option>
+          <option value="generate">Generate / rewrite</option>
+          <option value="translate">Translate</option>
           <option value="custom">Custom instructions</option>
         </select>
         <label htmlFor="ai-instructions">

@@ -25,7 +25,10 @@ async function main() {
   const serialized = JSON.stringify(raw);
   if (Buffer.byteLength(serialized) > request.maxResponseBytes) throw new Error();
   const result = JSON.parse(serialized);
-  if (result.finish_reason === 'length' || result.message?.refusal) throw new Error();
+  if (result.message?.refusal) {
+    parentPort?.postMessage({ ok: false, refusal: true });
+    return;
+  }
   const content = result.message?.content;
   const text =
     typeof content === 'string'
@@ -40,6 +43,8 @@ async function main() {
     ok: true,
     result: {
       text,
+      // Output hitting max-tokens is a truncation FLAG, not an error (spec §5).
+      truncated: result.finish_reason === 'length' ? true : undefined,
       usage:
         reportedUsage(result.usage, 'prompt_tokens', 'completion_tokens') ??
         reportedUsage(result.usage, 'input_tokens', 'output_tokens'),

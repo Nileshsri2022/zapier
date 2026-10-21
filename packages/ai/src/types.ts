@@ -1,6 +1,6 @@
 import type { CapabilityProfileId } from '@repo/ai-connections';
 export type AiProvider = 'openai' | 'anthropic' | 'puter' | 'openai_compatible';
-export type AiMode = 'summarize' | 'classify' | 'extract' | 'custom';
+export type AiMode = 'summarize' | 'classify' | 'extract' | 'generate' | 'translate' | 'custom';
 export interface OutputField {
   name: string;
   type: 'text' | 'number' | 'boolean' | 'category_single' | 'category_multi';
@@ -23,6 +23,9 @@ export interface AiConfig {
 export interface AiUsage {
   inputTokens?: number;
   outputTokens?: number;
+  /** Spec §4 contract aliases (Q-AI-04: usage surfaced per run). */
+  promptTokens?: number;
+  completionTokens?: number;
 }
 export type FieldValue = string | number | boolean | string[] | null;
 export interface AiStepOutput {
@@ -34,6 +37,11 @@ export interface AiStepOutput {
   usage?: AiUsage;
   truncated: boolean;
   latencyMs: number;
+  /** Spec §4 contract (Q-AI-03): first-class `result.*` + raw text. */
+  result: Record<string, FieldValue>;
+  resultText: string;
+  ok: true;
+  error: null;
 }
 export interface ResolvedConnection {
   baseUrl: string;
@@ -70,4 +78,6 @@ export interface ProviderResult {
   text?: string;
   structured?: unknown;
   usage?: AiUsage;
+  /** Output stopped at the max-tokens limit (spec: `truncated` flag). */
+  truncated?: boolean;
 }
