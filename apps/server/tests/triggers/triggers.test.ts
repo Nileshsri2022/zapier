@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import client from '@repo/db';
+import { verifyLegacyWebhook } from '@repo/ingress';
 import * as TriggerController from '../../src/controllers/TriggerController';
 
 beforeEach(() => {
@@ -133,17 +135,26 @@ describe('TriggerController - Handle Webhook', () => {
 // behavior is now covered by tests/gmail/dispatch.test.ts.
 
 describe('TriggerController - Verify Webhook Signature', () => {
-  describe('verifyWebhookSignature', () => {
-    it('should return boolean for signature verification', () => {
-      const payload = JSON.stringify({ event: 'test' });
-      const result = TriggerController.verifyWebhookSignature(payload, 'some-signature');
-      expect(typeof result).toBe('boolean');
+  // The verifier itself lives in @repo/ingress; this suite only pins how the
+  // legacy endpoint wires it up.
+  describe('verifyLegacyWebhook', () => {
+    const payload = JSON.stringify({ event: 'test' });
+
+    it('rejects an unknown signature', () => {
+      const result = verifyLegacyWebhook(payload, 'some-signature', 'a-secret');
+      expect(result).toMatchObject({ ok: false, code: 'INVALID_CREDENTIAL', status: 401 });
     });
 
-    it('should reject invalid signature format', () => {
-      const payload = JSON.stringify({ event: 'test' });
-      const result = TriggerController.verifyWebhookSignature(payload, 'completely-wrong');
-      expect(result).toBe(false);
+    it('rejects invalid signature format', () => {
+      expect(verifyLegacyWebhook(payload, 'completely-wrong', 'a-secret').ok).toBe(false);
+    });
+
+    it('accepts the digest the endpoint itself computes', () => {
+      const signature = `sha256=${crypto
+        .createHmac('sha256', 'a-secret')
+        .update(payload)
+        .digest('hex')}`;
+      expect(verifyLegacyWebhook(payload, signature, 'a-secret')).toEqual({ ok: true });
     });
   });
 });

@@ -16,6 +16,7 @@
   "dependencies": {
     "@repo/db": "*",
     "@repo/email": "*",
+    "@repo/ingress": "*",
     "@repo/kafka": "*",
     "@repo/redis": "*",
     "@repo/runs": "*",

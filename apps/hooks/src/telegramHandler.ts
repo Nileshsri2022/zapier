@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import client from '@repo/db';
 import { enqueueRun } from '@repo/runs';
+import { verifyTelegram } from '@repo/ingress';
 
 /**
  * Telegram inbound — T7 spec (docs/ask-matt/triggers/telegram.md, round 9).
@@ -151,17 +152,18 @@ export function matchesChatTypeFilter(
   return chatTypes.map((t) => String(t)).includes(String(normalized));
 }
 
-/** Mandatory secret-token header check when TELEGRAM_WEBHOOK_SECRET is set. */
+/**
+ * Mandatory secret-token check (Q-TG-T-02).
+ *
+ * This used to return `true` when TELEGRAM_WEBHOOK_SECRET was unset, so an
+ * unconfigured deployment accepted any webhook delivery — the accidental
+ * fail-open closed by `@repo/ingress` (ADR-0002). A bot whose webhook is
+ * registered without a secret token must now be configured before it can run.
+ */
 export function verifyTelegramSecretHeader(
   headers: Record<string, string | string[] | undefined>
 ): boolean {
-  const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
-  if (!secret) return true; // no secret established → not enforced (set at connect time)
-  const header = headers['x-telegram-bot-api-secret-token'];
-  const value = (Array.isArray(header) ? header[0] : header) || '';
-  if (!value || value.length !== secret.length) return false;
-  // constant-time compare
-  return require('crypto').timingSafeEqual(Buffer.from(value), Buffer.from(secret));
+  return verifyTelegram({ headers }, process.env.TELEGRAM_WEBHOOK_SECRET).ok;
 }
 
 /**

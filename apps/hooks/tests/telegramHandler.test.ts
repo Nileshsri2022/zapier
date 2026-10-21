@@ -41,22 +41,32 @@ const baseUpdate = {
   },
 };
 
+/**
+ * Deliver one update. Telegram is fail-closed now (Q10/@repo/ingress), so a
+ * configured secret is presented by default and a test opts out by passing its
+ * own `x-telegram-bot-api-secret-token`.
+ */
 const call = async (
   params: Record<string, string>,
   body: any = baseUpdate,
   headers: Record<string, string> = {}
 ) => {
+  const delivered = { ...headers };
+  const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (secret && !('x-telegram-bot-api-secret-token' in delivered)) {
+    delivered['x-telegram-bot-api-secret-token'] = secret;
+  }
   const sendStatus = jest.fn();
   const json = jest.fn();
   const res = { sendStatus, status: jest.fn().mockReturnValue({ json }), json };
-  await handleTelegramWebhook({ body, params, headers } as any, res as any);
+  await handleTelegramWebhook({ body, params, headers: delivered } as any, res as any);
   return { sendStatus, json, res };
 };
 
 describe('Telegram webhook bot scoping', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    delete process.env.TELEGRAM_WEBHOOK_SECRET;
+    process.env.TELEGRAM_WEBHOOK_SECRET = 'tg-secret';
     mockFindMany.mockResolvedValue([{ id: 't1', zapId: 'zap-1' }]);
     mockZapFindFirst.mockResolvedValue({ id: 'zap-1', name: 'TG Zap' });
     mockEnqueueRun.mockResolvedValue({ status: 'queued', zapRunId: 'run-1' });
@@ -113,7 +123,7 @@ describe('Telegram webhook bot scoping', () => {
 describe('T7 contract (§4)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    delete process.env.TELEGRAM_WEBHOOK_SECRET;
+    process.env.TELEGRAM_WEBHOOK_SECRET = 'tg-secret';
     mockFindMany.mockResolvedValue([{ id: 't1', zapId: 'zap-1' }]);
     mockZapFindFirst.mockResolvedValue({ id: 'zap-1', name: 'TG Zap' });
     mockEnqueueRun.mockResolvedValue({ status: 'queued', zapRunId: 'run-1' });
@@ -185,7 +195,7 @@ describe('T7 contract (§4)', () => {
 describe('T7 chat-type filter (Q-TG-T-03)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    delete process.env.TELEGRAM_WEBHOOK_SECRET;
+    process.env.TELEGRAM_WEBHOOK_SECRET = 'tg-secret';
     mockZapFindFirst.mockResolvedValue({ id: 'zap-1', name: 'TG Zap' });
     mockEnqueueRun.mockResolvedValue({ status: 'queued', zapRunId: 'run-1' });
     mockTriggerUpdate.mockResolvedValue({});
@@ -251,6 +261,18 @@ describe('T7 secret token (setWebhook path)', () => {
 
     expect(sendStatus).toHaveBeenCalledWith(200);
     expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
+  });
+
+  it('no secret configured → 401 and no run (fail-closed regression)', async () => {
+    // Regression for the accidental fail-open: this used to return true and
+    // dispatch. An unconfigured bot must be registered with a secret first.
+    delete process.env.TELEGRAM_WEBHOOK_SECRET;
+
+    const { res, sendStatus } = await call({ botId: 'bot-1' });
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(sendStatus).not.toHaveBeenCalled();
+    expect(mockEnqueueRun).not.toHaveBeenCalled();
   });
 });
 

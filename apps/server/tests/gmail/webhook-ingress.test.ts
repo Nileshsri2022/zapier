@@ -211,11 +211,14 @@ describe('handleGmailWebhook — legacy custom-relay shape (HMAC)', () => {
       eventType: 'new_email',
       messageId: 'msg-1',
     });
-    const signature = crypto
-      .createHmac('sha256', SECRET)
-      .update(JSON.stringify(body))
-      .digest('hex');
-    return reqRes(body, { 'x-goog-signature': signature });
+    // Q8/Q11: the relay signs the bytes it sends, and express hands those exact
+    // bytes to the controller as `rawBody`. Signing a re-serialized body would
+    // only match by luck.
+    const rawBody = JSON.stringify(body);
+    const signature = crypto.createHmac('sha256', SECRET).update(rawBody).digest('hex');
+    const prepared = reqRes(body, { 'x-goog-signature': signature });
+    (prepared.req as any).rawBody = Buffer.from(rawBody);
+    return prepared;
   };
 
   it('accepts a correctly HMAC-signed legacy payload and dispatches via outbox (P5)', async () => {

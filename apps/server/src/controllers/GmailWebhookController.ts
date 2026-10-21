@@ -25,6 +25,8 @@ export interface GmailNotificationData {
   labelIds?: string[];
 }
 
+import { verifyGmailPush } from '@repo/ingress';
+
 const oidcClient = new OAuth2Client();
 
 /**
@@ -67,7 +69,7 @@ export async function verifyGmailPushAuth(req: Request): Promise<boolean> {
   }
 
   // Legacy path — real Pub/Sub never sends this header.
-  return verifyGmailWebhookSignature(req.headers, req.body);
+  return verifyGmailWebhookSignature(req);
 }
 
 /**
@@ -268,32 +270,26 @@ const handleMoveNotification = async (data: GmailNotificationData): Promise<void
 };
 
 /**
- * Verify Gmail webhook signature
+ * Verify the legacy Gmail HMAC (`x-goog-signature` + GMAIL_WEBHOOK_SECRET).
+ *
+ * Q8/Q11: the HMAC covers the *raw request bytes*, not a re-serialized body.
+ * Hashing `JSON.stringify(req.body)` reorders/loses whitespace, so a relay
+ * that signed exactly what it sent could never match. Fails closed.
  */
-export const verifyGmailWebhookSignature = (headers: any, body: any): boolean => {
-  try {
-    const signature = headers['x-goog-signature'] as string;
-    if (!signature) {
-      return false;
-    }
-
-    // Gmail signs the message with HMAC-SHA256
-    const secret = process.env.GMAIL_WEBHOOK_SECRET;
-    if (!secret) {
-      console.error('GMAIL_WEBHOOK_SECRET not configured, rejecting notification');
-      return false; // Fail closed - never accept an unverified webhook
-    }
-
-    const expectedSignature = crypto
-      .createHmac('sha256', secret)
-      .update(JSON.stringify(body))
-      .digest('hex');
-
-    return signature === expectedSignature;
-  } catch (error) {
-    console.error('Error verifying Gmail webhook signature:', error);
-    return false;
+export const verifyGmailWebhookSignature = (req: Request): boolean => {
+  const rawBytes = (req as any).rawBody as Buffer | undefined;
+  const verdict = verifyGmailPush(
+    {
+      headers: req.headers as Record<string, string | string[] | undefined>,
+      rawBody: rawBytes ? rawBytes.toString('utf8') : undefined,
+      body: req.body,
+    },
+    process.env.GMAIL_WEBHOOK_SECRET
+  );
+  if (!verdict.ok) {
+    console.error(`Gmail push delivery refused: ${verdict.code} — ${verdict.message}`);
   }
+  return verdict.ok;
 };
 
 // Watch renewal used to be a TODO stub here. It is implemented as
