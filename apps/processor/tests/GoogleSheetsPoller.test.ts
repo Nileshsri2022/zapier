@@ -546,3 +546,81 @@ describe('GoogleSheetsPoller — T2 grilled spec (docs/ask-matt, round 4)', () =
     expect(events).toEqual(['updated', 'created']);
   });
 });
+
+/**
+ * #47 — the poller used to `hset` each row's hash inside the read loop, before
+ * the runs were enqueued. When intake failed, the row was already marked as
+ * seen, so the retry that never happened was invisible and the row was lost
+ * permanently. Hashes now land only after every run exists.
+ */
+describe('GoogleSheetsPoller — #47 hashes are persisted only after enqueue', () => {
+  let poller: GoogleSheetsPoller;
+
+  const trigger = {
+    id: 'trigger-1',
+    zapId: 'zap-1',
+    spreadsheetId: 'sheet-123',
+    sheetName: 'Sheet1',
+    isActive: true,
+    lastPolledAt: null,
+    server: {
+      id: 'server-1',
+      refreshToken: 'mock-refresh-token',
+      accessToken: 'mock-access-token',
+      tokenExpiry: new Date(Date.now() + 60 * 60 * 1000),
+    },
+    zap: { id: 'zap-1', isActive: true },
+  };
+
+  beforeEach(() => {
+    poller = new GoogleSheetsPoller();
+    jest.clearAllMocks();
+    mockSpreadsheetGet.mockResolvedValue({ data: { properties: { title: 'Leads Q4' } } });
+    (client.googleSheetsTrigger.findMany as jest.Mock).mockResolvedValue([trigger]);
+    mockValuesGet.mockResolvedValue({
+      data: { values: [['email'], ['first@example.com'], ['second@example.com']] },
+    });
+    (redis.hget as jest.Mock).mockResolvedValue(null);
+  });
+
+  it('leaves the hashes untouched when intake fails, so the next poll retries', async () => {
+    (enqueueRun as jest.Mock).mockRejectedValue(new Error('kafka unavailable'));
+
+    const result = await poller.poll();
+
+    expect(result.errors).toBe(1);
+    expect(result.processed).toBe(0);
+    // The rows were never marked as seen.
+    expect(redis.hset).not.toHaveBeenCalled();
+  });
+
+  it('writes one hash per fired row only after intake succeeds', async () => {
+    (enqueueRun as jest.Mock).mockResolvedValue({ status: 'queued', zapRunId: 'run-1' });
+
+    const result = await poller.poll();
+
+    expect(result.processed).toBe(2);
+    expect(redis.hset).toHaveBeenCalledTimes(1);
+    const [key, updates] = (redis.hset as jest.Mock).mock.calls[0];
+    expect(key).toBe('sheets:trigger:trigger-1:rowhash');
+    expect(Object.keys(updates).sort()).toEqual(['2', '3']);
+    // The write happens after both runs exist.
+    expect((enqueueRun as jest.Mock).mock.calls).toHaveLength(2);
+  });
+
+  it('still persists hashes when a poll finds nothing to fire', async () => {
+    // Same algorithm as GoogleSheetsPoller.hashRow: sha1 of '|'-joined cells.
+    const hashOf = (values: string[]) =>
+      require('crypto').createHash('sha1').update(values.join('|')).digest('hex');
+    (redis.hget as jest.Mock).mockImplementation(async (_key: string, rowKey: string) => {
+      if (rowKey === '2') return hashOf(['first@example.com']);
+      if (rowKey === '3') return hashOf(['second@example.com']);
+      return null;
+    });
+
+    const result = await poller.poll();
+
+    expect(result.processed).toBe(0);
+    expect(redis.hset).toHaveBeenCalledTimes(1);
+  });
+});
