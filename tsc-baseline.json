@@ -1,0 +1,36 @@
+{
+  "note": "Known-bad typecheck signatures (file|TSxxxx). The ratchet fails on NEW signatures only; run `npm run typecheck:update` after fixing errors to shrink this set.",
+  "apps": {
+    "server": [
+      "apps/server/src/controllers/AuthController.ts|TS2307",
+      "apps/server/src/controllers/GmailController.ts|TS7006",
+      "apps/server/src/controllers/ZapController.ts|TS7006",
+      "apps/server/src/env.ts|TS2307",
+      "apps/server/src/index.ts|TS2307",
+      "apps/server/src/routes/AiActionsRoutes.ts|TS18046",
+      "apps/server/src/routes/AiActionsRoutes.ts|TS2307",
+      "apps/server/src/routes/AiConnectionsRoutes.ts|TS18046",
+      "apps/server/src/routes/AiConnectionsRoutes.ts|TS2307",
+      "apps/server/src/routes/TelegramRoutes.ts|TS7006",
+      "apps/server/src/routes/WhatsAppRoutes.ts|TS7006",
+      "apps/server/src/scripts/rotateAiConnectionKeys.ts|TS2307",
+      "apps/server/src/services/ai.ts|TS18046",
+      "apps/server/src/services/ai.ts|TS2307",
+      "apps/server/src/services/ai.ts|TS7006",
+      "apps/server/src/services/aiConnections.ts|TS2307",
+      "apps/server/src/services/schedule.ts|TS18048",
+      "apps/server/src/services/schedule.ts|TS2322",
+      "packages/db/src/index.ts|TS2305"
+    ],
+    "worker": [
+      "apps/worker/src/executeAiAction.ts|TS2307",
+      "apps/worker/src/executeAiAction.ts|TS2339",
+      "apps/worker/src/executeAiAction.ts|TS7006",
+      "apps/worker/src/index.ts|TS2307",
+      "packages/db/src/index.ts|TS2305"
+    ],
+    "hooks": ["apps/hooks/src/googleCalendarHandler.ts|TS2307", "packages/db/src/index.ts|TS2305"],
+    "processor": ["apps/processor/src/index.ts|TS2345", "packages/db/src/index.ts|TS2305"],
+    "web": ["apps/web/app/not-found.tsx|TS2307"]
+  }
+}

@@ -11,6 +11,11 @@
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
+    "test": "node scripts/test-all.mjs",
+    "typecheck": "node scripts/typecheck-ratchet.mjs",
+    "typecheck:update": "node scripts/typecheck-ratchet.mjs --update",
+    "generate": "node scripts/generate-prisma.mjs --force",
+    "postinstall": "node scripts/generate-prisma.mjs",
     "prepare": "husky || true"
   },
   "devDependencies": {
