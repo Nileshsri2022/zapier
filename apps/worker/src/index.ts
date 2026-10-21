@@ -9,7 +9,7 @@ import { evaluateFilters, FilterCondition } from './evaluateFilters';
 import { isKnownActionType } from './utils/actionTypes';
 import { prepareRunMetadata } from './utils/runMetadata';
 import { advanceSkippedStage } from './utils/skipStage';
-import { replaceKeys } from './utils/replaceKeys';
+import { resolvePlaceholders } from '@repo/placeholders';
 import { readAiPolicy } from '@repo/ai';
 import { validateAiConnectionEnvironment } from '@repo/ai-connections';
 import type { AiActionContext } from './executeAiAction';
@@ -102,9 +102,15 @@ export async function executeActionWithRetry(
         const { runSolanaAction } = await import('./solanaRead.js');
         const resolved = {
           ...metadata,
-          address: metadata?.address ? replaceKeys(String(metadata.address), zapRunMetadata) : undefined,
-          owner: metadata?.owner ? replaceKeys(String(metadata.owner), zapRunMetadata) : undefined,
-          mint: metadata?.mint ? replaceKeys(String(metadata.mint), zapRunMetadata) : undefined,
+          address: metadata?.address
+            ? String(resolvePlaceholders(String(metadata.address), zapRunMetadata))
+            : undefined,
+          owner: metadata?.owner
+            ? String(resolvePlaceholders(String(metadata.owner), zapRunMetadata))
+            : undefined,
+          mint: metadata?.mint
+            ? String(resolvePlaceholders(String(metadata.mint), zapRunMetadata))
+            : undefined,
         };
         const output = await runSolanaAction(resolved);
         console.log(`✅ Solana ${output.operation} on ${output.network}`);

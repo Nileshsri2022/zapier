@@ -12,6 +12,8 @@
  * Zap step) and are never logged or echoed in errors.
  */
 
+import { resolvePlaceholders } from '@repo/placeholders';
+
 const GRAPH_URL = 'https://graph.facebook.com/v18.0';
 const REQUEST_TIMEOUT_MS = 10_000;
 const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -118,22 +120,9 @@ function parseMetadata(raw: unknown): Record<string, any> {
 }
 
 function template(value: unknown, run: Record<string, unknown>): string {
-  if (typeof value !== 'string') return value === undefined || value === null ? '' : String(value);
-  return value.replace(
-    /\{\{\s*([^{}]+?)\s*\}\}|\{([^{}]+?)\}/g,
-    (match: string, doubleKey?: string, singleKey?: string) => {
-      const key = String(doubleKey ?? singleKey ?? '').trim();
-      // Positional template params ({{1}}, {{2}}) belong to Meta, not to run
-      // metadata — leave them untouched.
-      if (/^\d+$/.test(key)) return match;
-      let current: any = run;
-      for (const part of key.split('.')) {
-        if (current && typeof current === 'object' && part in current) current = current[part];
-        else return match; // unknown path stays literal (same as the field mapper)
-      }
-      return current !== undefined && current !== null ? String(current) : match;
-    }
-  );
+  if (value === undefined || value === null) return '';
+  // Meta's approved-template slots ({{1}}..{{n}}) are not run metadata.
+  return String(resolvePlaceholders(value, run, { positional: true }));
 }
 
 /** Q-WA-A-06: resolve the sender from the shared connection (never from step secrets). */

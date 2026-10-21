@@ -11,7 +11,7 @@ import {
 import { createAiConnectionService } from '@repo/ai-connections';
 import client from '@repo/db';
 import redis from '@repo/redis';
-import { replaceKeys } from './utils/replaceKeys';
+import { resolvePlaceholders } from '@repo/placeholders';
 import { withRetry } from './utils/retry';
 
 export interface AiActionContext {
@@ -64,7 +64,10 @@ export async function executeAiAction(
         }
         const config = validateAiConfig(metadata);
         execution ??= dependencies.executionContext(context.userId);
-        const output = await dependencies.run(config, replaceKeys(config.input, runMetadata), {
+        const output = await dependencies.run(
+          config,
+          String(resolvePlaceholders(config.input, runMetadata)),
+          {
           ...execution,
           state,
         });

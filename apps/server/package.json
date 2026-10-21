@@ -29,6 +29,7 @@
     "@repo/email": "*",
     "@repo/ingress": "*",
     "@repo/kafka": "*",
+    "@repo/placeholders": "*",
     "@repo/redis": "*",
     "@repo/runs": "*",
     "@repo/sentry": "*",

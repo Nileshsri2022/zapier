@@ -48,6 +48,8 @@ describe('notation', () => {
     ['numeric path segment', '{stepOutputs.2.amount}', '42'],
     ['array-free numeric key', '{2}', 'two'],
     ['notation inside prose', 'Hi {lead.name}, you ordered {lead.qty}.', 'Hi Ada, you ordered 3.'],
+    ['two placeholders in a subject line', 'Fwd: {message} (from {lead.email})', 'Fwd: hello (from ada@acme.io)'],
+    ['previousOutput path', '{previousOutput.fields.name}', 'Grace'],
   ];
 
   it.each(cases)('%s', (_label, input, expected) => {

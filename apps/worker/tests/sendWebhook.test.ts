@@ -107,6 +107,46 @@ describe('Q-WHA-01/Q-WHA-03 request building', () => {
     expect(raw.headers['Content-Type']).toContain('text/plain');
   });
 
+  it('resolves placeholders inside a JSON string body (issue #53)', () => {
+    // The payload the old regex-over-serialized-text approach mangled: JSON's
+    // own braces collided with the placeholder braces, so nothing resolved.
+    const built = buildRequest(
+      {
+        method: 'POST',
+        url: 'https://api.example.com/x',
+        bodyMode: 'json',
+        body: '{"text":"{message}","nested":{"a":"{name}"}}',
+      },
+      { message: 'hello', name: 'Ada' }
+    );
+
+    expect(JSON.parse(built.body!)).toEqual({ text: 'hello', nested: { a: 'Ada' } });
+  });
+
+  it('keeps a substituted quote and newline inside valid JSON on the wire', () => {
+    const built = buildRequest(
+      {
+        method: 'POST',
+        url: 'https://api.example.com/x',
+        bodyMode: 'json',
+        body: '{"text":"{value}","qty":"{qty}"}',
+      },
+      { value: 'He said "hi"\nnext', qty: 3 }
+    );
+
+    // Parseable at all is the assertion: the old code produced invalid JSON.
+    expect(JSON.parse(built.body!)).toEqual({ text: 'He said "hi"\nnext', qty: 3 });
+  });
+
+  it('fails loudly when a json-mode body is not JSON', () => {
+    expect(() =>
+      buildRequest(
+        { method: 'POST', url: 'https://api.example.com/x', bodyMode: 'json', body: 'hello {name}' },
+        { name: 'Ada' }
+      )
+    ).toThrow(WebhookActionError);
+  });
+
   it('accepts all five verbs and rejects unsupported ones/bodies on GET', () => {
     for (const method of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'])
       expect(buildRequest({ method, url: 'https://a.example.com' }, {}).method).toBe(method);

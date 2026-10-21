@@ -15,9 +15,12 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@repo/ai": "*",
+    "@repo/ai-connections": "*",
     "@repo/db": "*",
     "@repo/email": "*",
     "@repo/kafka": "*",
+    "@repo/placeholders": "*",
     "@repo/redis": "*",
     "@repo/sentry": "*",
     "@repo/typescript-config": "*",
@@ -26,9 +29,7 @@
     "@swc/core": "^1.15.8",
     "bs58": "^6.0.0",
     "dotenv": "^16.4.7",
-    "express": "^4.21.1",
-    "@repo/ai": "*",
-    "@repo/ai-connections": "*"
+    "express": "^4.21.1"
   },
   "devDependencies": {
     "@types/bs58": "^4.0.4",

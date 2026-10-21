@@ -1,4 +1,4 @@
-import { replaceKeys } from './utils/replaceKeys';
+import { resolvePlaceholders } from '@repo/placeholders';
 
 /**
  * A2 — Email action (docs/ask-matt/actions/email.md, grilled round 12):
@@ -86,11 +86,8 @@ const EMAIL_RE = /^[^\s@,;<>"']+@[^\s@,;<>"']+\.[^\s@,;<>"']+$/;
 const isAddress = (value: string) => EMAIL_RE.test(value);
 
 function template(value: string, run: Record<string, unknown>): string {
-  // Spec §2 maps fields with `{{mapped}}` notation; the worker's shared mapper
-  // (replaceKeys) uses single braces, so normalize double braces first and keep
-  // one resolver for both notations.
-  const normalized = value.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, '{$1}');
-  return replaceKeys(normalized, run);
+  // Both `{{a.b}}` and `{a.b}` are handled by @repo/placeholders (Q2).
+  return String(resolvePlaceholders(value, run));
 }
 
 function parseList(value: unknown, field: string): string[] {
