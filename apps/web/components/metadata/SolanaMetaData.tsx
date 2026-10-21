@@ -4,10 +4,17 @@ import FormInput from '../FormInput';
 import Button from '../Button';
 import { MetaDataFormProps } from '../modal/types';
 
-const SolanaMetaData = ({ handleClick }: MetaDataFormProps) => {
+export interface SolanaMetaDataProps extends MetaDataFormProps {
+  initialData?: {
+    address?: string;
+    amount?: string;
+  };
+}
+
+const SolanaMetaData = ({ handleClick, initialData }: SolanaMetaDataProps) => {
   const [formData, setFormData] = useState({
-    address: '',
-    amount: '',
+    address: initialData?.address || '',
+    amount: initialData?.amount || '',
   });
 
   const handleFormDataChange = (e: any) => {
@@ -19,8 +26,20 @@ const SolanaMetaData = ({ handleClick }: MetaDataFormProps) => {
 
   return (
     <div className="meta-form">
-      <FormInput label="Address" name="address" onChange={handleFormDataChange} />
-      <FormInput label="Amount" name="amount" onChange={handleFormDataChange} />
+      <FormInput
+        label="Address"
+        name="address"
+        placeholder="Solana recipient address or {address}"
+        value={formData.address}
+        onChange={handleFormDataChange}
+      />
+      <FormInput
+        label="Amount"
+        name="amount"
+        placeholder="Amount in SOL (e.g. 0.1 or {amount})"
+        value={formData.amount}
+        onChange={handleFormDataChange}
+      />
       <Button variant="secondary" onClick={() => handleClick(formData)}>
         Save
       </Button>

@@ -6,6 +6,9 @@ import { sendEmailWithTextBody, sendZapFailureNotification } from '@repo/email';
 import { withRetry, RetryResult } from './utils/retry';
 import { sendSol, getSolanaPrivateKey } from './sendSolana';
 import { sendDiscordMessage, resolveDiscordPlaceholders } from './sendDiscord';
+import { sendWhatsAppMessage } from './sendWhatsApp';
+import { sendTelegramMessage } from './sendTelegram';
+import { sendWebhook } from './sendWebhook';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
 import { isKnownActionType } from './utils/actionTypes';
 import { prepareRunMetadata } from './utils/runMetadata';
@@ -81,8 +84,9 @@ export async function executeActionWithRetry(
         console.log('  - Subject:', subject);
         console.log('  - Body (first 100 chars):', body?.substring(0, 100));
 
-        if (validateEmail(to)) {
-          emailReceiver = to;
+        const interpolatedTo = to ? replaceKeys(String(to), zapRunMetadata) : '';
+        if (validateEmail(interpolatedTo)) {
+          emailReceiver = interpolatedTo;
         } else {
           const searchKey = JSON.stringify(zapRunMetadata);
           emailReceiver = searchKey.slice(
@@ -146,12 +150,18 @@ export async function executeActionWithRetry(
       }
 
       if (actionType.startsWith('WhatsApp')) {
-        const { to, message, phoneNumberId, accessToken } = metadata;
+        let { to, message, phoneNumberId, accessToken, serverId } = metadata;
+        if ((!phoneNumberId || !accessToken) && serverId) {
+          const server = await (client as any).whatsAppServer?.findFirst?.({
+            where: { id: serverId, isActive: true },
+          });
+          if (server) {
+            phoneNumberId = phoneNumberId || server.phoneNumberId;
+            accessToken = accessToken || server.accessToken;
+          }
+        }
         const resolvedTo = replaceKeys(to, zapRunMetadata);
         const resolvedMessage = replaceKeys(message, zapRunMetadata);
-
-        // Dynamic imports for sendWhatsApp
-        const { sendWhatsAppMessage } = await import('./sendWhatsApp.js');
 
         const result = await sendWhatsAppMessage(
           phoneNumberId,
@@ -173,14 +183,25 @@ export async function executeActionWithRetry(
       }
 
       if (actionType.startsWith('Telegram')) {
-        const { chatId, message, botToken } = metadata;
+        let { chatId, message, botToken, botId, serverId, parseMode } = metadata;
+        const resolvedBotId = botId || serverId;
+        if ((!botToken || botToken === '***hidden***') && resolvedBotId) {
+          const bot = await (client as any).telegramBot?.findFirst?.({
+            where: { id: resolvedBotId, isActive: true },
+          });
+          if (bot) {
+            botToken = bot.botToken;
+          }
+        }
         const resolvedChatId = replaceKeys(chatId, zapRunMetadata);
         const resolvedMessage = replaceKeys(message, zapRunMetadata);
 
-        // Dynamic imports for sendTelegram
-        const { sendTelegramMessage } = await import('./sendTelegram.js');
-
-        const result = await sendTelegramMessage(botToken, resolvedChatId, resolvedMessage);
+        const result = await sendTelegramMessage(
+          botToken,
+          resolvedChatId,
+          resolvedMessage,
+          parseMode || 'HTML'
+        );
 
         if (!result.success) {
           throw new Error(`Telegram send failed: ${result.error}`);
@@ -229,16 +250,26 @@ export async function executeActionWithRetry(
       if (actionType === 'Webhook') {
         const { url, method = 'POST', headers = {}, body } = metadata;
         const resolvedUrl = replaceKeys(url, zapRunMetadata);
-        const resolvedBody = body ? replaceKeys(JSON.stringify(body), zapRunMetadata) : null;
-
-        // Dynamic import for sendWebhook
-        const { sendWebhook } = await import('./sendWebhook.js');
+        const interpolateValue = (val: any): any => {
+          if (typeof val === 'string') return replaceKeys(val, zapRunMetadata);
+          if (Array.isArray(val)) return val.map(interpolateValue);
+          if (val && typeof val === 'object') {
+            return Object.fromEntries(
+              Object.entries(val).map(([k, v]) => [k, interpolateValue(v)])
+            );
+          }
+          return val;
+        };
+        const resolvedBody =
+          body !== undefined && body !== null ? interpolateValue(body) : undefined;
+        const resolvedHeaders =
+          headers && typeof headers === 'object' ? interpolateValue(headers) : {};
 
         const result = await sendWebhook({
           url: resolvedUrl,
           method: method.toUpperCase() as any,
-          headers,
-          body: resolvedBody ? JSON.parse(resolvedBody) : undefined,
+          headers: resolvedHeaders,
+          body: resolvedBody,
         });
 
         if (!result.success) {

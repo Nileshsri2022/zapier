@@ -59,6 +59,53 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
         },
       });
 
+      // If this is a Gmail trigger, also create GmailTrigger entry
+      if (availableTrigger?.type?.startsWith('Gmail')) {
+        const triggerMeta = validation?.data?.triggerMetaData as any;
+
+        if (triggerMeta?.serverId) {
+          const gmailServer = await (tx as any).gmailServer?.findFirst?.({
+            where: { id: triggerMeta.serverId, userId: parseInt(id) },
+          });
+          if (!gmailServer) {
+            throw new Error('Gmail server not found');
+          }
+
+          const gmailTypeMap: Record<string, string> = {
+            'Gmail New Email': 'new_email',
+            'Gmail Labeled': 'labeled',
+            'Gmail Starred': 'starred',
+            'Gmail From Sender': 'from_sender',
+          };
+          const internalTriggerType = gmailTypeMap[availableTrigger.type] || 'new_email';
+
+          const rawLabels = triggerMeta.watchedLabels;
+          const watchedLabels: string[] = Array.isArray(rawLabels)
+            ? rawLabels.map((l: any) => String(l).trim()).filter(Boolean)
+            : typeof rawLabels === 'string' && rawLabels.trim()
+              ? rawLabels
+                  .split(',')
+                  .map((l) => l.trim())
+                  .filter(Boolean)
+              : [];
+
+          await (tx as any).gmailTrigger?.create?.({
+            data: {
+              serverId: triggerMeta.serverId,
+              zapId: zap.id,
+              triggerType: internalTriggerType,
+              watchedLabels,
+              senderFilter: triggerMeta.senderFilter || null,
+              subjectFilter: triggerMeta.subjectFilter || null,
+              metadata: {
+                ...(watchedLabels.length > 0 ? { targetLabels: watchedLabels } : {}),
+              },
+            },
+          });
+          console.log(`📬 Created GmailTrigger (${internalTriggerType}) for zap ${zap.id}`);
+        }
+      }
+
       // If this is a Google Sheets trigger, also create GoogleSheetsTrigger entry
       if (availableTrigger?.type === 'Google Sheets Updated Row') {
         const triggerMeta = validation?.data?.triggerMetaData as any;

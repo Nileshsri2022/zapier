@@ -1,4 +1,4 @@
-// Barrel export for all metadata components
+export { default as AiMetaData } from './AiMetaData';
 export { default as EmailMetaData } from './EmailMetaData';
 export { default as SolanaMetaData } from './SolanaMetaData';
 export { default as WebhookMetaData } from './WebhookMetaData';
@@ -7,5 +7,6 @@ export { default as GoogleSheetsMetaData } from './GoogleSheetsMetaData';
 export { default as GoogleCalendarMetaData } from './GoogleCalendarMetaData';
 export { default as ScheduleMetaData } from './ScheduleMetaData';
 export { GitHubMetaData } from './GitHubMetaData';
-export { default as AiMetaData } from './AiMetaData';
 export { default as DiscordMetaData } from './DiscordMetaData';
+export { default as WhatsAppMetaData } from './WhatsAppMetaData';
+export { default as TelegramMetaData } from './TelegramMetaData';

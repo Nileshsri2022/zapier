@@ -22,7 +22,27 @@ import {
   ScheduleMetaData,
   GitHubMetaData,
   DiscordMetaData,
+  WhatsAppMetaData,
+  TelegramMetaData,
 } from './metadata';
+
+export function doesStepRequireMetadata(type?: string): boolean {
+  if (!type) return false;
+  return (
+    type.includes('Google Sheets') ||
+    type.includes('Google Calendar') ||
+    type.includes('Gmail') ||
+    type.startsWith('GitHub') ||
+    type.startsWith('Schedule') ||
+    type === 'Webhook' ||
+    type === 'Email' ||
+    type === 'Solana' ||
+    type === 'AI Transform' ||
+    type === 'Discord Send Message' ||
+    type === 'WhatsApp Send Message' ||
+    type === 'Telegram Send Message'
+  );
+}
 
 // APPS and types are now imported from ./modal/
 
@@ -206,24 +226,18 @@ const Modal = ({
     }
 
     // Check if needs metadata form
-    const needsMetadata =
-      selectedItem.type.includes('Google Sheets') ||
-      selectedItem.type.includes('Google Calendar') ||
-      selectedItem.type.includes('Gmail') ||
-      selectedItem.type === 'Email' ||
-      selectedItem.type === 'Solana' ||
-      selectedItem.type === 'AI Transform' ||
-      selectedItem.type === 'Discord Send Message' ||
-      selectedItem.type.startsWith('Schedule'); // Add Schedule
+    const needsMetadata = doesStepRequireMetadata(selectedItem.type);
 
     if (needsMetadata) {
-      // Add serverId to metadata for OAuth apps
+      // Add serverId to metadata for OAuth apps and connected bots
       if (
         selectedApp?.id === 'sheets' ||
         selectedApp?.id === 'gmail' ||
-        selectedApp?.id === 'calendar'
+        selectedApp?.id === 'calendar' ||
+        selectedApp?.id === 'whatsapp' ||
+        selectedApp?.id === 'telegram'
       ) {
-        setSelectedItem({ ...selectedItem, serverId: selectedServerId });
+        setSelectedItem({ ...itemWithAccount, serverId: selectedServerId });
       }
       setStep(3);
     } else {
@@ -567,7 +581,13 @@ const Modal = ({
             Back to event selection
           </button>
           {selectedItem?.type === 'Webhook' ? (
-            <WebhookMetaData handleClick={handleSaveMetaData} />
+            <WebhookMetaData handleClick={handleSaveMetaData} mode="trigger" />
+          ) : selectedItem?.type?.includes('Gmail') ? (
+            <GmailMetaData
+              handleClick={handleSaveMetaData}
+              selectedType={selectedItem?.type}
+              preSelectedServerId={selectedServerId}
+            />
           ) : selectedItem?.type?.includes('Google Sheets') ? (
             <GoogleSheetsMetaData
               handleClick={handleSaveMetaData}
@@ -624,8 +644,24 @@ const Modal = ({
             <EmailMetaData handleClick={handleSaveMetaData} />
           ) : selectedItem?.type === 'Solana' ? (
             <SolanaMetaData handleClick={handleSaveMetaData} />
+          ) : selectedItem?.type === 'Webhook' ? (
+            <WebhookMetaData handleClick={handleSaveMetaData} mode="action" />
+          ) : selectedItem?.type === 'WhatsApp Send Message' ? (
+            <WhatsAppMetaData
+              handleClick={handleSaveMetaData}
+              preSelectedServerId={selectedServerId}
+            />
+          ) : selectedItem?.type === 'Telegram Send Message' ? (
+            <TelegramMetaData
+              handleClick={handleSaveMetaData}
+              preSelectedServerId={selectedServerId}
+            />
           ) : selectedItem?.type?.includes('Gmail') ? (
-            <GmailMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} />
+            <GmailMetaData
+              handleClick={handleSaveMetaData}
+              selectedType={selectedItem?.type}
+              preSelectedServerId={selectedServerId}
+            />
           ) : selectedItem?.type === 'Discord Send Message' ? (
             <DiscordMetaData handleClick={handleSaveMetaData} />
           ) : (

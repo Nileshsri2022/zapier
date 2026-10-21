@@ -403,8 +403,13 @@ export const shouldTrigger = async (gmailTrigger: any, emailData: any): Promise<
           subjectFilter,
           metadata,
         });
+      case 'from_sender':
+        return Boolean(
+          senderFilter &&
+            emailData.from?.toLowerCase().includes(String(senderFilter).toLowerCase())
+        );
       case 'labeled':
-        return isLabeledTrigger(emailData, metadata);
+        return isLabeledTrigger(emailData, metadata, watchedLabels);
       case 'starred':
         return isStarredTrigger(emailData, metadata);
       case 'moved':
@@ -442,9 +447,14 @@ const isNewEmailTrigger = (emailData: any, filters: any): boolean => {
   return true;
 };
 
-const isLabeledTrigger = (emailData: any, metadata: any): boolean => {
-  // Check if email was recently labeled
-  const targetLabels = metadata?.targetLabels || [];
+const isLabeledTrigger = (emailData: any, metadata: any, watchedLabels?: string[]): boolean => {
+  // Check if email was recently labeled (supports both metadata.targetLabels and watchedLabels)
+  const targetLabels =
+    Array.isArray(metadata?.targetLabels) && metadata.targetLabels.length > 0
+      ? metadata.targetLabels
+      : Array.isArray(watchedLabels)
+        ? watchedLabels
+        : [];
   return emailData.labels?.some((label: string) => targetLabels.includes(label));
 };
 
