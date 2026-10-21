@@ -1,0 +1,46 @@
+import { ConnectWhatsAppSchema } from '@repo/types';
+
+/**
+ * #41 — `WhatsAppServer.phoneNumberId` is `@unique` in Prisma. When the editor
+ * posted `phoneNumberId: ''` the schema accepted it, the first user won the
+ * empty-string row, and every later connect failed with "This phone number ID
+ * is already registered". The column also drives trigger matching
+ * (`server: { phoneNumberId }`), so `''` could never match a Meta payload.
+ *
+ * These tests pin the validation layer that used to let it through.
+ */
+describe('ConnectWhatsAppSchema phoneNumberId', () => {
+  const valid = {
+    displayName: 'Acme Support',
+    accessToken: 'EAAB-token',
+  };
+
+  it('rejects an empty phone number id', () => {
+    const parsed = ConnectWhatsAppSchema.safeParse({ ...valid, phoneNumberId: '' });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues[0].path).toEqual(['phoneNumberId']);
+    }
+  });
+
+  it('rejects a missing phone number id', () => {
+    expect(ConnectWhatsAppSchema.safeParse(valid).success).toBe(false);
+  });
+
+  it('rejects whitespace-only ids that would trim to empty', () => {
+    // A whitespace id can never match a Meta payload either, so the schema
+    // trims before the length check.
+    expect(ConnectWhatsAppSchema.safeParse({ ...valid, phoneNumberId: '   ' }).success).toBe(false);
+  });
+
+  it('accepts a real phone number id', () => {
+    const parsed = ConnectWhatsAppSchema.safeParse({
+      ...valid,
+      phoneNumberId: '123456789012345',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.phoneNumberId).toBe('123456789012345');
+    }
+  });
+});
