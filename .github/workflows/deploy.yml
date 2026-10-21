@@ -86,6 +86,11 @@ jobs:
       - name: Run placeholders tests
         run: cd packages/placeholders && bun run test
 
+      # @repo/actions is the one table both the seeded catalog and the worker's
+      # executors derive from; drift must fail here.
+      - name: Run actions tests
+        run: cd packages/actions && bun run test
+
       # apps/web resolves @repo/types from dist, so build the workspace
       # packages before typechecking or the ratchet sees phantom TS2307s.
       - name: Build workspace packages

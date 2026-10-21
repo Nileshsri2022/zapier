@@ -89,6 +89,19 @@ _An ingress that admits requests without a configured secret is listed in
 `OPEN_WHEN_UNCONFIGURED` and in ADR-0002; adding one is an auditable act, not a
 local decision._
 
+## Action catalog
+
+The single table (`@repo/actions`) that answers "which actions exist?":
+`APP_META` (per-surface name and icon), `ACTION_CATALOG` (one entry per accepted
+type: app, form, executor key, optional alias) and `offeredActions()` — the
+canonical subset the seed writes and the picker shows. The worker's executors are
+keyed by `executorKey`, so the dispatcher, the catalog and the seed cannot drift
+without a test or a compiler error.
+
+_Accepted ≠ offered: a legacy alias dispatches exactly like the type it names,
+but is never seeded or shown._
+_Avoid_: "known action types" as a second list — there is one table._
+
 ## Discord Action
 
 An executable action step (`AvailableActions.type = "Discord Send Message"`) that posts plain text or rich embed messages to a Discord channel via an incoming webhook URL.

@@ -4,8 +4,10 @@ export interface App {
   id: string;
   name: string;
   icon: string;
+  /** Exact action types this app groups, derived from @repo/actions. */
+  types?: string[];
+  /** Trigger-app rule: match every type that starts with this. */
   prefix?: string;
-  exact?: string;
   category?: string; // 'apps' (default) or 'flow-controls'
 }
 

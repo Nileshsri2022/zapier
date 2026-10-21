@@ -22,6 +22,8 @@ const SUITES = [
   // so neither table may be skipped.
   ['packages', 'placeholders'],
   ['packages', 'ingress'],
+  // @repo/actions owns the catalog both the seed and the worker derive from.
+  ['packages', 'actions'],
 ];
 
 const results = [];

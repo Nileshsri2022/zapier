@@ -15,6 +15,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@repo/actions": "*",
     "@repo/ai": "*",
     "@repo/ai-connections": "*",
     "@repo/db": "*",

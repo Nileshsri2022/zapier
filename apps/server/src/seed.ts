@@ -1,48 +1,24 @@
 import client from '@repo/db';
+import { APP_META, offeredActions } from '@repo/actions';
 
 /**
- * Action catalog entries seeded into `AvailableActions`.
- *
- * Every entry here MUST be executable by `apps/worker` (matched by
- * `isKnownActionType` in `apps/worker/src/utils/actionTypes.ts`). Unimplemented
- * Gmail actions were previously seeded here and either faked `success: true`
- * (before F3) or failed at runtime (after F3); see gap D2 / F4 in
- * `reports/workflow-execution-gaps.md`.
+ * The action catalog is seeded from `@repo/actions` — the same table the worker
+ * dispatches from and the web form groups by. Adding an action is one catalog
+ * entry plus one executor; nothing needs to be copied here.
  */
-export const SEEDED_ACTIONS = [
-  { type: 'AI Transform', image: '/apps/ai.svg' },
-  {
-    type: 'Email',
-    image: '/apps/email.svg',
-  },
-  {
-    type: 'Solana',
-    image: '/apps/Solana.svg',
-  },
-  {
-    type: 'WhatsApp Send Message',
-    image: '/apps/whatsapp.svg',
-  },
-  {
-    type: 'Telegram Send Message',
-    image: '/apps/telegram.svg',
-  },
-  {
-    type: 'Discord Send Message',
-    image: '/apps/discord.svg',
-  },
-  {
-    type: 'Webhook',
-    image: '/apps/webhook.svg',
-  },
-] as const;
+export const SEEDED_ACTIONS = offeredActions().map((entry) => ({
+  type: entry.type,
+  image: APP_META[entry.app].image,
+}));
 
 export const SEEDED_ACTION_TYPES = SEEDED_ACTIONS.map((a) => a.type);
 
 /**
  * Unimplemented Gmail action types formerly seeded into `AvailableActions`.
- * Removed from the catalog in F4 so users cannot select actions the worker
- * does not implement.
+ * This is a *removal* list, not a catalog: these types must never appear in
+ * `@repo/actions`, and `seedDatabase` prunes their rows and deactivates the
+ * Zaps that reference them. The server suite asserts the two sets stay
+ * disjoint — a catalog entry listed here would be seeded and immediately purged.
  */
 export const UNIMPLEMENTED_GMAIL_ACTIONS = [
   'Gmail Send Email',

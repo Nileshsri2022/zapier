@@ -1,7 +1,35 @@
+import { APP_META, offeredActions, type ActionApp } from '@repo/actions';
 import { App } from './types';
 
+/**
+ * How the picker groups what the database offers.
+ *
+ * The catalog decides *which* action types exist (server seeds it, worker
+ * dispatches it); this table only decides which app card they appear under, in
+ * what order, and with which icon. Action apps therefore derive both their
+ * types and their display data from `@repo/actions` — only the trigger apps,
+ * which are not in the action catalog, keep their own prefix rules.
+ */
+
+/** Computed once at module load, not per render. */
+const ACTION_TYPES_BY_APP = Object.fromEntries(
+  Object.keys(APP_META).map((app) => [
+    app,
+    offeredActions()
+      .filter((entry) => entry.app === app)
+      .map((entry) => entry.type),
+  ])
+) as Record<ActionApp, string[]>;
+
+const actionApp = (app: ActionApp): App => ({
+  id: app,
+  name: APP_META[app].name,
+  icon: APP_META[app].image,
+  types: ACTION_TYPES_BY_APP[app],
+});
+
 export const APPS: App[] = [
-  { id: 'ai', name: 'AI Transform', icon: '/apps/ai.svg', exact: 'AI Transform' },
+  actionApp('ai'),
   {
     id: 'gmail',
     name: 'Gmail',
@@ -20,48 +48,18 @@ export const APPS: App[] = [
     icon: '/apps/calendar.svg',
     prefix: 'Google Calendar',
   },
-  {
-    id: 'email',
-    name: 'Email',
-    icon: '/apps/email.svg',
-    exact: 'Email',
-  },
-  {
-    id: 'solana',
-    name: 'Solana',
-    icon: '/apps/Solana.svg',
-    exact: 'Solana',
-  },
+  actionApp('email'),
+  actionApp('solana'),
   {
     id: 'github',
     name: 'GitHub',
     icon: '/apps/github.svg',
     prefix: 'GitHub',
   },
-  {
-    id: 'webhook',
-    name: 'Webhook',
-    icon: '/apps/webhook.svg',
-    exact: 'Webhook',
-  },
-  {
-    id: 'whatsapp',
-    name: 'WhatsApp',
-    icon: '/apps/whatsapp.svg',
-    prefix: 'WhatsApp',
-  },
-  {
-    id: 'telegram',
-    name: 'Telegram',
-    icon: '/apps/telegram.svg',
-    prefix: 'Telegram',
-  },
-  {
-    id: 'discord',
-    name: 'Discord',
-    icon: '/apps/discord.svg',
-    exact: 'Discord Send Message',
-  },
+  actionApp('webhook'),
+  actionApp('whatsapp'),
+  actionApp('telegram'),
+  actionApp('discord'),
   {
     id: 'schedule',
     name: 'Schedule',

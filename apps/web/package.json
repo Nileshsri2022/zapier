@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
-    "build": "cd ../../packages/types && npx tsc && cd ../../apps/web && next build",
+    "build": "cd ../../packages/actions && npx tsc && cd ../types && npx tsc && cd ../../apps/web && next build",
     "start": "next start",
     "test": "node --test tests/*.test.cjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
@@ -21,6 +21,7 @@
     "@radix-ui/react-switch": "^1.4.1",
     "@radix-ui/react-tabs": "^1.2.1",
     "@radix-ui/react-tooltip": "^1.4.1",
+    "@repo/actions": "*",
     "@repo/types": "*",
     "@repo/typescript-config": "*",
     "@vercel/analytics": "^1.6.1",
