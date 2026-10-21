@@ -184,6 +184,8 @@ test('create and update reject invalid AI metadata without writes', async () => 
 
 test('create stores parsed metadata without credentials and preserves literal owner instructions', async () => {
   const create = jest.fn().mockResolvedValue({ id: 'zap' });
+  // The trigger catalog is read before the transaction (zapComposition).
+  db.availableTriggers.findUnique.mockResolvedValue({ id: 'trigger', type: 'Webhook' });
   db.$transaction.mockImplementation(async (fn: any) =>
     fn({
       availableTriggers: { findUnique: async () => ({ type: 'Webhook' }) },
@@ -227,6 +229,7 @@ test('compatible connection ownership checked on save; foreign Zap cannot be upd
     connectionId: '47116642-58b9-4b97-aa21-f92454711ff3',
   };
   process.env.AI_COMPATIBLE_ALLOWED_HOSTS = 'api.example.com';
+  db.availableTriggers.findUnique.mockResolvedValue({ id: 'trigger', type: 'Webhook' });
   db.aiConnection.findFirst.mockResolvedValue(null);
   expect(
     (

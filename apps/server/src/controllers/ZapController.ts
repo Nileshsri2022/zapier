@@ -3,308 +3,65 @@ import { AiMetadataError, validateActionMetadata } from '../services/ai';
 import { Request, Response } from 'express';
 import { formatZodError } from '../helper';
 import client from '@repo/db';
-import { computeNextRun, validateCron, normalizeCron } from '../services/schedule';
+import {
+  composeZap,
+  removeZap,
+  ZapCompositionError,
+  type ZapCompositionErrorCode,
+  type ZapDraft,
+} from '../services/zapComposition';
+
+/**
+ * Composition failures → HTTP status.
+ *
+ * 411 is deliberate: this endpoint has always answered validation failures with
+ * it and clients key off the shape, so it stays (see ADR-0004). Ownership is
+ * the one case that used to surface as an opaque 400/500; it is now a real 403.
+ */
+const compositionFailureStatus = (code: ZapCompositionErrorCode): number => {
+  switch (code) {
+    case 'CONNECTION_NOT_OWNED':
+      return 403;
+    case 'TRIGGER_KIND_UNKNOWN':
+      return 422;
+    default:
+      return 411;
+  }
+};
 
 export const createZap = async (req: Request, res: Response): Promise<any> => {
+  const validation = CreateZapSchema.safeParse(req.body);
+  // @ts-ignore
+  const id: string = req.id;
+
+  if (validation.error) {
+    return res.status(411).json({
+      message: 'Incorrect inputs',
+      error: formatZodError(validation.error),
+    });
+  }
+
+  const draft: ZapDraft = {
+    triggerId: validation.data.availableTriggerId,
+    triggerMetadata: (validation.data.triggerMetaData ?? {}) as Record<string, unknown>,
+    steps: validation.data.actions.map((action) => ({
+      actionId: action.availableActionId,
+      metadata: (action.actionMetaData ?? {}) as Record<string, unknown>,
+      stepConditions: action.stepConditions ?? [],
+    })),
+  };
+
   try {
-    const body = req.body;
-    const validation = CreateZapSchema.safeParse(body);
-    // @ts-ignore
-    const id: string = req.id;
-
-    if (validation.error) {
-      return res.status(411).json({
-        message: 'Incorrect inputs',
-        error: formatZodError(validation.error),
-      });
-    }
-
-    const actions = await validateActionMetadata(validation.data.actions, Number(id));
-
-    // T8 M5: custom cron is validated at setup (before any write) — invalid
-    // expressions are rejected with the field error surfaced.
-    const cronInput = (validation.data.triggerMetaData as any)?.cron;
-    if (typeof cronInput === 'string' && cronInput.trim()) {
-      const cronCheck = validateCron(cronInput);
-      if (!cronCheck.valid) {
-        return res.status(411).json({
-          message: 'Invalid cron expression',
-          error: cronCheck.error,
-        });
-      }
-    }
-
-    const zapId = await client.$transaction(async (tx) => {
-      // Look up the trigger type to determine if it's Google Sheets
-      const availableTrigger = await tx.availableTriggers.findUnique({
-        where: { id: validation?.data?.availableTriggerId },
-      });
-
-      const zap = await tx.zap.create({
-        data: {
-          userId: parseInt(id),
-          triggerId: '',
-          actions: {
-            create: actions.map((x, index) => ({
-              actionId: x.availableActionId as string,
-              metadata: x.actionMetaData,
-              stepConditions: x.stepConditions || [],
-              sortingOrder: index + 1,
-            })),
-          },
-        },
-      });
-
-      const trigger = await tx.trigger.create({
-        data: {
-          triggerId: validation?.data?.availableTriggerId,
-          zapId: zap.id,
-          metadata: validation?.data?.triggerMetaData || {},
-        },
-      });
-
-      await tx.zap.update({
-        where: {
-          id: zap.id,
-        },
-        data: {
-          triggerId: trigger.id,
-        },
-      });
-
-      // If this is a Gmail trigger, also create a GmailTrigger row so
-      // GmailDispatch (push/poll → shouldTrigger) can see it. The editor's
-      // modal flow previously only wrote the generic Trigger row, which left
-      // editor-created Gmail zaps unable to fire (docs/ask-matt/triggers/gmail.md).
-      if (availableTrigger?.type?.startsWith('Gmail ')) {
-        const triggerMeta = validation?.data?.triggerMetaData as any;
-
-        if (!triggerMeta?.serverId) {
-          throw new Error('Gmail trigger requires a connected Gmail server');
-        }
-
-        const ownedGmailServer = await tx.gmailServer.findFirst({
-          where: { id: triggerMeta.serverId, userId: parseInt(id) },
-        });
-        if (!ownedGmailServer) {
-          throw new Error('Gmail server not found');
-        }
-
-        const gmailTriggerTypeMap: Record<string, string> = {
-          'Gmail New Email': 'new_email',
-          'Gmail Labeled': 'labeled',
-          'Gmail Starred': 'starred',
-          // From-Sender is a new-email trigger carrying a sender filter.
-          'Gmail From Sender': 'new_email',
-          'Gmail Matching Search': 'matching_search',
-        };
-
-        const internalTriggerType = gmailTriggerTypeMap[availableTrigger.type];
-        if (internalTriggerType) {
-          const searchQuery =
-            typeof triggerMeta.searchQuery === 'string' ? triggerMeta.searchQuery.trim() : '';
-          if (internalTriggerType === 'matching_search' && !searchQuery) {
-            throw new Error('Gmail Matching Search trigger requires a search query');
-          }
-
-          const watchedLabels = Array.isArray(triggerMeta.watchedLabels)
-            ? triggerMeta.watchedLabels
-            : typeof triggerMeta.watchedLabels === 'string' && triggerMeta.watchedLabels.trim()
-              ? triggerMeta.watchedLabels
-                  .split(',')
-                  .map((s: string) => s.trim())
-                  .filter(Boolean)
-              : [];
-
-          await tx.gmailTrigger.create({
-            data: {
-              serverId: triggerMeta.serverId,
-              zapId: zap.id,
-              triggerType: internalTriggerType,
-              watchedLabels,
-              senderFilter: triggerMeta.senderFilter || null,
-              subjectFilter: triggerMeta.subjectFilter || null,
-              metadata: { ...triggerMeta, ...(searchQuery ? { searchQuery } : {}) },
-            },
-          });
-          console.log(`✉️ Created GmailTrigger (${internalTriggerType}) for zap ${zap.id}`);
-        }
-      }
-
-      // If this is a Google Sheets trigger, also create GoogleSheetsTrigger
-      // entry (both 'Google Sheets New Row' and legacy 'Updated Row' share
-      // the row; the poller reads the availableTrigger type for event
-      // semantics — docs/ask-matt/triggers/google-sheets.md).
-      if (availableTrigger?.type?.startsWith('Google Sheets')) {
-        const triggerMeta = validation?.data?.triggerMetaData as any;
-
-        if (triggerMeta?.serverId && triggerMeta?.spreadsheetId && triggerMeta?.sheetName) {
-          await tx.googleSheetsTrigger.create({
-            data: {
-              serverId: triggerMeta.serverId,
-              zapId: zap.id,
-              spreadsheetId: triggerMeta.spreadsheetId,
-              sheetName: triggerMeta.sheetName,
-              isActive: true,
-            },
-          });
-          console.log(`✅ Created GoogleSheetsTrigger for zap ${zap.id}`);
-        } else {
-          console.log(
-            `⚠️ Google Sheets trigger missing metadata: serverId, spreadsheetId, or sheetName`
-          );
-        }
-      }
-
-      // If this is a Google Calendar trigger, also create GoogleCalendarTrigger entry
-      if (availableTrigger?.type?.startsWith('Google Calendar')) {
-        const triggerMeta = validation?.data?.triggerMetaData as any;
-
-        if (triggerMeta?.serverId) {
-          // Map the trigger type from AvailableTriggers to internal trigger type
-          const triggerTypeMap: Record<string, string> = {
-            'Google Calendar New Event': 'new_event',
-            'Google Calendar Event Updated': 'event_updated',
-            'Google Calendar Event Start': 'event_start',
-            'Google Calendar Event Ended': 'event_ended',
-            'Google Calendar Event Cancelled': 'event_cancelled',
-            'Google Calendar New Calendar': 'new_calendar',
-            'Google Calendar Event Matching Search': 'event_matching_search',
-          };
-
-          const internalTriggerType = triggerTypeMap[availableTrigger.type] || 'new_event';
-          const isInstant = ['new_event', 'event_updated'].includes(internalTriggerType);
-
-          await tx.googleCalendarTrigger.create({
-            data: {
-              serverId: triggerMeta.serverId,
-              zapId: zap.id,
-              calendarId: triggerMeta.calendarId || 'primary',
-              triggerType: internalTriggerType,
-              isInstant,
-              searchQuery: triggerMeta.searchQuery || null,
-              reminderMinutes: triggerMeta.reminderMinutes || null,
-              isActive: true,
-            },
-          });
-          console.log(
-            `📅 Created GoogleCalendarTrigger (${internalTriggerType}) for zap ${zap.id}`
-          );
-        } else {
-          console.log(`⚠️ Google Calendar trigger missing metadata: serverId`);
-        }
-      }
-
-      // If this is a Schedule trigger, also create ScheduledTrigger entry
-      if (availableTrigger?.type?.startsWith('Schedule')) {
-        const triggerMeta = validation?.data?.triggerMetaData as any;
-
-        // Map the trigger type from AvailableTriggers to internal schedule type
-        const scheduleTypeMap: Record<string, string> = {
-          'Schedule Every Minute': 'minutely',
-          'Schedule Every Hour': 'hourly',
-          'Schedule Every Day': 'daily',
-          'Schedule Every Week': 'weekly',
-          'Schedule Every Month': 'monthly',
-          'Schedule Custom Cron': 'cron',
-        };
-
-        const internalScheduleType = scheduleTypeMap[availableTrigger.type] || 'hourly';
-        const cronExpression =
-          internalScheduleType === 'cron' ? normalizeCron(String(triggerMeta?.cron ?? '')) : null;
-
-        // Calculate the first run on the user's wall clock, honouring the
-        // selected timezone, weekday and month-end rules.
-        const nextRunAt = computeNextRun({
-          scheduleType: internalScheduleType,
-          hour: triggerMeta?.hour ?? null,
-          minute: triggerMeta?.minute ?? 0,
-          dayOfWeek: triggerMeta?.dayOfWeek ?? null,
-          dayOfMonth: triggerMeta?.dayOfMonth ?? null,
-          cronExpression,
-          timezone: triggerMeta?.timezone || 'UTC',
-        });
-
-        await tx.scheduledTrigger.create({
-          data: {
-            zapId: zap.id,
-            scheduleType: internalScheduleType,
-            hour: triggerMeta?.hour ?? null,
-            minute: triggerMeta?.minute ?? 0,
-            dayOfWeek: triggerMeta?.dayOfWeek ?? null,
-            dayOfMonth: triggerMeta?.dayOfMonth ?? null,
-            cronExpression,
-            timezone: triggerMeta?.timezone || 'UTC',
-            nextRunAt,
-            isActive: true,
-          },
-        });
-        console.log(
-          `⏰ Created ScheduledTrigger (${internalScheduleType}) for zap ${zap.id} - Next run: ${nextRunAt.toISOString()}`
-        );
-      }
-
-      // WhatsApp/Telegram triggers need a provider-specific row. The editor
-      // now sends serverId/botId in triggerMetaData; verify ownership before
-      // attaching the trigger so one tenant cannot target another's account.
-      if (availableTrigger?.type === 'WhatsApp Message Received') {
-        const triggerMeta = validation?.data?.triggerMetaData as any;
-        if (!triggerMeta?.serverId) {
-          throw new Error('WhatsApp trigger requires a connected WhatsApp server');
-        }
-
-        const server = await tx.whatsAppServer.findFirst({
-          where: { id: triggerMeta.serverId, userId: parseInt(id) },
-        });
-        if (!server) {
-          throw new Error('WhatsApp server not found');
-        }
-
-        await tx.whatsAppTrigger.create({
-          data: {
-            serverId: triggerMeta.serverId,
-            zapId: zap.id,
-            eventType: triggerMeta.eventType || 'message_received',
-          },
-        });
-        console.log(`💬 Created WhatsApp trigger for zap ${zap.id}`);
-      }
-
-      if (availableTrigger?.type === 'Telegram New Message') {
-        const triggerMeta = validation?.data?.triggerMetaData as any;
-        if (!triggerMeta?.botId) {
-          throw new Error('Telegram trigger requires a connected Telegram bot');
-        }
-
-        const bot = await tx.telegramBot.findFirst({
-          where: { id: triggerMeta.botId, userId: parseInt(id) },
-        });
-        if (!bot) {
-          throw new Error('Telegram bot not found');
-        }
-
-        await tx.telegramTrigger.create({
-          data: {
-            botId: triggerMeta.botId,
-            zapId: zap.id,
-            eventType: triggerMeta.eventType || 'message',
-            filterCommand: triggerMeta.filterCommand || null,
-          },
-        });
-        console.log(`✈️ Created Telegram trigger for zap ${zap.id}`);
-      }
-
-      return zap.id;
-    });
-
-    return res.status(201).json({
-      message: 'Zap created successfully',
-      zapId,
-    });
+    const { zapId } = await composeZap(draft, { userId: Number(id) });
+    return res.status(201).json({ message: 'Zap created successfully', zapId });
   } catch (error) {
-    if (error instanceof AiMetadataError) return res.status(411).json({ message: error.message });
+    if (error instanceof ZapCompositionError) {
+      return res
+        .status(compositionFailureStatus(error.code))
+        .json({ message: error.message, code: error.code });
+    }
     console.log(error);
-    res.status(400).json({
+    return res.status(400).json({
       message: 'Failed to create a zap!',
       error: error,
     });
@@ -390,87 +147,24 @@ export const fetchZapWithId = async (req: Request, res: Response): Promise<any> 
 // engine — see TriggerController.handleWebhook and services/GmailDispatch.
 
 export const deleteZapWithId = async (req: Request, res: Response): Promise<any> => {
+  // @ts-ignore
+  const id = req.id;
+  const zapId = req.params.zapId as string;
+
   try {
-    // @ts-ignore
-    const id = req.id;
-    const zapId = req.params.zapId as string;
-
-    const zap = await client.$transaction(async (tx) => {
-      // First delete ZapRunOutbox records (they reference ZapRun)
-      const zapRuns = await tx.zapRun.findMany({
-        where: { zapId },
-        select: { id: true },
-      });
-
-      if (zapRuns.length > 0) {
-        await tx.zapRunOutbox.deleteMany({
-          where: {
-            zapRunId: { in: zapRuns.map((r) => r.id) },
-          },
-        });
-      }
-
-      // Delete ZapRun records
-      await tx.zapRun.deleteMany({
-        where: { zapId },
-      });
-
-      // Delete Gmail-related records if they exist
-      await tx.gmailTrigger.deleteMany({
-        where: { zapId },
-      });
-
-      await tx.gmailAction.deleteMany({
-        where: { zapId },
-      });
-
-      // Delete Google Sheets trigger if exists
-      await tx.googleSheetsTrigger.deleteMany({
-        where: { zapId },
-      });
-
-      // Delete WhatsApp trigger if exists
-      await (tx as any).whatsAppTrigger?.deleteMany?.({ where: { zapId } });
-
-      // Delete Telegram trigger if exists
-      await (tx as any).telegramTrigger?.deleteMany?.({ where: { zapId } });
-
-      // Delete Google Calendar trigger if exists
-      await (tx as any).googleCalendarTrigger?.deleteMany?.({ where: { zapId } });
-
-      // Delete scheduled trigger if exists
-      await (tx as any).scheduledTrigger?.deleteMany?.({ where: { zapId } });
-
-      // Delete trigger (ignore if missing)
-      try {
-        await tx.trigger.delete({
-          where: { zapId },
-        });
-      } catch (e) {
-        // Trigger may not exist; continue
-      }
-
-      // Delete actions
-      await tx.action.deleteMany({
-        where: { zapId },
-      });
-
-      // Finally delete the zap
-      return await tx.zap.delete({
-        where: {
-          id: zapId,
-          userId: id,
-        },
-      });
-    });
-
+    const { deletedZap } = await removeZap(zapId, { userId: Number(id) });
     return res.status(202).json({
       message: 'Zap deleted successfully',
-      deletedZap: zap,
+      deletedZap,
     });
   } catch (error: any) {
+    if (error instanceof ZapCompositionError) {
+      return res
+        .status(compositionFailureStatus(error.code))
+        .json({ message: error.message, code: error.code });
+    }
     console.error('Delete zap error:', error);
-    res.status(401).json({
+    return res.status(401).json({
       message: 'Could not delete the zap, Please try again',
       error: error.message,
     });

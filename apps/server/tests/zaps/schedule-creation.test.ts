@@ -1,60 +1,46 @@
-import { Request, Response } from 'express';
 import client from '@repo/db';
-import * as ZapController from '../../src/controllers/ZapController';
+import { ZapCompositionError, composeZap } from '../../src/services/zapComposition';
 
 /**
- * The editor offers a timezone and a day-of-week, so the initial nextRunAt
- * for a Schedule trigger must honour both. The current inline math always
- * schedules weekly runs seven days out and computes daily/hourly slots in
- * the server's local time.
+ * Schedule composition, asserted where it happens: `composeZap` computes the
+ * first run from the user's wall clock, timezone and day rules, and validates a
+ * custom cron *before* anything is written.
  */
 
-const app = () => {
-  const json = jest.fn();
-  const status = jest.fn().mockReturnValue({ json });
-  return { res: { status, json } as unknown as Response, status };
-};
+const buildTx = (capture: (data: any) => void) => ({
+  zap: {
+    create: jest.fn().mockResolvedValue({ id: 'zap-1' }),
+    update: jest.fn().mockResolvedValue({}),
+  },
+  trigger: { create: jest.fn().mockResolvedValue({ id: 'trigger-1' }) },
+  scheduledTrigger: {
+    create: jest.fn().mockImplementation(async ({ data }: any) => {
+      capture(data);
+      return data;
+    }),
+  },
+});
 
-const request = (triggerMetaData: any) =>
-  ({
-    body: {
-      availableTriggerId: 'trigger-schedule',
-      triggerMetaData,
-      actions: [],
-    },
-    // @ts-ignore - set by auth middleware
-    id: 'user-1',
-  }) as unknown as Request;
-
-const runCreate = async (triggerMetaData: any, triggerType = 'Schedule Every Week') => {
+const runCompose = async (triggerMetadata: any, triggerType = 'Schedule Every Week') => {
   let scheduled: any;
-  const tx = {
-    availableTriggers: {
-      findUnique: jest.fn().mockResolvedValue({ type: triggerType }),
-    },
-    zap: {
-      create: jest.fn().mockResolvedValue({ id: 'zap-1' }),
-      update: jest.fn().mockResolvedValue({}),
-    },
-    trigger: { create: jest.fn().mockResolvedValue({ id: 'trigger-1' }) },
-    googleSheetsTrigger: { create: jest.fn() },
-    googleCalendarTrigger: { create: jest.fn() },
-    scheduledTrigger: {
-      create: jest.fn().mockImplementation(async ({ data }: any) => {
-        scheduled = data;
-        return data;
-      }),
-    },
-  };
-  (client.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(tx));
+  const tx = buildTx((data) => (scheduled = data));
 
-  const { res, status } = app();
-  await ZapController.createZap(request(triggerMetaData), res);
-  expect(status).toHaveBeenCalledWith(201);
+  (client.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(tx));
+  (client.availableTriggers.findUnique as jest.Mock).mockResolvedValue({
+    id: 'trigger-schedule',
+    type: triggerType,
+  });
+  (client.availableActions.findUnique as jest.Mock).mockResolvedValue({ type: 'Webhook' });
+
+  await composeZap(
+    { triggerId: 'trigger-schedule', triggerMetadata, steps: [] },
+    { userId: 1 }
+  );
+
   return scheduled;
 };
 
-describe('createZap — Schedule trigger nextRunAt', () => {
+describe('composeZap — Schedule trigger nextRunAt', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
@@ -67,7 +53,7 @@ describe('createZap — Schedule trigger nextRunAt', () => {
     // Tuesday 2026-01-06 10:00 UTC; user asked for Monday 09:00 UTC.
     jest.setSystemTime(new Date('2026-01-06T10:00:00.000Z'));
 
-    const scheduled = await runCreate({
+    const scheduled = await runCompose({
       hour: 9,
       minute: 0,
       dayOfWeek: 1,
@@ -81,7 +67,7 @@ describe('createZap — Schedule trigger nextRunAt', () => {
     // 2026-01-01 00:00 UTC is 05:30 in Asia/Kolkata. 09:00 IST is the same day.
     jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
 
-    const scheduled = await runCreate(
+    const scheduled = await runCompose(
       {
         hour: 9,
         minute: 0,
@@ -96,7 +82,7 @@ describe('createZap — Schedule trigger nextRunAt', () => {
   it('keeps midnight as midnight instead of turning it into 09:00', async () => {
     jest.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
 
-    const scheduled = await runCreate(
+    const scheduled = await runCompose(
       {
         hour: 0,
         minute: 0,
@@ -113,7 +99,7 @@ describe('createZap — Schedule trigger nextRunAt', () => {
 // T8 M5 — custom 5-field cron (docs/ask-matt/triggers/schedule.md)
 // ---------------------------------------------------------------------------
 
-describe('createZap — Schedule Custom Cron (M5)', () => {
+describe('composeZap — Schedule Custom Cron (M5)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
@@ -126,7 +112,7 @@ describe('createZap — Schedule Custom Cron (M5)', () => {
     // Wednesday 2026-10-21 03:00 UTC = 08:30 IST → next */15 9-17 fire = 09:00 IST.
     jest.setSystemTime(new Date('2026-10-21T03:00:00.000Z'));
 
-    const scheduled = await runCreate(
+    const scheduled = await runCompose(
       {
         cron: '*/15 9-17 * * 1-5',
         timezone: 'Asia/Kolkata',
@@ -139,13 +125,23 @@ describe('createZap — Schedule Custom Cron (M5)', () => {
     expect(scheduled.nextRunAt.toISOString()).toBe('2026-10-21T03:30:00.000Z');
   });
 
-  it('rejects an invalid cron before creating anything (411)', async () => {
-    const json = jest.fn();
-    const status = jest.fn().mockReturnValue({ json });
-    const res = { status, json } as unknown as Response;
+  it('rejects an invalid cron before creating anything', async () => {
+    const tx = buildTx(() => {});
+    (client.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(tx));
+    (client.availableTriggers.findUnique as jest.Mock).mockResolvedValue({
+      id: 'trigger-schedule',
+      type: 'Schedule Custom Cron',
+    });
+    (client.availableActions.findUnique as jest.Mock).mockResolvedValue({ type: 'Webhook' });
 
-    await ZapController.createZap(request({ cron: '99 * * * *' }, 'Schedule Custom Cron'), res);
+    await expect(
+      composeZap(
+        { triggerId: 'trigger-schedule', triggerMetadata: { cron: '99 * * * *' }, steps: [] },
+        { userId: 1 }
+      )
+    ).rejects.toMatchObject({ code: 'INVALID_CRON' });
 
-    expect(status).toHaveBeenCalledWith(411);
+    // Validation runs before the transaction: nothing was written.
+    expect(client.$transaction).not.toHaveBeenCalled();
   });
 });

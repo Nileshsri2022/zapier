@@ -1,6 +1,15 @@
 import { Request, Response } from 'express';
 import client from '@repo/db';
 import * as ZapController from '../../src/controllers/ZapController';
+import { ZapCompositionError, composeZap, removeZap } from '../../src/services/zapComposition';
+
+// The controller is an HTTP shell: composition is asserted in
+// zap-composition.test.ts, so here it is mocked and we pin the *mapping*.
+jest.mock('../../src/services/zapComposition', () => ({
+  ...jest.requireActual('../../src/services/zapComposition'),
+  composeZap: jest.fn(),
+  removeZap: jest.fn(),
+}));
 
 // Reset mocks before each test
 beforeEach(() => {
@@ -23,47 +32,66 @@ describe('ZapController - Create Zap', () => {
   });
 
   describe('createZap', () => {
-    it('should create a new zap with valid data', async () => {
-      mockRequest = {
-        body: {
-          availableTriggerId: 'trigger-123',
-          triggerMetaData: { key: 'value' },
-          actions: [
-            { availableActionId: 'action-123', actionMetaData: { to: 'test@example.com' } },
+    const buildCreateRequest = (body: any) =>
+      ({ body, 'id': '123' } as unknown as Request);
+
+    const validBody = {
+      availableTriggerId: 'trigger-123',
+      triggerMetaData: { key: 'value' },
+      actions: [{ availableActionId: 'action-123', actionMetaData: { to: 'test@example.com' } }],
+    };
+
+    it('creates a zap through composeZap and answers 201', async () => {
+      (composeZap as jest.Mock).mockResolvedValue({ zapId: 'zap-123' });
+
+      await ZapController.createZap(buildCreateRequest(validBody), mockResponse as Response);
+
+      expect(composeZap).toHaveBeenCalledWith(
+        {
+          triggerId: 'trigger-123',
+          triggerMetadata: { key: 'value' },
+          steps: [
+            {
+              actionId: 'action-123',
+              metadata: { to: 'test@example.com' },
+              stepConditions: [],
+            },
           ],
         },
-        // @ts-ignore - id is added by auth middleware
-        id: 'user-123',
-      };
-
-      const mockZap = { id: 'zap-123' };
-
-      (client.availableActions.findUnique as jest.Mock).mockResolvedValue({ type: 'Email' });
-      (client.$transaction as jest.Mock).mockResolvedValue('zap-123');
-
-      await ZapController.createZap(mockRequest as Request, mockResponse as Response);
-
+        { userId: 123 }
+      );
       expect(statusMock).toHaveBeenCalledWith(201);
       expect(jsonMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'Zap created successfully',
-          zapId: 'zap-123',
-        })
+        expect.objectContaining({ message: 'Zap created successfully', zapId: 'zap-123' })
       );
     });
 
-    it('should return 411 for invalid zap data', async () => {
-      mockRequest = {
-        body: {
-          // Invalid - missing required fields
-        },
-        // @ts-ignore
-        id: 'user-123',
-      };
-
-      await ZapController.createZap(mockRequest as Request, mockResponse as Response);
+    it('returns 411 for invalid zap data', async () => {
+      await ZapController.createZap(buildCreateRequest({}), mockResponse as Response);
 
       expect(statusMock).toHaveBeenCalledWith(411);
+      expect(composeZap).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['CONNECTION_NOT_OWNED', 403],
+      ['TRIGGER_KIND_UNKNOWN', 422],
+      ['UNKNOWN_TRIGGER', 411],
+      ['INVALID_CRON', 411],
+      ['INVALID_TRIGGER_METADATA', 411],
+      ['MISSING_CONNECTION', 411],
+      ['INVALID_ACTION_METADATA', 411],
+    ])('maps %s to %i', async (code, expectedStatus) => {
+      (composeZap as jest.Mock).mockRejectedValue(
+        new ZapCompositionError(code as any, 'composition refused')
+      );
+
+      await ZapController.createZap(buildCreateRequest(validBody), mockResponse as Response);
+
+      expect(statusMock).toHaveBeenCalledWith(expectedStatus);
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'composition refused', code })
+      );
     });
   });
 });
@@ -219,12 +247,15 @@ describe('ZapController - Delete Zap', () => {
       };
 
       const mockZap = { id: 'zap-123', userId: 'user-123' };
-      (client.zap.findUnique as jest.Mock).mockResolvedValue(mockZap);
-      (client.zap.delete as jest.Mock).mockResolvedValue(mockZap);
+      (removeZap as jest.Mock).mockResolvedValue({ deletedZap: mockZap });
 
       await ZapController.deleteZapWithId(mockRequest as Request, mockResponse as Response);
 
+      expect(removeZap).toHaveBeenCalledWith('zap-123', { userId: NaN });
       expect(statusMock).toHaveBeenCalledWith(202);
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Zap deleted successfully', deletedZap: mockZap })
+      );
     });
   });
 });

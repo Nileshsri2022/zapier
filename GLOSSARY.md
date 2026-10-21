@@ -14,6 +14,17 @@ One execution of a Zap, created by trigger ingress and advanced by the worker
 stage by stage. `status` moves `pending → running → completed | failed`.
 `pending` means "durably recorded, not yet picked up".
 
+## Zap composition
+
+The single module (`apps/server/src/services/zapComposition.ts`) that turns a
+**ZapDraft** into rows: the Zap, its trigger, its ordered steps, and the
+provider-specific shadow row the trigger kind needs. It owns validation
+(ownership, cron, required trigger metadata) *before* any write, and it owns
+teardown in the same adapters, so creation and deletion cannot drift apart.
+
+_A trigger kind is an adapter and a table entry. A type with no adapter is
+refused — never composed into a Zap that can't fire._
+
 ## Run intake
 
 The single deep module (`@repo/runs`) every trigger uses to turn a provider
