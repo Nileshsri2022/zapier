@@ -18,6 +18,25 @@ npm run lint
 
 `edit_file` fails on guessed context. `grep -n "exact text" <file>` first, then anchor the edit on a line you have actually read. Prefer `sed -n 'A,Bp'` to confirm boundaries for multi-line edits.
 
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as GitHub issues in `Nileshsri2022/zapier`, driven with the `gh` CLI. This
+sandbox's `gh` is 2.23.0, so sub-issues and native issue dependencies are unavailable — use the
+`Part of #<parent>` / `Blocked by: #<n>` text fallbacks. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles map 1:1 to label strings (`needs-triage`, `needs-info`,
+`ready-for-agent`, `ready-for-human`, `wontfix`), with `bug` / `enhancement` as separate category
+labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` at the root plus `docs/adr/`. Read both before exploring. See
+`docs/agents/domain.md`.
+
 ## Map
 
 - `docs/ask-matt/` — per-integration specs and grilled decisions (start at `03-grill-log.md`)
