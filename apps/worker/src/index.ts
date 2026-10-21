@@ -57,6 +57,15 @@ export async function executeActionWithRetry(
   // A2: Email sends via the Gmail API (shared Google connection). Validation,
   // auth, quota and attachment failures never retry — only transient provider
   // errors do (at-least-once; a duplicate is possible after an accepted timeout).
+  if (actionType === 'Webhook') {
+    // A4: idempotent-only retries are implemented inside runWebhookAction, so the
+    // generic wrapper runs it exactly once (no 3x duplicate side effects).
+    const { runWebhookAction } = await import('./sendWebhook.js');
+    return withRetry(async () => {
+      const output = await runWebhookAction(metadata, zapRunMetadata);
+      return { success: true, message: `Webhook ${output.status} from ${output.url}`, output };
+    }, { shouldRetry: () => false });
+  }
   if (actionType === 'Email') {
     const { sendEmailAction, EmailActionError } = await import('./sendEmail.js');
     return withRetry(
@@ -184,33 +193,6 @@ export async function executeActionWithRetry(
             messageId: result.messageId,
             timestamp: result.timestamp || new Date().toISOString(),
           },
-        };
-      }
-
-      if (actionType === 'Webhook') {
-        const { url, method = 'POST', headers = {}, body } = metadata;
-        const resolvedUrl = replaceKeys(url, zapRunMetadata);
-        const resolvedBody = body ? replaceKeys(JSON.stringify(body), zapRunMetadata) : null;
-
-        // Dynamic import for sendWebhook
-        const { sendWebhook } = await import('./sendWebhook.js');
-
-        const result = await sendWebhook({
-          url: resolvedUrl,
-          method: method.toUpperCase() as any,
-          headers,
-          body: resolvedBody ? JSON.parse(resolvedBody) : undefined,
-        });
-
-        if (!result.success) {
-          throw new Error(`Webhook failed: ${result.error}`);
-        }
-
-        console.log(`✅ Webhook sent to ${resolvedUrl} (${result.statusCode})`);
-        return {
-          success: true,
-          message: `Webhook sent to ${resolvedUrl}`,
-          output: { url: resolvedUrl, statusCode: result.statusCode, response: result.response },
         };
       }
 

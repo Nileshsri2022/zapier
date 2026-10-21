@@ -16,6 +16,7 @@ import {
   EmailMetaData,
   SolanaMetaData,
   WebhookMetaData,
+  WebhookActionMetaData,
   GmailMetaData,
   GoogleSheetsMetaData,
   GoogleCalendarMetaData,
@@ -576,7 +577,12 @@ const Modal = ({
             Back to event selection
           </button>
           {selectedItem?.type === 'Webhook' ? (
-            <WebhookMetaData handleClick={handleSaveMetaData} zapId={zapId} />
+            // Step 1 = incoming catch hook (T5); later steps = outbound HTTP action (A4).
+            isVisible === 1 ? (
+              <WebhookMetaData handleClick={handleSaveMetaData} zapId={zapId} />
+            ) : (
+              <WebhookActionMetaData handleClick={handleSaveMetaData} />
+            )
           ) : selectedItem?.type?.includes('Google Sheets') ? (
             <GoogleSheetsMetaData
               handleClick={handleSaveMetaData}

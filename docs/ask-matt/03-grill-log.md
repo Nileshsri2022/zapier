@@ -331,6 +331,36 @@ Gate status: ⛔ **no implementation approved** — docs only.
 | Q-WHA-05 | Retry policy? | ✅ **Idempotent-only retry** — GET/PUT/DELETE backoff on 5xx/timeout; **POST/PATCH fail fast** |
 | Q-WHA-06 | Non-2xx handling? (added round 14) | ✅ **Error on non-2xx by default + per-step override toggle** |
 
+### A4 — Webhook action implementation notes
+
+- **A4 — Webhook (outbound HTTP):** `apps/worker/src/sendWebhook.ts` rewritten
+  from the old hard-coded-JSON helper. Q-WHA-01 five verbs; Q-WHA-02
+  `none | basic | bearer | api_key` (header or query placement; OAuth2 and
+  multipart are backlog → explicit validation errors); Q-WHA-03 `json` /
+  `form` / `raw` bodies with sane default Content-Type and no body on GET;
+  Q-WHA-04 the §4 output contract — `status`, `ok`, `responseBody`
+  (null + `responseText` when non-JSON or unparsable), `responseText`,
+  `responseHeaders`, `durationMs`, `url`, `retries`, `truncated`, `error`.
+- **Q-WHA-05 retries** live inside the module (method-aware), and the worker
+  branch opts the generic wrapper out (`shouldRetry: () => false`) so side
+  effects can never triple: **GET/PUT/DELETE** retry 5xx/timeouts with bounded
+  backoff (3 attempts, 250/500 ms), **POST/PATCH fail fast**, 4xx never retry.
+- **Q-WHA-06 status policy:** non-2xx is an error carrying status + a 200-char
+  redacted body excerpt; per-step `acceptStatuses` accepts a code list or
+  `any`.
+- Hardening per spec §5: SSRF guard blocks loopback/private/link-local/
+  metadata hosts (with an explicit `allowPrivateNetwork` opt-in), redirects are
+  followed manually up to 5 with **Authorization stripped on cross-host hops**
+  and blocked targets re-checked, responses are capped at 10 MB with a
+  `truncated` flag, and every surfaced string (errors, echoed URL, response
+  text) redacts auth secrets and `api_key`/`token` query values.
+- Builder: new `WebhookActionMetaData` (verb, URL, query/header line editors,
+  auth picker, body mode, timeout, accept-statuses, private-network ack). The
+  Modal now renders it for **action** steps and keeps the T5 catch-hook form
+  for the trigger step (`isVisible === 1`), which previously showed the wrong
+  config for the Webhook action.
+- Tests: new `apps/worker/tests/sendWebhook.test.ts` (20 fixtures).
+
 ## A5 — WhatsApp action (send) ✅ **grilled** (round 15)
 
 | ID | Question | Answer |
