@@ -4,6 +4,7 @@
   "main": "dist/src/index.js",
   "scripts": {
     "test": "jest",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "dev": "nodemon --exec tsx src/index.ts",
     "build": "npx swc src -d dist --copy-files",
     "start": "node dist/src/index.js",

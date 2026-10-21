@@ -5,7 +5,8 @@
 # integration is switched off via "git.deploymentEnabled": false in
 # vercel.json — without that, every push creates a second, ungated Vercel
 # deployment that races this job for the production slot.
-# See learnings/02-deployment-architecture.md for the per-service topology.
+# Deploy topology: one job per service below (web→Vercel, others→Render),
+# each gated on the same "Lint & Test" job.
 
 name: Deploy ZapMate
 
@@ -34,11 +35,27 @@ jobs:
         with:
           bun-version: latest
 
+      # Both steps hit the network and have flaked (a run failed and then
+      # passed on the same commit). Retry a bounded number of times so a
+      # transient fetch cannot masquerade as a code failure — but fail loudly
+      # when all attempts are exhausted, never fall through to success.
       - name: Install dependencies
-        run: bun install
+        run: |
+          for attempt in 1 2 3; do
+            if bun install; then exit 0; fi
+            echo "::warning::bun install failed (attempt $attempt/3)"
+            sleep $((attempt * 10))
+          done
+          exit 1
 
       - name: Generate Prisma Client
-        run: cd packages/db && bunx prisma generate
+        run: |
+          for attempt in 1 2 3; do
+            if (cd packages/db && bunx prisma generate); then exit 0; fi
+            echo "::warning::prisma generate failed (attempt $attempt/3)"
+            sleep $((attempt * 10))
+          done
+          exit 1
 
       - name: Lint
         run: bun run lint
@@ -55,7 +72,20 @@ jobs:
       - name: Run web tests
         run: cd apps/web && bun run test
 
-      - name: Build packages
+      # The processor owns BasePoller / GoogleSheetsPoller / GoogleCalendarPoller
+      # and was previously deployed without ever being tested.
+      - name: Run processor tests
+        run: cd apps/processor && bun run test
+
+      # apps/web resolves @repo/types from dist, so build the workspace
+      # packages before typechecking or the ratchet sees phantom TS2307s.
+      - name: Build workspace packages
+        run: bun run build:packages
+
+      - name: Typecheck (ratchet)
+        run: node scripts/typecheck-ratchet.mjs
+
+      - name: Build
         run: bun run build
 
   # ============================================

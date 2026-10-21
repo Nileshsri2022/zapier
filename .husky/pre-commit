@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# Runs on every commit. Activated by `husky` (see the root "prepare" script);
+# the lint-staged config lives in the root package.json.
+npx lint-staged
+npm run typecheck --silent
