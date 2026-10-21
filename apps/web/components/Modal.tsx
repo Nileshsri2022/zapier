@@ -7,6 +7,7 @@ import { redirectToOAuth, savePendingSelection } from '@/lib/oauth';
 
 // Import types and constants from modal/
 import { App, AvailableItem } from './modal/types';
+import { needsMetadataStep } from './modal/step3';
 import { APPS } from './modal/constants';
 import type { TSelectedAction } from '@repo/types';
 
@@ -223,26 +224,9 @@ const Modal = ({
       };
     }
 
-    // Check if needs metadata form
-    const needsMetadata =
-      selectedItem.type.includes('Google Sheets') ||
-      selectedItem.type.includes('Google Calendar') ||
-      selectedItem.type.includes('Gmail') ||
-      selectedItem.type === 'Email' ||
-      selectedItem.type === 'Solana' ||
-      selectedItem.type === 'AI Transform' ||
-      selectedItem.type === 'Discord Send Message' ||
-      selectedItem.type.startsWith('Schedule') ||
-      selectedItem.type.startsWith('Telegram') || // T7: chat-type filter
-      // Webhook is both a trigger (catch hook) and an action (outbound HTTP);
-      // GitHub is trigger-only. Both render a form in step 3 — without them
-      // here the forms were unreachable and the trigger saved `metadata: {}`.
-      selectedItem.type === 'Webhook' ||
-      selectedItem.type.startsWith('GitHub') ||
-      // The WhatsApp *action* collects recipient/template in step 3. The
-      // trigger has no form (its server is chosen in the account step), so
-      // this must not open step 3 for triggers.
-      (isVisible > 1 && selectedItem.type.startsWith('WhatsApp'));
+    // Check if needs metadata form. The rule lives in components/modal/step3.ts
+    // so it can be tested without rendering the modal (see #42 / #43).
+    const needsMetadata = needsMetadataStep(selectedItem.type, isVisible);
 
     if (needsMetadata) {
       // Preserve metadata threaded in the account step (botId for Telegram)
