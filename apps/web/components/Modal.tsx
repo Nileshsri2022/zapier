@@ -31,11 +31,13 @@ const Modal = ({
   setIsVisible,
   onClick,
   initialAiAction,
+  zapId,
 }: {
   initialAiAction?: TSelectedAction;
   isVisible: number;
   setIsVisible: Dispatch<SetStateAction<number>>;
   onClick?: (selectedItem: any) => void;
+  zapId?: string;
 }) => {
   const [availableItems, setAvailableItems] = useState<AvailableItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<any>(
@@ -567,7 +569,7 @@ const Modal = ({
             Back to event selection
           </button>
           {selectedItem?.type === 'Webhook' ? (
-            <WebhookMetaData handleClick={handleSaveMetaData} />
+            <WebhookMetaData handleClick={handleSaveMetaData} zapId={zapId} />
           ) : selectedItem?.type?.includes('Google Sheets') ? (
             <GoogleSheetsMetaData
               handleClick={handleSaveMetaData}
@@ -589,7 +591,11 @@ const Modal = ({
                 .replace(' ', '')}
             />
           ) : selectedItem?.type?.startsWith('GitHub') ? (
-            <GitHubMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} />
+            <GitHubMetaData
+              handleClick={handleSaveMetaData}
+              selectedType={selectedItem?.type}
+              zapId={zapId}
+            />
           ) : selectedItem?.type?.includes('Gmail') ? (
             <GmailMetaData
               handleClick={handleSaveMetaData}

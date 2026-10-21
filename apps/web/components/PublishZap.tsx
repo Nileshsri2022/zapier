@@ -387,6 +387,7 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
           isVisible={modalVisibilityFor}
           setIsVisible={setModalVisibilityFor}
           onClick={handleTriggerOrActionSelection}
+          zapId={zapIdString || parseSafeZapId(zapId) || undefined}
           initialAiAction={
             selectedActions[modalVisibilityFor - 2]?.actionType === 'AI Transform'
               ? selectedActions[modalVisibilityFor - 2]

@@ -84,6 +84,15 @@ export interface WebhookAuthResult {
 
 /**
  * Authenticate an incoming generic webhook request.
+ *
+ * Per-hook auth mode (T5 spec Q-WHT-02) is read from trigger.metadata.authMode:
+ * - 'none'   → open hook (unguessable URL is the only gate)
+ * - 'static' → static key via x-webhook-secret / Authorization: Bearer; a
+ *              missing or wrong key → 401, no run
+ * - 'hmac'   → x-webhook-signature: sha256=<hex> over the raw body; missing
+ *              or invalid → 403, no run (spec §5)
+ * - absent   → legacy implicit behavior: secret configured (per-zap or env)
+ *              ⇒ mandatory (fail closed, 401), otherwise capability URL.
  */
 export function verifyWebhookRequest(
   headers: Record<string, string | string[] | undefined>,
@@ -92,12 +101,64 @@ export function verifyWebhookRequest(
 ): WebhookAuthResult {
   const secret = resolveWebhookSecret(triggerMetadata);
 
+  const meta = triggerMetadata && typeof triggerMetadata === 'object'
+    ? (triggerMetadata as Record<string, unknown>)
+    : undefined;
+  const authMode =
+    typeof meta?.authMode === 'string' ? meta.authMode.trim().toLowerCase() : undefined;
+
+  if (authMode === 'none') {
+    return { authorized: true };
+  }
+
+  const signature = getHeader(headers, 'x-webhook-signature');
+  const sharedSecretHeader = getHeader(headers, 'x-webhook-secret');
+  const authHeader = getHeader(headers, 'authorization');
+  const bearerSecret =
+    authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : undefined;
+
+  if (authMode === 'static') {
+    if (!secret) {
+      return {
+        authorized: false,
+        status: 401,
+        message: 'Static key auth mode selected but no secret is configured',
+      };
+    }
+    const candidateSecret = sharedSecretHeader ?? bearerSecret;
+    if (!candidateSecret) {
+      return { authorized: false, status: 401, message: 'Static key required' };
+    }
+    if (constantTimeEquals(candidateSecret, secret)) {
+      return { authorized: true };
+    }
+    return { authorized: false, status: 401, message: 'Invalid static key' };
+  }
+
+  if (authMode === 'hmac') {
+    if (!secret) {
+      return {
+        authorized: false,
+        status: 401,
+        message: 'HMAC auth mode selected but no secret is configured',
+      };
+    }
+    if (!signature) {
+      return { authorized: false, status: 403, message: 'Webhook signature required' };
+    }
+    const serialized = typeof body === 'string' ? body : JSON.stringify(body ?? {});
+    if (verifyWebhookSignature(serialized, signature, secret)) {
+      return { authorized: true };
+    }
+    return { authorized: false, status: 403, message: 'Invalid webhook signature' };
+  }
+
+  // ---- Legacy implicit mode (no authMode configured) ----
   // Capability-URL mode when no secret is configured at trigger or env level
   if (!secret) {
     return { authorized: true };
   }
 
-  const signature = getHeader(headers, 'x-webhook-signature');
   if (signature) {
     const serialized = typeof body === 'string' ? body : JSON.stringify(body ?? {});
     if (verifyWebhookSignature(serialized, signature, secret)) {
@@ -106,10 +167,6 @@ export function verifyWebhookRequest(
     return { authorized: false, status: 401, message: 'Invalid webhook signature' };
   }
 
-  const sharedSecretHeader = getHeader(headers, 'x-webhook-secret');
-  const authHeader = getHeader(headers, 'authorization');
-  const bearerSecret =
-    authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : undefined;
   const candidateSecret = sharedSecretHeader ?? bearerSecret;
 
   if (candidateSecret) {
