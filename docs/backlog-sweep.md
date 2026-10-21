@@ -7,6 +7,8 @@ against `arenas/113111c6-zapier` and several have been fixed since.
 
 Totals: **15 fixed**, **9 still broken**, **3 test-junk issues**.
 
+> Closed by PR #66. The 9 remaining issues are tracked below.
+
 ## Verified fixed (closable)
 
 | Issue | Proof | Evidence |

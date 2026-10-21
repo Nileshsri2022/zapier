@@ -127,7 +127,10 @@ type TConnectTelegramBot = z.infer<typeof ConnectTelegramBotSchema>;
 const ConnectWhatsAppSchema = z.object({
   displayName: z.string().min(1, { message: 'Display name is required' }),
   accessToken: z.string().min(1, { message: 'Access token is required' }),
-  phoneNumberId: z.string().optional(),
+  // Required and non-empty: `WhatsAppServer.phoneNumberId` is `@unique` in
+  // Prisma, so a persisted `''` lets exactly one account in the platform
+  // connect and fails every later attempt as "already registered" (#41).
+  phoneNumberId: z.string().trim().min(1, { message: 'Phone number ID is required' }),
   businessId: z.string().optional(),
   phoneNumber: z.string().optional(),
 });
