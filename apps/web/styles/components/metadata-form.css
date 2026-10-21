@@ -134,6 +134,10 @@
   color: hsl(var(--status-warning-ink));
 }
 
+.meta-form__warning p {
+  margin: var(--space-xs) 0 0;
+}
+
 .meta-form__summary {
   background: hsl(var(--brand-secondary) / 0.1);
   border-color: hsl(var(--brand-secondary) / 0.28);
@@ -275,7 +279,6 @@
     inline-size: 100%;
   }
 }
-
 
 /* Discord and extended form semantics */
 .meta-form__actions {

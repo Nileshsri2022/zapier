@@ -67,6 +67,9 @@ const Modal = ({
   // WhatsAppTrigger rows are matched on it downstream. Posting `''` made the
   // column's unique index single-tenant platform-wide (#41).
   const [phoneNumberId, setPhoneNumberId] = useState('');
+  // Template listing is scoped to the WhatsApp Business Account (WABA), which
+  // is distinct from the sender's Phone Number ID.
+  const [businessId, setBusinessId] = useState('');
   const [connectingBot, setConnectingBot] = useState(false);
 
   const handleSaveMetaData = (data: any) => {
@@ -88,6 +91,7 @@ const Modal = ({
     setBotToken('');
     setBotName('');
     setPhoneNumberId('');
+    setBusinessId('');
   };
 
   const fetchAvailableTriggers = async () => {
@@ -306,6 +310,10 @@ const Modal = ({
       toast.error('Please enter the Phone Number ID from Meta');
       return;
     }
+    if (selectedApp.id === 'whatsapp' && !businessId.trim()) {
+      toast.error('Please enter the WhatsApp Business Account ID (WABA ID) from Meta');
+      return;
+    }
 
     setConnectingBot(true);
     try {
@@ -318,7 +326,7 @@ const Modal = ({
               displayName: botName.trim(),
               accessToken: botToken.trim(),
               phoneNumberId: phoneNumberId.trim(),
-              businessId: '',
+              businessId: businessId.trim(),
               phoneNumber: '',
             };
 
@@ -331,6 +339,7 @@ const Modal = ({
       setBotToken('');
       setBotName('');
       setPhoneNumberId('');
+      setBusinessId('');
       // Refresh the list
       fetchConnectedAccounts(selectedApp);
     } catch (error: any) {
@@ -504,14 +513,24 @@ const Modal = ({
                       className="modal-input"
                     />
                     {selectedApp.id === 'whatsapp' && (
-                      <input
-                        type="text"
-                        placeholder="Phone Number ID from Meta (e.g. 123456789012345)"
-                        value={phoneNumberId}
-                        onChange={(e) => setPhoneNumberId(e.target.value)}
-                        className="modal-input"
-                        name="phoneNumberId"
-                      />
+                      <>
+                        <input
+                          type="text"
+                          placeholder="Phone Number ID from Meta (e.g. 123456789012345)"
+                          value={phoneNumberId}
+                          onChange={(e) => setPhoneNumberId(e.target.value)}
+                          className="modal-input"
+                          name="phoneNumberId"
+                        />
+                        <input
+                          type="text"
+                          placeholder="WhatsApp Business Account ID / WABA ID (e.g. 123456789012345)"
+                          value={businessId}
+                          onChange={(e) => setBusinessId(e.target.value)}
+                          className="modal-input"
+                          name="businessId"
+                        />
+                      </>
                     )}
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button
@@ -535,7 +554,7 @@ const Modal = ({
                     <p className="modal-help-text">
                       {selectedApp.id === 'telegram'
                         ? 'Get your token from @BotFather in Telegram. The webhook will be configured automatically.'
-                        : 'Get the access token and Phone Number ID from Meta Developer Portal → WhatsApp → API Setup.'}
+                        : 'Get the access token, Phone Number ID, and WhatsApp Business Account ID (WABA ID) from Meta Developer Portal → WhatsApp → API Setup.'}
                     </p>
                   </>
                 ) : null}

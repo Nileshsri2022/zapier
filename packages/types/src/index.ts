@@ -131,7 +131,9 @@ const ConnectWhatsAppSchema = z.object({
   // Prisma, so a persisted `''` lets exactly one account in the platform
   // connect and fails every later attempt as "already registered" (#41).
   phoneNumberId: z.string().trim().min(1, { message: 'Phone number ID is required' }),
-  businessId: z.string().optional(),
+  // Templates belong to a WhatsApp Business Account (WABA), not a phone
+  // number. Without this ID, Meta cannot list the account's templates.
+  businessId: z.string().trim().min(1, { message: 'WhatsApp Business Account ID is required' }),
   phoneNumber: z.string().optional(),
 });
 

@@ -28,7 +28,13 @@ interface WhatsAppTemplate {
 const WhatsAppMetaData = ({ handleClick }: MetaDataFormProps) => {
   const [servers, setServers] = useState<WhatsAppServer[]>([]);
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [templateError, setTemplateError] = useState('');
+  const [templateRemediation, setTemplateRemediation] = useState('');
+  const [needsBusinessId, setNeedsBusinessId] = useState(false);
+  const [businessId, setBusinessId] = useState('');
+  const [savingBusinessId, setSavingBusinessId] = useState(false);
+  const [templateReloadKey, setTemplateReloadKey] = useState(0);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
     fromPhoneNumberId: '',
@@ -45,6 +51,22 @@ const WhatsAppMetaData = ({ handleClick }: MetaDataFormProps) => {
 
   const update = (e: any) => {
     const { name, value, type, checked } = e.target;
+    if (name === 'fromPhoneNumberId') {
+      // A template belongs to the selected sender's WABA. Never retain a
+      // template selected for a different sender while the new list loads.
+      setTemplates([]);
+      setParams([]);
+      setTemplateError('');
+      setTemplateRemediation('');
+      setNeedsBusinessId(false);
+      setForm((prev) => ({
+        ...prev,
+        fromPhoneNumberId: value,
+        templateName: '',
+        templateLanguage: 'en_US',
+      }));
+      return;
+    }
     setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
@@ -65,25 +87,44 @@ const WhatsAppMetaData = ({ handleClick }: MetaDataFormProps) => {
   }, []);
 
   useEffect(() => {
-    if (!form.fromPhoneNumberId) return;
+    if (!form.fromPhoneNumberId) {
+      setLoadingTemplates(false);
+      return;
+    }
+    let current = true;
     (async () => {
+      setTemplates([]);
+      setLoadingTemplates(true);
       setTemplateError('');
+      setTemplateRemediation('');
+      setNeedsBusinessId(false);
       try {
         const server = servers.find((entry) => entry.phoneNumberId === form.fromPhoneNumberId);
         const res = await axios.get(`${API_URL}/api/whatsapp/templates`, {
           withCredentials: true,
           params: server ? { serverId: server.id } : {},
         });
-        setTemplates(res?.data?.templates ?? []);
+        if (current) setTemplates(res?.data?.templates ?? []);
       } catch (err: any) {
+        if (!current) return;
+        const details = err?.response?.data;
         setTemplates([]);
         setTemplateError(
-          err?.response?.data?.message ??
-            'Could not load approved templates — check the connection token.'
+          details?.message ?? 'Could not load approved templates for this WhatsApp connection.'
         );
+        setTemplateRemediation(
+          details?.remediation ??
+            'Check the connection credentials and that its access token can manage this WhatsApp Business Account.'
+        );
+        setNeedsBusinessId(details?.code === 'WHATSAPP_BUSINESS_ID_REQUIRED');
+      } finally {
+        if (current) setLoadingTemplates(false);
       }
     })();
-  }, [form.fromPhoneNumberId, servers]);
+    return () => {
+      current = false;
+    };
+  }, [form.fromPhoneNumberId, servers, templateReloadKey]);
 
   const selectedTemplate = templates.find((template) => template.name === form.templateName);
   const paramCount = selectedTemplate?.paramCount ?? params.length;
@@ -96,6 +137,38 @@ const WhatsAppMetaData = ({ handleClick }: MetaDataFormProps) => {
       return Array.from(next, (value) => value ?? '');
     });
   }, [paramCount, form.kind]);
+
+  const repairBusinessId = async () => {
+    const server = servers.find((entry) => entry.phoneNumberId === form.fromPhoneNumberId);
+    if (!server) {
+      setTemplateError('Choose the WhatsApp sender whose connection you want to repair.');
+      return;
+    }
+    if (!businessId.trim()) {
+      setTemplateError('Enter the WhatsApp Business Account ID (WABA ID) from Meta.');
+      return;
+    }
+
+    setSavingBusinessId(true);
+    try {
+      await axios.put(
+        `${API_URL}/api/whatsapp/servers/${server.id}`,
+        { businessId: businessId.trim() },
+        { withCredentials: true }
+      );
+      setBusinessId('');
+      setTemplateError('');
+      setTemplateRemediation('');
+      setNeedsBusinessId(false);
+      setTemplateReloadKey((key) => key + 1);
+    } catch (err: any) {
+      setTemplateError(
+        err?.response?.data?.message ?? 'Could not save the WhatsApp Business Account ID.'
+      );
+    } finally {
+      setSavingBusinessId(false);
+    }
+  };
 
   const save = () => {
     if (!form.fromPhoneNumberId) {
@@ -177,11 +250,16 @@ const WhatsAppMetaData = ({ handleClick }: MetaDataFormProps) => {
 
       {form.kind === 'template' ? (
         <>
-          <label className="meta-form__label">Template</label>
+          <label className="meta-form__label" htmlFor="whatsapp-template">
+            Template
+          </label>
           <select
+            id="whatsapp-template"
             className="meta-form__input"
             name="templateName"
             value={form.templateName}
+            disabled={Boolean(templateError) || loadingTemplates}
+            aria-describedby={templateError ? 'whatsapp-template-help' : undefined}
             onChange={(e) => {
               const chosen = templates.find((template) => template.name === e.target.value);
               setForm((prev) => ({
@@ -191,14 +269,55 @@ const WhatsAppMetaData = ({ handleClick }: MetaDataFormProps) => {
               }));
             }}
           >
-            <option value="">Select an approved template</option>
+            <option value="">
+              {templateError
+                ? 'Templates unavailable until the connection is repaired'
+                : loadingTemplates
+                  ? 'Loading approved templates…'
+                  : templates.length === 0
+                    ? 'No approved templates found'
+                    : 'Select an approved template'}
+            </option>
             {templates.map((template) => (
               <option key={`${template.name}:${template.language}`} value={template.name}>
                 {template.name} ({template.language}) — {template.paramCount} param(s)
               </option>
             ))}
           </select>
-          {templateError && <p className="meta-form__error-text">{templateError}</p>}
+          {templateError ? (
+            <div id="whatsapp-template-help" className="meta-form__warning" role="alert">
+              <strong>Templates could not load.</strong>
+              <p>{templateError}</p>
+              {templateRemediation && <p>{templateRemediation}</p>}
+              {needsBusinessId && (
+                <div className="meta-form__subgroup">
+                  <label className="meta-form__label" htmlFor="whatsapp-business-id">
+                    WhatsApp Business Account ID (WABA ID)
+                  </label>
+                  <input
+                    id="whatsapp-business-id"
+                    className="meta-form__input"
+                    value={businessId}
+                    placeholder="e.g. 123456789012345"
+                    onChange={(e) => setBusinessId(e.target.value)}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={savingBusinessId}
+                    onClick={repairBusinessId}
+                  >
+                    {savingBusinessId ? 'Saving connection…' : 'Save and reload templates'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : !loadingTemplates && templates.length === 0 ? (
+            <p className="meta-form__hint">
+              No approved templates are available for this WhatsApp Business Account. Create or
+              approve a template in Meta, then reopen this action.
+            </p>
+          ) : null}
 
           {paramCount > 0 && (
             <>

@@ -68,7 +68,7 @@ router.post(
           userId,
           displayName,
           phoneNumberId,
-          businessId: businessId || '',
+          businessId,
           accessToken,
           phoneNumber: phoneNumber || '',
         },
@@ -105,7 +105,12 @@ router.put('/servers/:id', authMiddleware, async (req: Request, res: Response): 
       return res.status(404).json({ message: 'Server not found' });
     }
 
-    const { displayName, isActive, phoneNumber } = req.body;
+    const { displayName, isActive, phoneNumber, businessId } = req.body;
+    const normalizedBusinessId = typeof businessId === 'string' ? businessId.trim() : businessId;
+
+    if (businessId !== undefined && !normalizedBusinessId) {
+      return res.status(400).json({ message: 'WhatsApp Business Account ID is required' });
+    }
 
     const updated = await client.whatsAppServer.update({
       where: { id: id as string },
@@ -113,6 +118,7 @@ router.put('/servers/:id', authMiddleware, async (req: Request, res: Response): 
         ...(displayName !== undefined && { displayName }),
         ...(isActive !== undefined && { isActive }),
         ...(phoneNumber !== undefined && { phoneNumber }),
+        ...(businessId !== undefined && { businessId: normalizedBusinessId }),
       },
     });
 
@@ -226,8 +232,18 @@ router.get('/templates', authMiddleware, async (req: Request, res: Response): Pr
     });
     if (!server) return res.status(404).json({ message: 'No active WhatsApp connection' });
 
+    const businessId = server.businessId.trim();
+    if (!businessId) {
+      return res.status(422).json({
+        code: 'WHATSAPP_BUSINESS_ID_REQUIRED',
+        message: 'This WhatsApp connection is missing its WhatsApp Business Account ID.',
+        remediation:
+          'Enter the WABA ID below and save the connection, then load the approved templates again.',
+      });
+    }
+
     const url =
-      `https://graph.facebook.com/v18.0/${server.businessId}/message_templates` +
+      `https://graph.facebook.com/v18.0/${businessId}/message_templates` +
       '?fields=name,language,status,components&limit=200';
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${server.accessToken}` },
