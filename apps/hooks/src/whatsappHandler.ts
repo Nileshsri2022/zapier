@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import client from '@repo/db';
 import { enqueueRun } from '@repo/runs';
-import { verifyWhatsapp } from '@repo/ingress';
+import { constantTimeEquals, verifyWhatsapp } from '@repo/ingress';
 
 /**
  * WhatsApp Cloud API webhook — T6 spec (docs/ask-matt/triggers/whatsapp.md,
@@ -27,7 +27,16 @@ import { verifyWhatsapp } from '@repo/ingress';
  *   migration deferred with the connection-UX work — logged in grill log T6.
  */
 
-const VERIFY_TOKEN_FALLBACK = 'zapmate_whatsapp_verify';
+/**
+ * The expected verify token. There is deliberately NO fallback: a token
+ * committed to this repository would let anyone complete Meta's verification
+ * handshake for an app that never configured one, and take over its webhook
+ * registration. Unset means verification is refused (see the GET handler).
+ */
+function configuredVerifyToken(): string | undefined {
+  const token = process.env.WHATSAPP_VERIFY_TOKEN?.trim();
+  return token ? token : undefined;
+}
 
 const KNOWN_TYPES = new Set([
   'text',
@@ -47,11 +56,18 @@ export async function verifyWhatsAppWebhook(req: Request, res: Response): Promis
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
-  const expected = process.env.WHATSAPP_VERIFY_TOKEN?.trim() || VERIFY_TOKEN_FALLBACK;
+  const expected = configuredVerifyToken();
 
   console.log('WhatsApp webhook verification request:', { mode, token: token ? '***' : 'missing' });
 
-  if (mode === 'subscribe' && token === expected) {
+  if (!expected) {
+    console.error(
+      '🔒 WhatsApp verification refused: WHATSAPP_VERIFY_TOKEN is not configured (fail-closed)'
+    );
+    return res.status(403).json({ error: 'Verification failed' });
+  }
+
+  if (mode === 'subscribe' && typeof token === 'string' && constantTimeEquals(token, expected)) {
     console.log('✅ WhatsApp webhook verified successfully');
     return res.status(200).send(challenge);
   }

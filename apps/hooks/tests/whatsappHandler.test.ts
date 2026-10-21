@@ -110,6 +110,32 @@ describe('GET verification challenge', () => {
       .query({ 'hub.mode': 'subscribe', 'hub.verify_token': 'nope', 'hub.challenge': 'x' });
     expect(res.status).toBe(403);
   });
+
+  // The token used to fall back to a string committed to this repo, so an app
+  // whose token was never configured could still be verified — and its webhook
+  // registration taken over — by anyone who read the source.
+  it('fails closed when no verify token is configured', async () => {
+    delete process.env.WHATSAPP_VERIFY_TOKEN;
+
+    const res = await request(app).get('/api/webhooks/whatsapp').query({
+      'hub.mode': 'subscribe',
+      'hub.verify_token': 'zapmate_whatsapp_verify',
+      'hub.challenge': 'ch@123',
+    });
+
+    expect(res.status).toBe(403);
+    expect(res.text).not.toContain('ch@123');
+  });
+
+  it('fails closed on a bare subscribe with no token configured', async () => {
+    delete process.env.WHATSAPP_VERIFY_TOKEN;
+
+    const res = await request(app)
+      .get('/api/webhooks/whatsapp')
+      .query({ 'hub.mode': 'subscribe', 'hub.challenge': 'ch@123' });
+
+    expect(res.status).toBe(403);
+  });
 });
 
 describe('mandatory signature (Q-WA-T-04)', () => {
