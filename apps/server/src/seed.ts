@@ -134,6 +134,10 @@ export async function seedDatabase() {
           type: 'Schedule Every Month',
           image: '/apps/schedule.svg',
         },
+        {
+          type: 'Schedule Custom Cron',
+          image: '/apps/schedule.svg',
+        },
         // Google Calendar Triggers
         {
           type: 'Google Calendar New Event',

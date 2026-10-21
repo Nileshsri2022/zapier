@@ -108,3 +108,44 @@ describe('createZap — Schedule trigger nextRunAt', () => {
     expect(scheduled.nextRunAt.toISOString()).toBe('2026-01-02T00:00:00.000Z');
   });
 });
+
+// ---------------------------------------------------------------------------
+// T8 M5 — custom 5-field cron (docs/ask-matt/triggers/schedule.md)
+// ---------------------------------------------------------------------------
+
+describe('createZap — Schedule Custom Cron (M5)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('creates a cron-scheduled trigger with normalized expression + first run', async () => {
+    // Wednesday 2026-10-21 03:00 UTC = 08:30 IST → next */15 9-17 fire = 09:00 IST.
+    jest.setSystemTime(new Date('2026-10-21T03:00:00.000Z'));
+
+    const scheduled = await runCreate(
+      {
+        cron: '*/15 9-17 * * 1-5',
+        timezone: 'Asia/Kolkata',
+      },
+      'Schedule Custom Cron'
+    );
+
+    expect(scheduled.scheduleType).toBe('cron');
+    expect(scheduled.cronExpression).toBe('*/15 9-17 * * 1-5');
+    expect(scheduled.nextRunAt.toISOString()).toBe('2026-10-21T03:30:00.000Z');
+  });
+
+  it('rejects an invalid cron before creating anything (411)', async () => {
+    const json = jest.fn();
+    const status = jest.fn().mockReturnValue({ json });
+    const res = { status, json } as unknown as Response;
+
+    await ZapController.createZap(request({ cron: '99 * * * *' }, 'Schedule Custom Cron'), res);
+
+    expect(status).toHaveBeenCalledWith(411);
+  });
+});

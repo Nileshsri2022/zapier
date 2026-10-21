@@ -3,7 +3,7 @@ import { AiMetadataError, validateActionMetadata } from '../services/ai';
 import { Request, Response } from 'express';
 import { formatZodError } from '../helper';
 import client from '@repo/db';
-import { computeNextRun } from '../services/schedule';
+import { computeNextRun, validateCron, normalizeCron } from '../services/schedule';
 
 export const createZap = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -20,6 +20,19 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
     }
 
     const actions = await validateActionMetadata(validation.data.actions, Number(id));
+
+    // T8 M5: custom cron is validated at setup (before any write) — invalid
+    // expressions are rejected with the field error surfaced.
+    const cronInput = (validation.data.triggerMetaData as any)?.cron;
+    if (typeof cronInput === 'string' && cronInput.trim()) {
+      const cronCheck = validateCron(cronInput);
+      if (!cronCheck.valid) {
+        return res.status(411).json({
+          message: 'Invalid cron expression',
+          error: cronCheck.error,
+        });
+      }
+    }
 
     const zapId = await client.$transaction(async (tx) => {
       // Look up the trigger type to determine if it's Google Sheets
@@ -193,9 +206,12 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
           'Schedule Every Day': 'daily',
           'Schedule Every Week': 'weekly',
           'Schedule Every Month': 'monthly',
+          'Schedule Custom Cron': 'cron',
         };
 
         const internalScheduleType = scheduleTypeMap[availableTrigger.type] || 'hourly';
+        const cronExpression =
+          internalScheduleType === 'cron' ? normalizeCron(String(triggerMeta?.cron ?? '')) : null;
 
         // Calculate the first run on the user's wall clock, honouring the
         // selected timezone, weekday and month-end rules.
@@ -205,6 +221,7 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
           minute: triggerMeta?.minute ?? 0,
           dayOfWeek: triggerMeta?.dayOfWeek ?? null,
           dayOfMonth: triggerMeta?.dayOfMonth ?? null,
+          cronExpression,
           timezone: triggerMeta?.timezone || 'UTC',
         });
 
@@ -216,6 +233,7 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
             minute: triggerMeta?.minute ?? 0,
             dayOfWeek: triggerMeta?.dayOfWeek ?? null,
             dayOfMonth: triggerMeta?.dayOfMonth ?? null,
+            cronExpression,
             timezone: triggerMeta?.timezone || 'UTC',
             nextRunAt,
             isActive: true,

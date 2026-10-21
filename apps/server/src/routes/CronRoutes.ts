@@ -2,9 +2,17 @@ import { Router, Request, Response } from 'express';
 import client from '@repo/db';
 import { enqueueRun } from '@repo/runs';
 import { renewExpiringGmailWatches, pollActiveGmailServers } from '../services/GmailDispatch';
-import { computeNextRun } from '../services/schedule';
+import { computeNextRun, buildScheduleRunPayload } from '../services/schedule';
 
 const router = Router();
+
+/**
+ * Missed-window grace (Q-SCHED-04: skip missed occurrences): a due slot
+ * further behind than this is NOT fired late — the row jumps to the next
+ * future occurrence instead (no catch-up burst after downtime). Normal
+ * one-minute cron jitter falls well inside the grace window.
+ */
+export const MISSED_WINDOW_GRACE_MS = 5 * 60 * 1000;
 
 /**
  * GET /api/cron/process-schedules
@@ -44,18 +52,55 @@ router.get('/process-schedules', async (req: Request, res: Response): Promise<an
 
     console.log(`⏰ Processing ${dueSchedules.length} due schedule(s)`);
 
+    let fired = 0;
+    let skippedMissed = 0;
+
     for (const schedule of dueSchedules) {
       try {
+        const dueInstant = schedule.nextRunAt ?? now;
+
+        // Q-SCHED-04 — skip missed windows: the process was down across this
+        // occurrence; it is never emitted, we resume at the next one.
+        if (now.getTime() - dueInstant.getTime() > MISSED_WINDOW_GRACE_MS) {
+          const resumeAt = computeNextRun(schedule, now);
+          await client.scheduledTrigger.update({
+            where: { id: schedule.id },
+            data: { nextRunAt: resumeAt },
+          });
+          skippedMissed++;
+          console.log(
+            `⏭️ Missed window for Zap "${schedule.zap.name}" (due ${dueInstant.toISOString()}) skipped — resuming ${resumeAt.toISOString()}`
+          );
+          continue;
+        }
+
+        // §4 contract: local wall-clock parts + occurrenceKey built from the
+        // SCHEDULED instant (late sweeps still report the right occurrence).
+        const metadata = buildScheduleRunPayload(schedule, dueInstant);
+
         const result = await enqueueRun({
           zapId: schedule.zapId,
-          metadata: {
-            triggerType: 'schedule',
-            scheduleType: schedule.scheduleType,
-            scheduledAt: now.toISOString(),
-            timezone: schedule.timezone,
-          },
+          metadata,
           source: 'server.schedule',
+          // Q-SCHED-05/§5: occurrenceKey is the idempotency token — two
+          // schedulers racing on the same slot collapse to one effective run.
+          dedup: { scope: 'schedule', key: `${schedule.zapId}:${metadata.occurrenceKey}` },
         });
+
+        // Advance for queued AND duplicate: a replayed sweep must not spin on
+        // the same row forever (duplicate ⇒ this slot is already accounted
+        // for by the winning sweep).
+        if (result.status === 'duplicate') {
+          console.log(`🔁 Duplicate occurrence ${metadata.occurrenceKey} — advancing only`);
+          await client.scheduledTrigger.update({
+            where: { id: schedule.id },
+            data: {
+              lastRunAt: now,
+              nextRunAt: computeNextRun(schedule, now),
+            },
+          });
+          continue;
+        }
 
         if (result.status !== 'queued') {
           console.log(
@@ -76,8 +121,9 @@ router.get('/process-schedules', async (req: Request, res: Response): Promise<an
           },
         });
 
+        fired++;
         console.log(
-          `✅ Schedule triggered for Zap "${schedule.zap.name}" (ZapRun ${result.zapRunId} queued) - Next run: ${nextRunAt.toISOString()}`
+          `✅ Schedule triggered for Zap "${schedule.zap.name}" (ZapRun ${result.zapRunId} queued, ${metadata.occurrenceKey}) - Next run: ${nextRunAt.toISOString()}`
         );
       } catch (error) {
         console.error(`❌ Failed to process schedule ${schedule.id}:`, error);
@@ -87,6 +133,8 @@ router.get('/process-schedules', async (req: Request, res: Response): Promise<an
     res.json({
       success: true,
       processed: dueSchedules.length,
+      fired,
+      skippedMissed,
       timestamp: now.toISOString(),
     });
   } catch (error: any) {
