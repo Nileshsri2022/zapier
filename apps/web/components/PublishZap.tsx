@@ -33,6 +33,57 @@ const parseSafeZapId = (rawId?: string | null): string => {
   return trimmed;
 };
 
+const EDITOR_DRAFT_STORAGE_KEY = 'zapmate_editor_draft';
+
+type EditorDraft = {
+  selectedTrigger?: TSelectedTrigger;
+  selectedActions: TSelectedAction[];
+  filterConditions: FilterCondition[];
+};
+
+const removeEditorDraft = () => {
+  try {
+    sessionStorage.removeItem(EDITOR_DRAFT_STORAGE_KEY);
+  } catch {
+    // Storage may be unavailable in a privacy-restricted browser context.
+  }
+};
+
+const readEditorDraft = (): EditorDraft | null => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const rawDraft = sessionStorage.getItem(EDITOR_DRAFT_STORAGE_KEY);
+    if (!rawDraft) return null;
+
+    const draft = JSON.parse(rawDraft);
+    if (!Array.isArray(draft?.selectedActions) || !Array.isArray(draft?.filterConditions)) {
+      removeEditorDraft();
+      return null;
+    }
+
+    return draft as EditorDraft;
+  } catch {
+    removeEditorDraft();
+    return null;
+  }
+};
+
+const saveEditorDraft = (draft: EditorDraft) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    sessionStorage.setItem(EDITOR_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  } catch {
+    // A full or unavailable session store should not prevent editing a Zap.
+  }
+};
+
+const clearEditorDraft = () => {
+  if (typeof window === 'undefined') return;
+  removeEditorDraft();
+};
+
 const PublishZap = ({ zapId }: { zapId?: string }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -43,6 +94,30 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
   const [sheetsConnected, setSheetsConnected] = useState<boolean>(false);
   const [filterConditions, setFilterConditions] = useState<FilterCondition[]>([]);
   const [zapIdString, setZapIdString] = useState<string>('');
+  const [draftReady, setDraftReady] = useState(false);
+
+  // New Zaps do not have a server record yet. Keep their in-progress editor
+  // state for this browser tab so a normal refresh cannot erase the setup.
+  useEffect(() => {
+    if (parseSafeZapId(zapId)) {
+      setDraftReady(true);
+      return;
+    }
+
+    const draft = readEditorDraft();
+    if (draft) {
+      setSelectedTrigger(draft.selectedTrigger);
+      setSelectedActions(draft.selectedActions);
+      setFilterConditions(draft.filterConditions);
+    }
+    setDraftReady(true);
+  }, [zapId]);
+
+  useEffect(() => {
+    if (!draftReady || parseSafeZapId(zapId)) return;
+
+    saveEditorDraft({ selectedTrigger, selectedActions, filterConditions });
+  }, [draftReady, filterConditions, selectedActions, selectedTrigger, zapId]);
 
   // Save state to sessionStorage before OAuth redirect (call this before redirecting)
   const saveStateForOAuth = () => {
@@ -207,6 +282,7 @@ const PublishZap = ({ zapId }: { zapId?: string }) => {
         await axios.post(`${API_URL}/api/zaps`, createZapData, {
           withCredentials: true, // Use httpOnly cookie for auth
         });
+        clearEditorDraft();
         toast.success('Zap published successfully!');
       } else {
         await axios.put(`${API_URL}/api/zaps/${targetZapId}`, createZapData, {
