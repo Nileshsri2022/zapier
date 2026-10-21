@@ -177,7 +177,7 @@ const GmailMetaData = ({ handleClick, selectedType, preSelectedServerId }: Gmail
             <FormInput
               label="Search Query"
               name="searchQuery"
-              placeholder='from:ada@example.com subject:invoice has:attachment'
+              placeholder="from:ada@example.com subject:invoice has:attachment"
               onChange={handleFormDataChange}
             />
             <p className="meta-form__text">
@@ -202,7 +202,10 @@ const GmailMetaData = ({ handleClick, selectedType, preSelectedServerId }: Gmail
             <p className="meta-form__text">
               No additional configuration needed for starred emails trigger.
             </p>
-            <Button variant="secondary" onClick={() => handleClick({ serverId: formData.serverId })}>
+            <Button
+              variant="secondary"
+              onClick={() => handleClick({ serverId: formData.serverId })}
+            >
               Save
             </Button>
           </div>

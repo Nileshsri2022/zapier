@@ -1,9 +1,5 @@
 import client from '@repo/db';
-import {
-  kindOf,
-  removeZap,
-  composeZap,
-} from '../../src/services/zapComposition';
+import { kindOf, removeZap, composeZap } from '../../src/services/zapComposition';
 
 /**
  * Zap composition, asserted at its own seam.
@@ -122,9 +118,12 @@ describe('composeZap', () => {
     const tx = orderAwareTx(calls);
     arrangeCompose('Webhook', tx);
 
-    const result = await composeZap(draft({}, [{ actionId: 'a1', metadata: {}, stepConditions: [] }]), {
-      userId: 1,
-    });
+    const result = await composeZap(
+      draft({}, [{ actionId: 'a1', metadata: {}, stepConditions: [] }]),
+      {
+        userId: 1,
+      }
+    );
 
     expect(result).toEqual({ zapId: 'zap-1' });
     expect(calls).toEqual([
@@ -136,7 +135,12 @@ describe('composeZap', () => {
 
   it('writes one GmailTrigger row with the internal type and watched labels', async () => {
     const calls: Call[] = [];
-    const gmailTrigger = { create: jest.fn(async () => { calls.push({ model: 'gmailTrigger', method: 'create' }); return {}; }) };
+    const gmailTrigger = {
+      create: jest.fn(async () => {
+        calls.push({ model: 'gmailTrigger', method: 'create' });
+        return {};
+      }),
+    };
     const tx = orderAwareTx(calls, { gmailTrigger });
     arrangeCompose('Gmail Labeled', tx);
     (client.gmailServer.findFirst as jest.Mock).mockResolvedValue({ id: 'gs-1', userId: 1 });
@@ -162,9 +166,9 @@ describe('composeZap', () => {
     arrangeCompose('Gmail New Email', orderAwareTx(calls));
     (client.gmailServer.findFirst as jest.Mock).mockResolvedValue(null);
 
-    await expect(
-      composeZap(draft({ serverId: 'not-mine' }), { userId: 1 })
-    ).rejects.toMatchObject({ code: 'CONNECTION_NOT_OWNED' });
+    await expect(composeZap(draft({ serverId: 'not-mine' }), { userId: 1 })).rejects.toMatchObject({
+      code: 'CONNECTION_NOT_OWNED',
+    });
     expect(client.$transaction).not.toHaveBeenCalled();
   });
 

@@ -103,9 +103,7 @@ router.get('/process-schedules', async (req: Request, res: Response): Promise<an
         }
 
         if (result.status !== 'queued') {
-          console.log(
-            `ℹ️ Schedule for Zap "${schedule.zap.name}" skipped (${result.status})`
-          );
+          console.log(`ℹ️ Schedule for Zap "${schedule.zap.name}" skipped (${result.status})`);
           continue;
         }
 

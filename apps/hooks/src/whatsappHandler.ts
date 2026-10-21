@@ -47,8 +47,7 @@ export async function verifyWhatsAppWebhook(req: Request, res: Response): Promis
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
-  const expected =
-    process.env.WHATSAPP_VERIFY_TOKEN?.trim() || VERIFY_TOKEN_FALLBACK;
+  const expected = process.env.WHATSAPP_VERIFY_TOKEN?.trim() || VERIFY_TOKEN_FALLBACK;
 
   console.log('WhatsApp webhook verification request:', { mode, token: token ? '***' : 'missing' });
 
@@ -152,8 +151,7 @@ export async function handleWhatsAppWebhook(req: Request, res: Response): Promis
 
     // ---- Mandatory signature (Q-WA-T-04) ----
     const rawBody =
-      (req as any).rawBody?.toString('utf8') ??
-      (body !== undefined ? JSON.stringify(body) : '');
+      (req as any).rawBody?.toString('utf8') ?? (body !== undefined ? JSON.stringify(body) : '');
     const sigCheck = verifyWhatsAppSignature(req.headers, rawBody);
     if (!sigCheck.ok) {
       console.error(`🔒 WhatsApp security: rejected delivery — ${sigCheck.reason}`);

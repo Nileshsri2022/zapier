@@ -2,7 +2,8 @@ import axios from 'axios';
 import { resolvePlaceholders } from '@repo/placeholders';
 
 // Canonical Discord incoming webhook URL pattern (anchored, canonical domains only)
-const DISCORD_WEBHOOK_REGEX = /^https:\/\/(?:discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
+const DISCORD_WEBHOOK_REGEX =
+  /^https:\/\/(?:discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
 
 // Bound every outbound call: a stalled Discord connection must not block the worker.
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -80,8 +81,12 @@ export function resolveDiscordPlaceholders(
       ...resolved.embed,
       fields: resolved.embed.fields
         ?.map((field) => ({
-          name: String(field.name ?? '').trim().slice(0, 256),
-          value: String(field.value ?? '').trim().slice(0, 1024),
+          name: String(field.name ?? '')
+            .trim()
+            .slice(0, 256),
+          value: String(field.value ?? '')
+            .trim()
+            .slice(0, 1024),
           inline: field.inline,
         }))
         .filter((field) => field.name.length > 0 && field.value.length > 0)
@@ -104,7 +109,8 @@ export async function sendDiscordMessage(
     return {
       success: false,
       isFatal: true,
-      error: 'Invalid Discord webhook URL. Must match https://discord.com/api/webhooks/{id}/{token}',
+      error:
+        'Invalid Discord webhook URL. Must match https://discord.com/api/webhooks/{id}/{token}',
     };
   }
 
@@ -125,7 +131,10 @@ export async function sendDiscordMessage(
 
     const sanitizedFields = Array.isArray(embed.fields)
       ? embed.fields
-          .filter((f) => f && String(f.name || '').trim().length > 0 && String(f.value || '').trim().length > 0)
+          .filter(
+            (f) =>
+              f && String(f.name || '').trim().length > 0 && String(f.value || '').trim().length > 0
+          )
           .slice(0, 25)
           .map((f) => ({
             name: String(f.name).trim().slice(0, 256),
@@ -166,7 +175,8 @@ export async function sendDiscordMessage(
     return {
       success: false,
       isFatal: true,
-      error: 'Either content or embed (with title, description, or fields) is required to send a Discord message.',
+      error:
+        'Either content or embed (with title, description, or fields) is required to send a Discord message.',
     };
   }
 
@@ -221,7 +231,11 @@ export async function sendDiscordMessage(
         error.message ||
         'Unknown Discord error';
 
-      const isFatal = status === 400 || status === 401 || status === 404 || (status === 429 && attempt >= maxAttempts);
+      const isFatal =
+        status === 400 ||
+        status === 401 ||
+        status === 404 ||
+        (status === 429 && attempt >= maxAttempts);
 
       if (status === 429 && attempt < maxAttempts) {
         // Parse retry_after in seconds from body or headers (spec: Math.ceil(retry_after * 1000) + 100ms)

@@ -34,8 +34,7 @@ const signedPost = (payload: object, opts: { signature?: string | null } = {}) =
   const req = request(app).post('/api/webhooks/whatsapp');
   if (opts.signature === null) return req.send(payload);
   const sig =
-    opts.signature ??
-    `sha256=${crypto.createHmac('sha256', APP_SECRET).update(raw).digest('hex')}`;
+    opts.signature ?? `sha256=${crypto.createHmac('sha256', APP_SECRET).update(raw).digest('hex')}`;
   return req.set('X-Hub-Signature-256', sig).send(payload);
 };
 
@@ -299,10 +298,7 @@ describe('redelivery + non-message events', () => {
     expect(res.status).toBe(200);
     expect(mockEnqueueRun).toHaveBeenCalledTimes(2);
     const keys = mockEnqueueRun.mock.calls.map((c: any[]) => c[0].dedup.key);
-    expect(keys).toEqual([
-      'zap-1:wamid.HBgLMOTk4NzY1NDMyMTABCA==',
-      'zap-1:wamid.SECOND',
-    ]);
+    expect(keys).toEqual(['zap-1:wamid.HBgLMOTk4NzY1NDMyMTABCA==', 'zap-1:wamid.SECOND']);
   });
 
   it('non-WhatsApp object acks 200 without a run', async () => {

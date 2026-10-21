@@ -152,9 +152,7 @@ async function handleCatchHook(req: Request, res: Response, mode: HookMode): Pro
         // express.json's verify hook). The serializer fallback only serves
         // callers that never captured bytes.
         rawBody:
-          rawBody && rawBody.length
-            ? rawBody.toString('utf8')
-            : JSON.stringify(req.body ?? {}),
+          rawBody && rawBody.length ? rawBody.toString('utf8') : JSON.stringify(req.body ?? {}),
         body: req.body ?? {},
       },
       { authMode: resolveAuthMode(meta), secret: resolveWebhookSecret(meta) }
@@ -165,9 +163,7 @@ async function handleCatchHook(req: Request, res: Response, mode: HookMode): Pro
 
     // ---- Method restriction (§3; default = all five) ----
     if (!methodAllowed(meta, req.method)) {
-      return void res
-        .status(405)
-        .json({ error: `Method ${req.method} not allowed for this hook` });
+      return void res.status(405).json({ error: `Method ${req.method} not allowed for this hook` });
     }
 
     const { body, bodyRaw } = parseHookBody(rawBody, contentType);
@@ -192,10 +188,10 @@ async function handleCatchHook(req: Request, res: Response, mode: HookMode): Pro
         body,
         bodyRaw,
       };
-      const samples = [
-        sample,
-        ...(Array.isArray(meta.hookSamples) ? meta.hookSamples : []),
-      ].slice(0, HOOK_SAMPLE_CAP);
+      const samples = [sample, ...(Array.isArray(meta.hookSamples) ? meta.hookSamples : [])].slice(
+        0,
+        HOOK_SAMPLE_CAP
+      );
       await client.trigger.update({
         where: { id: zap.trigger.id },
         data: { metadata: { ...meta, hookSamples: samples } },
@@ -295,9 +291,7 @@ export function createCatchHookRouter(): Router {
   });
 
   // Test URL (V2): stores samples, never fires.
-  router.all('/test/:userId/:zapId/:testId', (req, res) =>
-    handleCatchHook(req, res, 'test')
-  );
+  router.all('/test/:userId/:zapId/:testId', (req, res) => handleCatchHook(req, res, 'test'));
   // Production URL (rotated form) and legacy base form.
   router.all('/:userId/:zapId/:hookId', (req, res) => handleCatchHook(req, res, 'prod'));
   router.all('/:userId/:zapId', (req, res) => handleCatchHook(req, res, 'prod'));

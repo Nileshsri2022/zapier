@@ -131,8 +131,14 @@ describe('DST wall-clock policy (Q-SCHED-03)', () => {
 
 describe('custom 5-field cron (M5)', () => {
   it('validates ranges, steps, lists and rejects bad fields', () => {
-    expect(validateCron('*/15 9-17 * * 1-5')).toMatchObject({ valid: true, normalized: '*/15 9-17 * * 1-5' });
-    expect(validateCron('  0,30  *  *  *  *  ')).toMatchObject({ valid: true, normalized: '0,30 * * * *' });
+    expect(validateCron('*/15 9-17 * * 1-5')).toMatchObject({
+      valid: true,
+      normalized: '*/15 9-17 * * 1-5',
+    });
+    expect(validateCron('  0,30  *  *  *  *  ')).toMatchObject({
+      valid: true,
+      normalized: '0,30 * * * *',
+    });
     expect(validateCron('61 * * * *').valid).toBe(false);
     expect(validateCron('* 24 * * *').valid).toBe(false);
     expect(validateCron('* * * * 8').valid).toBe(false);
@@ -225,7 +231,13 @@ describe('§4 run contract (Q-SCHED-05)', () => {
   });
 
   it('occurrenceKey is stable across recomputes of the same occurrence', () => {
-    const spec = { scheduleType: 'weekly' as const, hour: 9, minute: 30, dayOfWeek: 1, timezone: 'UTC' };
+    const spec = {
+      scheduleType: 'weekly' as const,
+      hour: 9,
+      minute: 30,
+      dayOfWeek: 1,
+      timezone: 'UTC',
+    };
     const occurrence = new Date('2026-10-19T09:30:00.000Z');
     const a = buildScheduleRunPayload(spec, occurrence);
     const b = buildScheduleRunPayload(spec, occurrence);
@@ -237,7 +249,11 @@ describe('§4 run contract (Q-SCHED-05)', () => {
     expect(presetToCron({ scheduleType: 'minutely' })).toBe('* * * * *');
     expect(presetToCron({ scheduleType: 'hourly', minute: 20 })).toBe('20 * * * *');
     expect(presetToCron({ scheduleType: 'daily', hour: 9, minute: 0 })).toBe('0 9 * * *');
-    expect(presetToCron({ scheduleType: 'weekly', hour: 9, minute: 0, dayOfWeek: 3 })).toBe('0 9 * * 3');
-    expect(presetToCron({ scheduleType: 'monthly', hour: 9, minute: 5, dayOfMonth: 15 })).toBe('5 9 15 * *');
+    expect(presetToCron({ scheduleType: 'weekly', hour: 9, minute: 0, dayOfWeek: 3 })).toBe(
+      '0 9 * * 3'
+    );
+    expect(presetToCron({ scheduleType: 'monthly', hour: 9, minute: 5, dayOfMonth: 15 })).toBe(
+      '5 9 15 * *'
+    );
   });
 });

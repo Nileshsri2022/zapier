@@ -138,10 +138,7 @@ async function resolveBot(
 }
 
 /** Media sources are verified before sending (URL) or must be a file_id. */
-export async function assertMediaSource(
-  source: string,
-  fetchImpl: typeof fetch
-): Promise<string> {
+export async function assertMediaSource(source: string, fetchImpl: typeof fetch): Promise<string> {
   if (/^https?:\/\//i.test(source)) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -162,8 +159,7 @@ export async function assertMediaSource(
       );
     return source;
   }
-  if (!source.trim())
-    throw new TelegramActionError('Media needs a URL or a file_id', 'validation');
+  if (!source.trim()) throw new TelegramActionError('Media needs a URL or a file_id', 'validation');
   return source; // stable file_id
 }
 
@@ -207,7 +203,8 @@ function classifyTelegramError(status: number, body: any): TelegramActionError {
         'process (getUpdates vs setWebhook) and retry',
       'conflict'
     );
-  if (status === 400) return new TelegramActionError(`Telegram rejected the request: ${description}`, 'validation');
+  if (status === 400)
+    return new TelegramActionError(`Telegram rejected the request: ${description}`, 'validation');
   return new TelegramActionError(
     `Telegram send failed (HTTP ${status})${description ? `: ${description}` : ''}`,
     'provider',
@@ -231,7 +228,8 @@ export async function sendTelegramAction(
   const db: TelegramDb = deps.db ?? ((await import('@repo/db')).default as unknown as TelegramDb);
 
   const metadata = parseMetadata(rawMetadata);
-  const userId = Number((runMetadata as any)?.userId ?? (runMetadata as any)?.zap?.userId ?? 0) || 0;
+  const userId =
+    Number((runMetadata as any)?.userId ?? (runMetadata as any)?.zap?.userId ?? 0) || 0;
   const bot = await resolveBot(metadata, userId, db);
 
   const chatTarget = normalizeChatTarget(template(metadata.chatId ?? metadata.chat, runMetadata));
@@ -256,8 +254,7 @@ export async function sendTelegramAction(
     };
   }
 
-  if (!text && !media)
-    throw new TelegramActionError('A message needs text or media', 'validation');
+  if (!text && !media) throw new TelegramActionError('A message needs text or media', 'validation');
 
   assertLengths(media ? media.caption : text, media ? media.caption : '');
 
@@ -318,7 +315,11 @@ export async function sendTelegramAction(
   const result = body?.result ?? {};
   const messageId = Number(result.message_id ?? NaN);
   if (!Number.isFinite(messageId))
-    throw new TelegramActionError('Telegram accepted the request but returned no message id', 'provider', true);
+    throw new TelegramActionError(
+      'Telegram accepted the request but returned no message id',
+      'provider',
+      true
+    );
 
   return {
     sent: true,

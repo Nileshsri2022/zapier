@@ -135,19 +135,19 @@ describe('isRetryableError', () => {
 describe('actionShouldRetry', () => {
   it('honours an explicit retryable flag so classified failures fail fast', () => {
     // A5/A6 validation-style errors must never burn the retry budget.
-    expect(actionShouldRetry(Object.assign(new Error('invalid_recipient'), { retryable: false }))).toBe(
-      false
-    );
+    expect(
+      actionShouldRetry(Object.assign(new Error('invalid_recipient'), { retryable: false }))
+    ).toBe(false);
     expect(actionShouldRetry(Object.assign(new Error('rate limited'), { retryable: true }))).toBe(
       true
     );
     // A3/A4 classes use the same shape.
-    expect(actionShouldRetry(Object.assign(new Error('rpc_rate_limited'), { retryable: true }))).toBe(
-      true
-    );
-    expect(actionShouldRetry(Object.assign(new Error('blocked_target'), { retryable: false }))).toBe(
-      false
-    );
+    expect(
+      actionShouldRetry(Object.assign(new Error('rpc_rate_limited'), { retryable: true }))
+    ).toBe(true);
+    expect(
+      actionShouldRetry(Object.assign(new Error('blocked_target'), { retryable: false }))
+    ).toBe(false);
   });
 
   it('keeps historical behaviour for unclassified errors and honours isFatal', () => {

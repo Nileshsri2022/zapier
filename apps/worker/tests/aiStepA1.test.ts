@@ -1,9 +1,4 @@
-import {
-  AiStepError,
-  runAiStep,
-  validateAiConfig,
-  AiExecutionContext,
-} from '@repo/ai';
+import { AiStepError, runAiStep, validateAiConfig, AiExecutionContext } from '@repo/ai';
 // parseChatResponse lives in providers (not re-exported at the package root).
 import { callProvider, parseChatResponse } from '../../../packages/ai/src/providers';
 
@@ -132,7 +127,12 @@ describe('Q-AI-05 malformed output: repair once, then fail classified', () => {
     const { execution } = ctx();
     const provider = jest.fn(async () => ({ text: 'definitely not json {{' }));
     const promise = runAiStep(
-      { provider: 'openai', mode: 'extract', input: '{text}', outputFields: [{ name: 'name', type: 'text', isRequired: true }] },
+      {
+        provider: 'openai',
+        mode: 'extract',
+        input: '{text}',
+        outputFields: [{ name: 'name', type: 'text', isRequired: true }],
+      },
       'input',
       execution,
       provider
@@ -194,10 +194,20 @@ describe('§5 error classes and bounded retry inputs', () => {
   it('provider refusal classifies as policy_refusal (non-retryable)', async () => {
     const { execution } = ctx();
     const provider = jest.fn(async () => {
-      throw new AiStepError('AI provider refused to process this content', false, undefined, 'policy_refusal');
+      throw new AiStepError(
+        'AI provider refused to process this content',
+        false,
+        undefined,
+        'policy_refusal'
+      );
     });
     await expect(
-      runAiStep({ provider: 'openai', mode: 'summarize', input: '{text}' }, 'x', execution, provider)
+      runAiStep(
+        { provider: 'openai', mode: 'summarize', input: '{text}' },
+        'x',
+        execution,
+        provider
+      )
     ).rejects.toMatchObject({ code: 'policy_refusal', retryable: false });
   });
 
@@ -207,7 +217,12 @@ describe('§5 error classes and bounded retry inputs', () => {
       throw new AiStepError('AI provider request failed (HTTP 429)', true, 429);
     });
     await expect(
-      runAiStep({ provider: 'openai', mode: 'summarize', input: '{text}' }, 'x', execution, provider)
+      runAiStep(
+        { provider: 'openai', mode: 'summarize', input: '{text}' },
+        'x',
+        execution,
+        provider
+      )
     ).rejects.toMatchObject({ retryable: true, status: 429 });
   });
 

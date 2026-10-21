@@ -148,40 +148,44 @@ router.put('/bots/:id', authMiddleware, async (req: Request, res: Response): Pro
 
 // Re-register the bot webhook (also repairs bots created before the URL
 // carried the bot id).
-router.post('/bots/:id/webhook', authMiddleware, async (req: Request, res: Response): Promise<any> => {
-  try {
-    // @ts-ignore
-    const userId = req.id;
-    const { id } = req.params;
+router.post(
+  '/bots/:id/webhook',
+  authMiddleware,
+  async (req: Request, res: Response): Promise<any> => {
+    try {
+      // @ts-ignore
+      const userId = req.id;
+      const { id } = req.params;
 
-    const bot = await client.telegramBot.findFirst({
-      where: { id: id as string, userId },
-    });
+      const bot = await client.telegramBot.findFirst({
+        where: { id: id as string, userId },
+      });
 
-    if (!bot) return res.status(404).json({ message: 'Bot not found' });
+      if (!bot) return res.status(404).json({ message: 'Bot not found' });
 
-    const webhookBase = process.env.HOOKS_URL || 'https://zapier-hooks-bqyy.onrender.com';
-    await axios.post(`${TELEGRAM_API}${bot.botToken}/setWebhook`, {
-      url: `${webhookBase}/api/webhooks/telegram/${bot.id}`,
-      allowed_updates: ['message', 'callback_query'],
-      ...(process.env.TELEGRAM_WEBHOOK_SECRET
-        ? { secret_token: process.env.TELEGRAM_WEBHOOK_SECRET }
-        : {}),
-    });
+      const webhookBase = process.env.HOOKS_URL || 'https://zapier-hooks-bqyy.onrender.com';
+      await axios.post(`${TELEGRAM_API}${bot.botToken}/setWebhook`, {
+        url: `${webhookBase}/api/webhooks/telegram/${bot.id}`,
+        allowed_updates: ['message', 'callback_query'],
+        ...(process.env.TELEGRAM_WEBHOOK_SECRET
+          ? { secret_token: process.env.TELEGRAM_WEBHOOK_SECRET }
+          : {}),
+      });
 
-    await client.telegramBot.update({
-      where: { id: bot.id },
-      data: { webhookConfigured: true },
-    });
+      await client.telegramBot.update({
+        where: { id: bot.id },
+        data: { webhookConfigured: true },
+      });
 
-    return res.json({ message: 'Webhook registered' });
-  } catch (error: any) {
-    return res.status(502).json({
-      message: 'Failed to register webhook',
-      error: error.response?.data?.description || error.message,
-    });
+      return res.json({ message: 'Webhook registered' });
+    } catch (error: any) {
+      return res.status(502).json({
+        message: 'Failed to register webhook',
+        error: error.response?.data?.description || error.message,
+      });
+    }
   }
-});
+);
 
 // Delete bot
 router.delete('/bots/:id', authMiddleware, async (req: Request, res: Response): Promise<any> => {

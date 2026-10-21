@@ -62,7 +62,15 @@ export interface TelegramUpdate {
   callback_query?: any;
 }
 
-const MEDIA_KINDS = ['photo', 'video', 'document', 'audio', 'voice', 'sticker', 'animation'] as const;
+const MEDIA_KINDS = [
+  'photo',
+  'video',
+  'document',
+  'audio',
+  'voice',
+  'sticker',
+  'animation',
+] as const;
 
 /**
  * §4 data contract (+ legacy aliases). `raw` is the full update so future
@@ -147,10 +155,7 @@ export function buildTelegramRunPayload(
  * Q-TG-T-03 chat-type filter: absent/empty metadata.chatTypes = no
  * restriction; supergroup normalizes to group for matching.
  */
-export function matchesChatTypeFilter(
-  message: TelegramMessage,
-  chatTypes: unknown
-): boolean {
+export function matchesChatTypeFilter(message: TelegramMessage, chatTypes: unknown): boolean {
   if (!Array.isArray(chatTypes) || chatTypes.length === 0) return true;
   const raw = message?.chat?.type;
   const normalized = raw === 'supergroup' ? 'group' : raw;

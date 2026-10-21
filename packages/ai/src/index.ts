@@ -58,7 +58,12 @@ export async function runAiStep(
       );
     const input = resolvedInput;
     if (config.maxOutputTokens > policy.maxOutputTokens)
-      throw new AiStepError('AI output token setting exceeds the configured limit', false, undefined, 'config');
+      throw new AiStepError(
+        'AI output token setting exceeds the configured limit',
+        false,
+        undefined,
+        'config'
+      );
     if (config.provider === 'puter' && !policy.puterEnabled)
       throw new AiStepError('Puter is disabled pending provider verification');
     const connection =
@@ -191,9 +196,7 @@ export async function runAiStep(
       usage: {
         promptTokens: state.usage.inputTokens ?? 0,
         completionTokens: state.usage.outputTokens ?? 0,
-        ...(state.usage.inputTokens !== undefined
-          ? { inputTokens: state.usage.inputTokens }
-          : {}),
+        ...(state.usage.inputTokens !== undefined ? { inputTokens: state.usage.inputTokens } : {}),
         ...(state.usage.outputTokens !== undefined
           ? { outputTokens: state.usage.outputTokens }
           : {}),

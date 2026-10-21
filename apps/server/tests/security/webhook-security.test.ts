@@ -70,7 +70,11 @@ describe('Security - Gmail webhook signature', () => {
 
     const { res, status } = buildRes();
     await handleGmailWebhook(
-      { body, rawBody: Buffer.from(rawBody), headers: { 'x-goog-signature': 'anything' } } as unknown as Request,
+      {
+        body,
+        rawBody: Buffer.from(rawBody),
+        headers: { 'x-goog-signature': 'anything' },
+      } as unknown as Request,
       res
     );
 
@@ -85,10 +89,7 @@ describe('Security - Gmail webhook signature', () => {
     const signature = sign('gmail-secret');
 
     expect(
-      verifyGmailPush(
-        { headers: { 'x-goog-signature': signature }, rawBody },
-        'gmail-secret'
-      ).ok
+      verifyGmailPush({ headers: { 'x-goog-signature': signature }, rawBody }, 'gmail-secret').ok
     ).toBe(true);
   });
 
@@ -195,9 +196,9 @@ describe('Security - TriggerController webhook signature', () => {
       .update(JSON.stringify(payload))
       .digest('hex')}`;
 
-    expect(
-      verifyLegacyWebhook(JSON.stringify(payload), forgedForDefaultSecret, undefined).ok
-    ).toBe(false);
+    expect(verifyLegacyWebhook(JSON.stringify(payload), forgedForDefaultSecret, undefined).ok).toBe(
+      false
+    );
   });
 
   it('still accepts unsigned webhooks when no secret is configured (capability-URL model)', async () => {
@@ -289,10 +290,7 @@ describe('Security - Hooks generic webhook authentication (F5)', () => {
   const rawBody = JSON.stringify(payload);
 
   /** Exactly what `catchHook` does: resolve the hook's policy, ask the engine. */
-  const check = (
-    headers: Record<string, string | string[] | undefined>,
-    triggerMeta?: unknown
-  ) =>
+  const check = (headers: Record<string, string | string[] | undefined>, triggerMeta?: unknown) =>
     verifyCatchHook(
       { headers, body: payload, rawBody },
       { authMode: resolveAuthMode(triggerMeta), secret: resolveWebhookSecret(triggerMeta) }
@@ -356,9 +354,10 @@ describe('Security - Hooks generic webhook authentication (F5)', () => {
     // The legacy implicit policy is one of the three audited open doors
     // (OPEN_WHEN_UNCONFIGURED in @repo/ingress); it keeps its behaviour here.
     expect(check({})).toEqual({ ok: true });
-    expect(
-      verifyLegacyWebhook(rawBody, 'sha256=anything', undefined)
-    ).toMatchObject({ ok: false, code: 'SECRET_NOT_CONFIGURED' });
+    expect(verifyLegacyWebhook(rawBody, 'sha256=anything', undefined)).toMatchObject({
+      ok: false,
+      code: 'SECRET_NOT_CONFIGURED',
+    });
   });
 
   it('refuses an explicitly-selected auth mode that has no secret', () => {
@@ -369,11 +368,13 @@ describe('Security - Hooks generic webhook authentication (F5)', () => {
       code: 'SECRET_NOT_CONFIGURED',
       status: 401,
     });
-    expect(check({ 'x-webhook-signature': 'sha256=anything' }, { authMode: 'hmac' })).toMatchObject({
-      ok: false,
-      code: 'SECRET_NOT_CONFIGURED',
-      status: 403,
-    });
+    expect(check({ 'x-webhook-signature': 'sha256=anything' }, { authMode: 'hmac' })).toMatchObject(
+      {
+        ok: false,
+        code: 'SECRET_NOT_CONFIGURED',
+        status: 403,
+      }
+    );
   });
 
   it('opens an authMode none hook by design', () => {

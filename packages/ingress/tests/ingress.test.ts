@@ -33,8 +33,16 @@ describe('fail-closed default (Q3)', () => {
     ['whatsapp', (s?: string) => verifyWhatsapp({ headers: {}, rawBody: RAW }, s)],
     ['telegram', (s?: string) => verifyTelegram({ headers: {}, rawBody: RAW }, s)],
     ['gmail-push', (s?: string) => verifyGmailPush({ headers: {}, rawBody: RAW }, s)],
-    ['catch-hook-hmac', (s?: string) => verifyCatchHook({ headers: {}, rawBody: RAW }, { authMode: 'hmac', secret: s })],
-    ['catch-hook-static', (s?: string) => verifyCatchHook({ headers: {}, rawBody: RAW }, { authMode: 'static', secret: s })],
+    [
+      'catch-hook-hmac',
+      (s?: string) =>
+        verifyCatchHook({ headers: {}, rawBody: RAW }, { authMode: 'hmac', secret: s }),
+    ],
+    [
+      'catch-hook-static',
+      (s?: string) =>
+        verifyCatchHook({ headers: {}, rawBody: RAW }, { authMode: 'static', secret: s }),
+    ],
     ['legacy-webhook', (s?: string) => verifyLegacyWebhook(RAW, undefined, s)],
   ] as const;
 
@@ -59,7 +67,10 @@ describe('audited open doors (Q7)', () => {
   });
 
   it('catch-hook `none` mode admits an unauthenticated request', () => {
-    const verdict = verifyCatchHook({ headers: {}, rawBody: RAW }, { authMode: 'none', secret: SECRET });
+    const verdict = verifyCatchHook(
+      { headers: {}, rawBody: RAW },
+      { authMode: 'none', secret: SECRET }
+    );
     // Open mode never consults a credential, even when a secret exists.
     expect(verdict).toEqual({ ok: true });
   });
@@ -79,16 +90,29 @@ describe('audited open doors (Q7)', () => {
 
 describe('HMAC adapters accept only the exact digest of the raw bytes', () => {
   it.each([
-    ['whatsapp', (header: string) => verifyWhatsapp({ headers: { 'x-hub-signature-256': header }, rawBody: RAW }, SECRET)],
-    ['github', (header: string) => verifyGithub({ headers: { 'x-hub-signature-256': header }, rawBody: RAW }, SECRET)],
+    [
+      'whatsapp',
+      (header: string) =>
+        verifyWhatsapp({ headers: { 'x-hub-signature-256': header }, rawBody: RAW }, SECRET),
+    ],
+    [
+      'github',
+      (header: string) =>
+        verifyGithub({ headers: { 'x-hub-signature-256': header }, rawBody: RAW }, SECRET),
+    ],
   ])('%s: correct signature passes, wrong one refuses', (_name, run) => {
     expect(run(sign(RAW))).toEqual({ ok: true });
-    expect(run(`sha256=${'0'.repeat(64)}`)).toMatchObject({ ok: false, code: 'INVALID_CREDENTIAL' });
+    expect(run(`sha256=${'0'.repeat(64)}`)).toMatchObject({
+      ok: false,
+      code: 'INVALID_CREDENTIAL',
+    });
   });
 
   it('gmail-push: bare hex digest (no prefix) over raw bytes', () => {
     const digest = crypto.createHmac('sha256', SECRET).update(RAW).digest('hex');
-    expect(verifyGmailPush({ headers: { 'x-goog-signature': digest }, rawBody: RAW }, SECRET)).toEqual({
+    expect(
+      verifyGmailPush({ headers: { 'x-goog-signature': digest }, rawBody: RAW }, SECRET)
+    ).toEqual({
       ok: true,
     });
     // A prefixed value must NOT pass: this provider sends bare hex.
@@ -119,10 +143,16 @@ describe('HMAC adapters accept only the exact digest of the raw bytes', () => {
 
   it('refuses a length-mismatched digest without throwing (constant-time guard)', () => {
     expect(() =>
-      verifyWhatsapp({ headers: { 'x-hub-signature-256': 'sha256=deadbeef' }, rawBody: RAW }, SECRET)
+      verifyWhatsapp(
+        { headers: { 'x-hub-signature-256': 'sha256=deadbeef' }, rawBody: RAW },
+        SECRET
+      )
     ).not.toThrow();
     expect(
-      verifyWhatsapp({ headers: { 'x-hub-signature-256': 'sha256=deadbeef' }, rawBody: RAW }, SECRET)
+      verifyWhatsapp(
+        { headers: { 'x-hub-signature-256': 'sha256=deadbeef' }, rawBody: RAW },
+        SECRET
+      )
     ).toMatchObject({ ok: false, code: 'INVALID_CREDENTIAL' });
   });
 });
@@ -148,7 +178,9 @@ describe('Telegram: secret-token comparison, previously fail-open', () => {
 
   it('REGRESSION: an unset secret no longer opens the door', () => {
     delete process.env.TELEGRAM_WEBHOOK_SECRET;
-    expect(verifyTelegram({ headers: headers() }, process.env.TELEGRAM_WEBHOOK_SECRET)).toMatchObject({
+    expect(
+      verifyTelegram({ headers: headers() }, process.env.TELEGRAM_WEBHOOK_SECRET)
+    ).toMatchObject({
       ok: false,
       code: 'SECRET_NOT_CONFIGURED',
       status: 401,
@@ -158,7 +190,9 @@ describe('Telegram: secret-token comparison, previously fail-open', () => {
 
 describe('catch hook modes', () => {
   it('hmac mode requires a signature (403, matching T5 §5)', () => {
-    expect(verifyCatchHook({ headers: {}, rawBody: RAW }, { authMode: 'hmac', secret: SECRET })).toMatchObject({
+    expect(
+      verifyCatchHook({ headers: {}, rawBody: RAW }, { authMode: 'hmac', secret: SECRET })
+    ).toMatchObject({
       ok: false,
       code: 'MISSING_CREDENTIAL',
       status: 403,
@@ -173,28 +207,44 @@ describe('catch hook modes', () => {
 
   it('static mode accepts x-webhook-secret or Authorization: Bearer', () => {
     expect(
-      verifyCatchHook({ headers: { 'x-webhook-secret': SECRET } }, { authMode: 'static', secret: SECRET })
+      verifyCatchHook(
+        { headers: { 'x-webhook-secret': SECRET } },
+        { authMode: 'static', secret: SECRET }
+      )
     ).toEqual({ ok: true });
     expect(
-      verifyCatchHook({ headers: { authorization: `Bearer ${SECRET}` } }, { authMode: 'static', secret: SECRET })
+      verifyCatchHook(
+        { headers: { authorization: `Bearer ${SECRET}` } },
+        { authMode: 'static', secret: SECRET }
+      )
     ).toEqual({ ok: true });
     expect(
-      verifyCatchHook({ headers: { 'x-webhook-secret': 'wrong' } }, { authMode: 'static', secret: SECRET })
+      verifyCatchHook(
+        { headers: { 'x-webhook-secret': 'wrong' } },
+        { authMode: 'static', secret: SECRET }
+      )
     ).toMatchObject({ ok: false, code: 'INVALID_CREDENTIAL' });
   });
 
   it('legacy implicit mode accepts either a signature or the static key', () => {
     expect(
-      verifyCatchHook({ headers: { 'x-webhook-signature': sign(RAW) }, rawBody: RAW }, { secret: SECRET })
+      verifyCatchHook(
+        { headers: { 'x-webhook-signature': sign(RAW) }, rawBody: RAW },
+        { secret: SECRET }
+      )
     ).toEqual({ ok: true });
-    expect(verifyCatchHook({ headers: { 'x-webhook-secret': SECRET } }, { secret: SECRET })).toEqual({
+    expect(
+      verifyCatchHook({ headers: { 'x-webhook-secret': SECRET } }, { secret: SECRET })
+    ).toEqual({
       ok: true,
     });
     expect(verifyCatchHook({ headers: {} }, { secret: SECRET })).toMatchObject({
       ok: false,
       code: 'MISSING_CREDENTIAL',
     });
-    expect(verifyCatchHook({ headers: { 'x-webhook-secret': 'wrong' } }, { secret: SECRET })).toMatchObject({
+    expect(
+      verifyCatchHook({ headers: { 'x-webhook-secret': 'wrong' } }, { secret: SECRET })
+    ).toMatchObject({
       ok: false,
       code: 'INVALID_CREDENTIAL',
     });
@@ -203,9 +253,7 @@ describe('catch hook modes', () => {
   it('an unknown authMode is refused, never silently treated as legacy (Q6)', () => {
     // Legacy implicit mode is an audited open door; a config typo must not
     // inherit it.
-    expect(
-      verifyCatchHook({ headers: {} }, { authMode: 'weird' })
-    ).toEqual({
+    expect(verifyCatchHook({ headers: {} }, { authMode: 'weird' })).toEqual({
       ok: false,
       code: 'UNSUPPORTED_AUTH_MODE',
       status: 401,
@@ -228,15 +276,14 @@ describe('catch hook modes', () => {
 describe('header handling', () => {
   it('is case-insensitive and tolerates array headers', () => {
     expect(
-      verifyGithub(
-        { headers: { 'X-Hub-Signature-256': [sign(RAW)] }, rawBody: RAW },
-        SECRET
-      )
+      verifyGithub({ headers: { 'X-Hub-Signature-256': [sign(RAW)] }, rawBody: RAW }, SECRET)
     ).toEqual({ ok: true });
   });
 
   it('ignores whitespace-only headers', () => {
-    expect(verifyGithub({ headers: { 'x-hub-signature-256': '   ' }, rawBody: RAW }, SECRET)).toMatchObject({
+    expect(
+      verifyGithub({ headers: { 'x-hub-signature-256': '   ' }, rawBody: RAW }, SECRET)
+    ).toMatchObject({
       ok: false,
       code: 'MISSING_CREDENTIAL',
     });
@@ -271,7 +318,11 @@ describe('verdict shape (Q6)', () => {
   });
 
   it('success carries nothing but ok:true', () => {
-    const verdict = verifyIngress(INGRESS_SPECS.telegram, { headers: { 'x-telegram-bot-api-secret-token': 'k' } }, 'k');
+    const verdict = verifyIngress(
+      INGRESS_SPECS.telegram,
+      { headers: { 'x-telegram-bot-api-secret-token': 'k' } },
+      'k'
+    );
     expect(verdict).toEqual({ ok: true });
     expect(Object.keys(verdict)).toEqual(['ok']);
   });

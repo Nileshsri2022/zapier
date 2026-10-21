@@ -44,7 +44,12 @@ const issueOpenedPayload = {
     private: true,
     default_branch: 'main',
   },
-  sender: { login: 'octocat', id: 1, avatar_url: 'https://a/1.png', html_url: 'https://github.com/octocat' },
+  sender: {
+    login: 'octocat',
+    id: 1,
+    avatar_url: 'https://a/1.png',
+    html_url: 'https://github.com/octocat',
+  },
 };
 
 const prOpenedPayload = {
@@ -85,11 +90,7 @@ const makePushPayload = (commitCount: number) => ({
 const sign = (secret: string, body: object) =>
   `sha256=${crypto.createHmac('sha256', secret).update(JSON.stringify(body)).digest('hex')}`;
 
-const postWebhook = (
-  event: string,
-  payload: object,
-  headers: Record<string, string> = {}
-) => {
+const postWebhook = (event: string, payload: object, headers: Record<string, string> = {}) => {
   const req = request(app)
     .post('/api/github/webhook/zap-1')
     .set('x-github-event', event)
@@ -263,7 +264,10 @@ describe('buildGithubRunPayload pure slices', () => {
   it('release keeps the legacy beyond-spec slice working', () => {
     const data = buildGithubRunPayload(
       'release',
-      { action: 'published', release: { tag_name: 'v1', name: 'One', html_url: 'u', prerelease: false } },
+      {
+        action: 'published',
+        release: { tag_name: 'v1', name: 'One', html_url: 'u', prerelease: false },
+      },
       'd1'
     );
     expect(data.event).toBe('release.published');

@@ -22,15 +22,24 @@ export function verifyGithub(request: IngressRequest, secret: string | undefined
   return verifyIngress(githubSpec, request, secret);
 }
 
-export function verifyWhatsapp(request: IngressRequest, secret: string | undefined): IngressVerdict {
+export function verifyWhatsapp(
+  request: IngressRequest,
+  secret: string | undefined
+): IngressVerdict {
   return verifyIngress(whatsappSpec, request, secret);
 }
 
-export function verifyTelegram(request: IngressRequest, secret: string | undefined): IngressVerdict {
+export function verifyTelegram(
+  request: IngressRequest,
+  secret: string | undefined
+): IngressVerdict {
   return verifyIngress(telegramSpec, request, secret);
 }
 
-export function verifyGmailPush(request: IngressRequest, secret: string | undefined): IngressVerdict {
+export function verifyGmailPush(
+  request: IngressRequest,
+  secret: string | undefined
+): IngressVerdict {
   return verifyIngress(gmailPushSpec, request, secret);
 }
 

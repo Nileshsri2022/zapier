@@ -32,10 +32,7 @@ export function refuse(
 }
 
 /** Case-insensitive, array-tolerant header read; trims and drops empties. */
-export function readHeader(
-  headers: IngressRequest['headers'],
-  name: string
-): string | undefined {
+export function readHeader(headers: IngressRequest['headers'], name: string): string | undefined {
   const wanted = name.toLowerCase();
   let raw: string | string[] | undefined;
   for (const key of Object.keys(headers ?? {})) {
@@ -125,10 +122,11 @@ export function verifyIngress(
     return refuse('MISSING_CREDENTIAL', `${spec.provider}: missing credential header`, status);
 
   const matches =
-    spec.scheme === 'hmac-sha256' ? hmacMatches(presented) : constantTimeEquals(strip(presented), resolved);
+    spec.scheme === 'hmac-sha256'
+      ? hmacMatches(presented)
+      : constantTimeEquals(strip(presented), resolved);
 
-  if (!matches)
-    return refuse('INVALID_CREDENTIAL', `${spec.provider}: invalid credential`, status);
+  if (!matches) return refuse('INVALID_CREDENTIAL', `${spec.provider}: invalid credential`, status);
 
   return { ok: true };
 }

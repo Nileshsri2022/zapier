@@ -12,10 +12,7 @@ function MainSection({ children }: { children?: React.ReactNode }) {
   const [dropdownVisible, setDropdownVisible] = useState<boolean>(false);
 
   return (
-    <div
-      className="main-shell"
-      onClick={() => dropdownVisible && setDropdownVisible(false)}
-    >
+    <div className="main-shell" onClick={() => dropdownVisible && setDropdownVisible(false)}>
       <Navbar
         dropdownVisible={dropdownVisible}
         setDropdownVisible={setDropdownVisible}

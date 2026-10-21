@@ -182,7 +182,9 @@ export default function Page() {
               <th className="dash-th">Webhook URL</th>
               <th className="dash-th">Created At</th>
               <th className="dash-th dash-th--center">Status</th>
-              <th className="dash-th"><span className="u-sr-only">Actions</span></th>
+              <th className="dash-th">
+                <span className="u-sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -272,9 +274,7 @@ export default function Page() {
                         </svg>
                       </div>
                     </td>
-                    <td className="dash-td">
-                      {formatDateTimeToCustomString(zap.createdDate)}
-                    </td>
+                    <td className="dash-td">{formatDateTimeToCustomString(zap.createdDate)}</td>
                     <td className="dash-td dash-td--center">
                       <label className="dash-switch">
                         <input
@@ -285,7 +285,11 @@ export default function Page() {
                         />
                         <span className="dash-switch__track" aria-hidden="true" />
                       </label>
-                      <div><span className="dash-status" data-on={zap.isActive}>{zap.isActive ? 'Live' : 'Paused'}</span></div>
+                      <div>
+                        <span className="dash-status" data-on={zap.isActive}>
+                          {zap.isActive ? 'Live' : 'Paused'}
+                        </span>
+                      </div>
                     </td>
                     <td
                       onClick={() =>
@@ -308,10 +312,7 @@ export default function Page() {
                       </svg>
                       {index === selectedRow && (
                         <div className="dash-menu">
-                          <div
-                            onClick={() => setRenameEnabled(index)}
-                            className="dash-menu__item"
-                          >
+                          <div onClick={() => setRenameEnabled(index)} className="dash-menu__item">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               fill="none"
@@ -382,8 +383,13 @@ export default function Page() {
                 <td colSpan={6}>
                   <div className="dash-empty">
                     <h3>No zaps yet</h3>
-                    <p>Build your first zap: pick a trigger, add an action, and ZapMate runs it for you from then on.</p>
-                    <Button variant="primary" onClick={handleCreateClick}>Create your first zap</Button>
+                    <p>
+                      Build your first zap: pick a trigger, add an action, and ZapMate runs it for
+                      you from then on.
+                    </p>
+                    <Button variant="primary" onClick={handleCreateClick}>
+                      Create your first zap
+                    </Button>
                   </div>
                 </td>
               </tr>
@@ -441,9 +447,7 @@ export default function Page() {
                   </div>
 
                   {/* Date */}
-                  <p className="dash-card__meta">
-                    {formatDateTimeToCustomString(zap.createdDate)}
-                  </p>
+                  <p className="dash-card__meta">{formatDateTimeToCustomString(zap.createdDate)}</p>
 
                   {/* Actions */}
                   <div className="dash-card__footer">
@@ -511,8 +515,13 @@ export default function Page() {
           {data.total === 0 && !loading && (
             <div className="dash-empty">
               <h3>No zaps yet</h3>
-              <p>Build your first zap: pick a trigger, add an action, and ZapMate runs it for you from then on.</p>
-              <Button variant="primary" onClick={handleCreateClick}>Create your first zap</Button>
+              <p>
+                Build your first zap: pick a trigger, add an action, and ZapMate runs it for you
+                from then on.
+              </p>
+              <Button variant="primary" onClick={handleCreateClick}>
+                Create your first zap
+              </Button>
             </div>
           )}
         </div>

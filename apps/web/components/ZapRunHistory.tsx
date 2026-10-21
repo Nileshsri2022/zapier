@@ -145,9 +145,7 @@ export function ZapRunHistory({ zapId, zapName, isOpen, onClose }: ZapRunHistory
                 {expandedRun === run.id && (
                   <div className="history-details">
                     <p className="history-details__label">Trigger Data:</p>
-                    <pre className="history-pre">
-                      {JSON.stringify(run.metadata, null, 2)}
-                    </pre>
+                    <pre className="history-pre">{JSON.stringify(run.metadata, null, 2)}</pre>
                   </div>
                 )}
               </div>

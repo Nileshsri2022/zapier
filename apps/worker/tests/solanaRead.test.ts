@@ -155,7 +155,13 @@ describe('O2 getTokenAccounts', () => {
     );
     expect(out.operation).toBe('getTokenAccounts');
     expect(out.accounts).toEqual([
-      { mint: MINT, amount: '12500000', decimals: 6, uiAmount: '12.5', tokenAccount: '7bSPtokenAccount' },
+      {
+        mint: MINT,
+        amount: '12500000',
+        decimals: 6,
+        uiAmount: '12.5',
+        tokenAccount: '7bSPtokenAccount',
+      },
     ]);
     expect(out.slot).toBe(250123456);
     const body = JSON.parse((calls(fetchImpl)[0] as [string, any])[1].body);
@@ -206,7 +212,10 @@ describe('O3 getAccount and O8 chain reads', () => {
   it('exposes blockhash, slot and version', async () => {
     const blockhash = rpc({
       context: { slot: 250123456 },
-      value: { blockhash: 'EkSnNWid2cvwEVnVx9aBqawnmiCNiDgp3gUdkDPTKN1N', lastValidBlockHeight: 250123460 },
+      value: {
+        blockhash: 'EkSnNWid2cvwEVnVx9aBqawnmiCNiDgp3gUdkDPTKN1N',
+        lastValidBlockHeight: 250123460,
+      },
     });
     await expect(
       runSolanaAction({ operation: 'getLatestBlockhash' }, blockhash)
@@ -242,26 +251,29 @@ describe('validation and RPC error classes', () => {
 
   it('classifies 429 as retryable rpc_rate_limited with an override hint', async () => {
     const fetchImpl = rpc({}, 429);
-    await expect(
-      runSolanaAction({ operation: 'getSlot' }, fetchImpl)
-    ).rejects.toMatchObject({ code: 'rpc_rate_limited', retryable: true });
+    await expect(runSolanaAction({ operation: 'getSlot' }, fetchImpl)).rejects.toMatchObject({
+      code: 'rpc_rate_limited',
+      retryable: true,
+    });
     await runSolanaAction({ operation: 'getSlot' }, fetchImpl).catch((error: SolanaActionError) => {
       expect(error.message).toContain('add your own RPC URL');
     });
   });
 
   it('classifies 5xx as retryable and JSON-RPC errors as non-retryable', async () => {
-    await expect(
-      runSolanaAction({ operation: 'getSlot' }, rpc({}, 503))
-    ).rejects.toMatchObject({ code: 'rpc_unavailable', retryable: true });
+    await expect(runSolanaAction({ operation: 'getSlot' }, rpc({}, 503))).rejects.toMatchObject({
+      code: 'rpc_unavailable',
+      retryable: true,
+    });
 
     const rpcError = jest.fn(async () => ({
       ok: true,
       status: 200,
       json: async () => ({ error: { code: -32602, message: 'Invalid param' } }),
     })) as unknown as typeof fetch;
-    await expect(
-      runSolanaAction({ operation: 'getSlot' }, rpcError)
-    ).rejects.toMatchObject({ code: 'rpc_error', retryable: false });
+    await expect(runSolanaAction({ operation: 'getSlot' }, rpcError)).rejects.toMatchObject({
+      code: 'rpc_error',
+      retryable: false,
+    });
   });
 });

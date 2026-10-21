@@ -8,7 +8,12 @@ jest.mock('@repo/runs', () => ({
   enqueueRun: (input: any) => mockEnqueueRun(input),
 }));
 
-import { createCatchHookRouter, MAX_WEBHOOK_BYTES, parseHookBody, surfaceHeaders } from '../src/catchHook';
+import {
+  createCatchHookRouter,
+  MAX_WEBHOOK_BYTES,
+  parseHookBody,
+  surfaceHeaders,
+} from '../src/catchHook';
 
 /**
  * T5 — Catch Hook fixtures (docs/ask-matt/triggers/webhook.md round 7,
@@ -43,23 +48,21 @@ describe('V1 — five verbs + V3 fixed 200 empty', () => {
     triggerMetadata = {}; // auth none (no secret, no mode)
   });
 
-  const send =
-    (method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE') =>
-    (path: string) => {
-      const r = request(app);
-      switch (method) {
-        case 'GET':
-          return r.get(path);
-        case 'POST':
-          return r.post(path);
-        case 'PUT':
-          return r.put(path);
-        case 'PATCH':
-          return r.patch(path);
-        case 'DELETE':
-          return r.delete(path);
-      }
-    };
+  const send = (method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE') => (path: string) => {
+    const r = request(app);
+    switch (method) {
+      case 'GET':
+        return r.get(path);
+      case 'POST':
+        return r.post(path);
+      case 'PUT':
+        return r.put(path);
+      case 'PATCH':
+        return r.patch(path);
+      case 'DELETE':
+        return r.delete(path);
+    }
+  };
 
   it.each(['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const)(
     '%s is accepted with a 200 empty-body ack and exactly one run',
@@ -112,7 +115,11 @@ describe('V5 — payload parsing matrix', () => {
     expect(res.status).toBe(200);
     const input = mockEnqueueRun.mock.calls[0][0];
     const m = input.metadata;
-    expect(m.body).toEqual({ event: 'payment.succeeded', amount: 499, data: { items: [{ sku: 'A1' }] } });
+    expect(m.body).toEqual({
+      event: 'payment.succeeded',
+      amount: 499,
+      data: { items: [{ sku: 'A1' }] },
+    });
     expect(m.bodyRaw).toContain('"payment.succeeded"');
     expect(m.method).toBe('POST');
     expect(m.url).toContain('/hooks/user-1/zap-1');

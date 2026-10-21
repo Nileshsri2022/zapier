@@ -86,15 +86,17 @@ describe('ActionsController - Fetch Available Actions', () => {
       );
 
       expect(statusMock).toHaveBeenCalledWith(200);
-      expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({
-        availableActions: expect.arrayContaining([
-          expect.objectContaining({
-            id: 'discord-action-id',
-            type: 'Discord Send Message',
-            image: '/apps/discord.svg',
-          }),
-        ]),
-      }));
+      expect(jsonMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          availableActions: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'discord-action-id',
+              type: 'Discord Send Message',
+              image: '/apps/discord.svg',
+            }),
+          ]),
+        })
+      );
     });
   });
 });

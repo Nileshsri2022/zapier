@@ -47,10 +47,16 @@ export function matchesRefFilter(
   ref: string,
   metadata: { branchFilter?: unknown; tagFilter?: unknown } | null | undefined
 ): boolean {
-  const refName = String(ref || '').replace(/^refs\/heads\//, '').replace(/^refs\/tags\//, '');
+  const refName = String(ref || '')
+    .replace(/^refs\/heads\//, '')
+    .replace(/^refs\/tags\//, '');
   const asList = (v: unknown): string[] => {
     if (Array.isArray(v)) return v.map(String);
-    if (typeof v === 'string') return v.split(',').map((s) => s.trim()).filter(Boolean);
+    if (typeof v === 'string')
+      return v
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
     return [];
   };
   const branches = asList(metadata?.branchFilter);
@@ -106,7 +112,9 @@ export function buildGithubRunPayload(
         title: issue?.title || '',
         body: issue?.body || '',
         state: issue?.state || '',
-        labels: (issue?.labels || []).map((l: any) => (typeof l === 'string' ? l : l?.name)).filter(Boolean),
+        labels: (issue?.labels || [])
+          .map((l: any) => (typeof l === 'string' ? l : l?.name))
+          .filter(Boolean),
         htmlUrl: issue?.html_url || '',
         // legacy aliases
         url: issue?.html_url || '',
@@ -193,8 +201,7 @@ router.post('/webhook/:zapId', async (req: Request, res: Response): Promise<any>
     const sigHeader = req.headers['x-hub-signature-256'];
     const signature: string | undefined = Array.isArray(sigHeader) ? sigHeader[0] : sigHeader;
     const deliveryHeader = req.headers['x-github-delivery'];
-    const deliveryId =
-      (Array.isArray(deliveryHeader) ? deliveryHeader[0] : deliveryHeader) || '';
+    const deliveryId = (Array.isArray(deliveryHeader) ? deliveryHeader[0] : deliveryHeader) || '';
     const envSecret = process.env.GITHUB_WEBHOOK_SECRET;
 
     console.log(`📦 GitHub webhook received: ${event} for zap ${zapId}`);
@@ -281,8 +288,7 @@ router.post('/webhook/:zapId', async (req: Request, res: Response): Promise<any>
     // Dedupe §5: X-GitHub-Delivery keyed; fall back to a payload digest when
     // a sender omits the header (redelivery of the same body still dedupes).
     const deliveryKey =
-      deliveryId ||
-      `sha1:${crypto.createHash('sha1').update(rawBody).digest('hex')}`;
+      deliveryId || `sha1:${crypto.createHash('sha1').update(rawBody).digest('hex')}`;
 
     const result = await enqueueRun({
       zapId: zap.id,

@@ -141,7 +141,12 @@ describe('Q-WHA-01/Q-WHA-03 request building', () => {
   it('fails loudly when a json-mode body is not JSON', () => {
     expect(() =>
       buildRequest(
-        { method: 'POST', url: 'https://api.example.com/x', bodyMode: 'json', body: 'hello {name}' },
+        {
+          method: 'POST',
+          url: 'https://api.example.com/x',
+          bodyMode: 'json',
+          body: 'hello {name}',
+        },
         { name: 'Ada' }
       )
     ).toThrow(WebhookActionError);
@@ -175,18 +180,16 @@ describe('Q-WHA-02 auth modes', () => {
   const base = { method: 'GET', url: 'https://api.example.com/x' };
 
   it('applies bearer, basic and api-key (header or query) auth', () => {
-    expect(buildRequest({ ...base, auth: { type: 'bearer', token: 'tok' } }, {}).headers.Authorization).toBe(
-      'Bearer tok'
-    );
+    expect(
+      buildRequest({ ...base, auth: { type: 'bearer', token: 'tok' } }, {}).headers.Authorization
+    ).toBe('Bearer tok');
     expect(
       buildRequest({ ...base, auth: { type: 'basic', username: 'u', password: 'p' } }, {}).headers
         .Authorization
     ).toBe(`Basic ${Buffer.from('u:p').toString('base64')}`);
     expect(
-      buildRequest(
-        { ...base, auth: { type: 'api_key', apiKey: 'k', apiKeyName: 'X-Key' } },
-        {}
-      ).headers['X-Key']
+      buildRequest({ ...base, auth: { type: 'api_key', apiKey: 'k', apiKeyName: 'X-Key' } }, {})
+        .headers['X-Key']
     ).toBe('k');
     expect(
       buildRequest(
@@ -281,7 +284,9 @@ describe('Q-WHA-04 response contract', () => {
 
 describe('Q-WHA-06 status policy', () => {
   it('non-2xx is an error by default, with status and a body excerpt', async () => {
-    const fetchImpl = fetchOnce(response('{"error":"nope"}', { status: 404, contentType: 'application/json' }));
+    const fetchImpl = fetchOnce(
+      response('{"error":"nope"}', { status: 404, contentType: 'application/json' })
+    );
     const error = await runWebhookAction(
       { method: 'GET', url: 'https://api.example.com/x' },
       {},
@@ -309,7 +314,13 @@ describe('Q-WHA-06 status policy', () => {
     expect(specific.status).toBe(404);
 
     const anyStatus = await runWebhookAction(
-      { method: 'POST', url: 'https://api.example.com/x', acceptStatuses: 'any', bodyMode: 'json', body: {} },
+      {
+        method: 'POST',
+        url: 'https://api.example.com/x',
+        acceptStatuses: 'any',
+        bodyMode: 'json',
+        body: {},
+      },
       {},
       { fetchImpl, sleep }
     );
@@ -320,7 +331,9 @@ describe('Q-WHA-06 status policy', () => {
 describe('Q-WHA-05 idempotent-only retries', () => {
   it('retries 5xx on GET with bounded backoff, then succeeds and reports retries', async () => {
     const fetchImpl = jest.fn(async () =>
-      fetchCalls++ === 0 ? response('boom', { status: 500 }) : response('ok', { contentType: 'text/plain' })
+      fetchCalls++ === 0
+        ? response('boom', { status: 500 })
+        : response('ok', { contentType: 'text/plain' })
     ) as unknown as typeof fetch;
     let fetchCalls = 0;
     const out = await runWebhookAction(
@@ -350,7 +363,11 @@ describe('Q-WHA-05 idempotent-only retries', () => {
   it('never retries 4xx, even on idempotent verbs', async () => {
     const fetchImpl = fetchOnce(response('bad', { status: 400, contentType: 'text/plain' }));
     await expect(
-      runWebhookAction({ method: 'DELETE', url: 'https://api.example.com/x' }, {}, { fetchImpl, sleep })
+      runWebhookAction(
+        { method: 'DELETE', url: 'https://api.example.com/x' },
+        {},
+        { fetchImpl, sleep }
+      )
     ).rejects.toMatchObject({ code: 'http_status', status: 400 });
     expect(calls(fetchImpl)).toHaveLength(1);
   });
@@ -378,7 +395,10 @@ describe('redirects and SSRF guardrails (spec §5)', () => {
     const fetchImpl = jest.fn(async (url: string, init: any) => {
       seen.push({ url, headers: init.headers });
       if (url.includes('start.example.com'))
-        return response('', { status: 302, headers: { location: 'https://other.example.com/final' } });
+        return response('', {
+          status: 302,
+          headers: { location: 'https://other.example.com/final' },
+        });
       return response('done', { contentType: 'text/plain' });
     }) as unknown as typeof fetch;
 
@@ -403,7 +423,11 @@ describe('redirects and SSRF guardrails (spec §5)', () => {
       response('', { status: 302, headers: { location: 'https://loop.example.com/again' } })
     ) as unknown as typeof fetch;
     await expect(
-      runWebhookAction({ method: 'GET', url: 'https://loop.example.com/start' }, {}, { fetchImpl, sleep })
+      runWebhookAction(
+        { method: 'GET', url: 'https://loop.example.com/start' },
+        {},
+        { fetchImpl, sleep }
+      )
     ).rejects.toMatchObject({ code: 'too_many_redirects' });
     expect(calls(fetchImpl).length).toBe(MAX_REDIRECTS + 1);
   });
@@ -436,9 +460,15 @@ describe('redirects and SSRF guardrails (spec §5)', () => {
 
 describe('secret redaction', () => {
   it('keeps credentials out of output and error text', async () => {
-    const fetchImpl = fetchOnce(response('denied for sec-token', { status: 401, contentType: 'text/plain' }));
+    const fetchImpl = fetchOnce(
+      response('denied for sec-token', { status: 401, contentType: 'text/plain' })
+    );
     const error = await runWebhookAction(
-      { method: 'GET', url: 'https://api.example.com/x', auth: { type: 'bearer', token: 'sec-token' } },
+      {
+        method: 'GET',
+        url: 'https://api.example.com/x',
+        auth: { type: 'bearer', token: 'sec-token' },
+      },
       {},
       { fetchImpl, sleep }
     ).then(

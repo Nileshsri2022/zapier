@@ -157,7 +157,12 @@ const WebhookActionMetaData = ({ handleClick }: MetaDataFormProps) => {
           <FormInput label="API key" name="apiKey" onChange={update} />
           <FormInput label="Key name" name="apiKeyName" onChange={update} />
           <label className="meta-form__label">Send key in</label>
-          <select className="meta-form__input" name="apiKeyIn" value={form.apiKeyIn} onChange={update}>
+          <select
+            className="meta-form__input"
+            name="apiKeyIn"
+            value={form.apiKeyIn}
+            onChange={update}
+          >
             <option value="header">Header</option>
             <option value="query">Query string</option>
           </select>
@@ -167,7 +172,12 @@ const WebhookActionMetaData = ({ handleClick }: MetaDataFormProps) => {
       {!['GET', 'DELETE'].includes(form.method) && (
         <>
           <label className="meta-form__label">Body</label>
-          <select className="meta-form__input" name="bodyMode" value={form.bodyMode} onChange={update}>
+          <select
+            className="meta-form__input"
+            name="bodyMode"
+            value={form.bodyMode}
+            onChange={update}
+          >
             {BODY_MODES.map((mode) => (
               <option key={mode.value} value={mode.value}>
                 {mode.label}
@@ -178,7 +188,9 @@ const WebhookActionMetaData = ({ handleClick }: MetaDataFormProps) => {
             className="meta-form__textarea"
             rows={6}
             name="body"
-            placeholder={form.bodyMode === 'json' ? '{ "sku": "{{previousOutput.fields.sku}}" }' : 'Body'}
+            placeholder={
+              form.bodyMode === 'json' ? '{ "sku": "{{previousOutput.fields.sku}}" }' : 'Body'
+            }
             onChange={update}
           />
         </>

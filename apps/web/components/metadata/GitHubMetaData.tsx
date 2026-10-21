@@ -131,7 +131,9 @@ export const GitHubMetaData: React.FC<GitHubMetaDataProps> = ({
             placeholder="e.g. main or main,release/* — empty fires on all branches"
             className="meta-form__input"
           />
-          <p className="meta-form__hint">Comma-separated branch names; leave empty to fire on every push</p>
+          <p className="meta-form__hint">
+            Comma-separated branch names; leave empty to fire on every push
+          </p>
         </div>
       )}
 

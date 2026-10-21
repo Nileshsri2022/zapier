@@ -165,7 +165,13 @@ describe('T7 contract (§4)', () => {
         text: undefined,
         photo: [
           { file_id: 'small', file_unique_id: 'us', width: 90, height: 60 },
-          { file_id: 'AgACAgIAAx…', file_unique_id: 'AQAD…', width: 800, height: 600, mime_type: 'image/jpeg' },
+          {
+            file_id: 'AgACAgIAAx…',
+            file_unique_id: 'AQAD…',
+            width: 800,
+            height: 600,
+            mime_type: 'image/jpeg',
+          },
         ],
         caption: 'look at this',
       },

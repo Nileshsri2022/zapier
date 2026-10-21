@@ -78,7 +78,14 @@ function zoneOffsetMs(at: Date, timeZone: string): number {
 }
 
 function wallAsUtcMs(parts: ZonedParts): number {
-  return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second || 0);
+  return Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second || 0
+  );
 }
 
 /**
@@ -221,7 +228,10 @@ export function validateCron(raw: string): CronValidation {
   const expr = (alias ?? trimmed).replace(/\s+/g, ' ').trim();
   const fields = expr.split(' ');
   if (fields.length !== 5) {
-    return { valid: false, error: 'Expected a 5-field cron expression (minute hour dom month dow)' };
+    return {
+      valid: false,
+      error: 'Expected a 5-field cron expression (minute hour dom month dow)',
+    };
   }
   const names = ['minute', 'hour', 'day-of-month', 'month', 'day-of-week'];
   for (let i = 0; i < 5; i++) {
@@ -386,10 +396,7 @@ export function computeNextRun(spec: ScheduleSpec, from: Date = new Date()): Dat
       const currentDay = new Date(Date.UTC(today.year, today.month - 1, today.day)).getUTCDay();
       let daysUntil = (targetDay - currentDay + 7) % 7;
 
-      let candidate = toUtc(
-        { ...addDays(today, daysUntil), hour, minute, second: 0 },
-        timeZone
-      );
+      let candidate = toUtc({ ...addDays(today, daysUntil), hour, minute, second: 0 }, timeZone);
       if (candidate.getTime() <= from.getTime()) {
         daysUntil += 7;
         candidate = toUtc({ ...addDays(today, daysUntil), hour, minute, second: 0 }, timeZone);
@@ -416,10 +423,7 @@ export function computeNextRun(spec: ScheduleSpec, from: Date = new Date()): Dat
       let candidate = candidateInMonth(now.year, now.month);
       if (candidate.getTime() <= from.getTime()) {
         const nextMonth = new Date(Date.UTC(now.year, now.month, 1));
-        candidate = candidateInMonth(
-          nextMonth.getUTCFullYear(),
-          nextMonth.getUTCMonth() + 1
-        );
+        candidate = candidateInMonth(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth() + 1);
       }
       return candidate;
     }
@@ -506,10 +510,7 @@ function partFormatter(timeZone: string, opts: Intl.DateTimeFormatOptions): Intl
  * `occurrence` is the scheduled instant (the due nextRunAt), not "now" —
  * late sweeps still report the occurrence they belong to.
  */
-export function buildScheduleRunPayload(
-  spec: ScheduleSpec,
-  occurrence: Date
-): Record<string, any> {
+export function buildScheduleRunPayload(spec: ScheduleSpec, occurrence: Date): Record<string, any> {
   const timeZone = resolveTimezone(spec.timezone);
   const mode = spec.scheduleType;
   const cron = presetToCron(spec);
@@ -556,7 +557,10 @@ export function buildScheduleRunPayload(
  * Next N fire instants for the editor's preview (M5: next-fires preview
  * before save). Bounded and cheap — used only at configuration time.
  */
-export function previewNextFires(spec: ScheduleSpec, count = 5): Array<{ local: string; iso: string }> {
+export function previewNextFires(
+  spec: ScheduleSpec,
+  count = 5
+): Array<{ local: string; iso: string }> {
   const timeZone = resolveTimezone(spec.timezone);
   const fires: Array<{ local: string; iso: string }> = [];
   let cursor = new Date();

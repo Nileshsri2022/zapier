@@ -32,10 +32,7 @@ const runCompose = async (triggerMetadata: any, triggerType = 'Schedule Every We
   });
   (client.availableActions.findUnique as jest.Mock).mockResolvedValue({ type: 'Webhook' });
 
-  await composeZap(
-    { triggerId: 'trigger-schedule', triggerMetadata, steps: [] },
-    { userId: 1 }
-  );
+  await composeZap({ triggerId: 'trigger-schedule', triggerMetadata, steps: [] }, { userId: 1 });
 
   return scheduled;
 };

@@ -94,10 +94,7 @@ export async function releaseEvent(
   try {
     await redis.del(dedupKey(scope, eventId));
   } catch (error) {
-    console.warn(
-      '⚠️ Dedup release failed:',
-      error instanceof Error ? error.message : error
-    );
+    console.warn('⚠️ Dedup release failed:', error instanceof Error ? error.message : error);
   }
 }
 

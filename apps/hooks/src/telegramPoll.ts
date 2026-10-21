@@ -55,7 +55,9 @@ export async function pollTelegramBots(): Promise<TelegramPollResult> {
       const resp = await fetch(url, { method: 'GET' });
 
       if (resp.status === 401) {
-        console.error(`🔒 Telegram poll: bot "${bot.botName}" has an invalid token (401) — auth-class, skipping`);
+        console.error(
+          `🔒 Telegram poll: bot "${bot.botName}" has an invalid token (401) — auth-class, skipping`
+        );
         result.errors++;
         continue;
       }
@@ -74,7 +76,9 @@ export async function pollTelegramBots(): Promise<TelegramPollResult> {
         continue;
       }
       if (!resp.ok) {
-        console.error(`⚠️ Telegram poll: getUpdates failed with ${resp.status} for "${bot.botName}"`);
+        console.error(
+          `⚠️ Telegram poll: getUpdates failed with ${resp.status} for "${bot.botName}"`
+        );
         result.errors++;
         continue;
       }

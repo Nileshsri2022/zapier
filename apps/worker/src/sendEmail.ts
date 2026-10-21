@@ -107,7 +107,8 @@ function requireList(items: string[], field: string): string[] {
   if (!items.length)
     throw new EmailActionError(`At least one ${field} recipient is required`, 'validation');
   for (const item of items)
-    if (!isAddress(item)) throw new EmailActionError(`Invalid ${field} address: ${item}`, 'validation');
+    if (!isAddress(item))
+      throw new EmailActionError(`Invalid ${field} address: ${item}`, 'validation');
   return items;
 }
 
@@ -125,12 +126,20 @@ export function parseEmailInput(raw: unknown, run: Record<string, unknown>): Par
   const str = (value: unknown): string =>
     value === undefined || value === null ? '' : template(String(value), run).trim();
 
-  const to = requireList(parseList(meta.to, 'to').map((v) => template(v, run).trim()), 'to');
-  const cc = parseList(meta.cc, 'cc').map((v) => template(v, run).trim()).filter(Boolean);
-  const bcc = parseList(meta.bcc, 'bcc').map((v) => template(v, run).trim()).filter(Boolean);
+  const to = requireList(
+    parseList(meta.to, 'to').map((v) => template(v, run).trim()),
+    'to'
+  );
+  const cc = parseList(meta.cc, 'cc')
+    .map((v) => template(v, run).trim())
+    .filter(Boolean);
+  const bcc = parseList(meta.bcc, 'bcc')
+    .map((v) => template(v, run).trim())
+    .filter(Boolean);
   for (const list of [cc, bcc])
     for (const item of list)
-      if (!isAddress(item)) throw new EmailActionError(`Invalid recipient address: ${item}`, 'validation');
+      if (!isAddress(item))
+        throw new EmailActionError(`Invalid recipient address: ${item}`, 'validation');
 
   // bodyPlain required (legacy `body` accepted as its pre-A2 alias).
   const bodyPlain = str(meta.bodyPlain) || str(meta.body);
@@ -151,18 +160,33 @@ export function parseEmailInput(raw: unknown, run: Record<string, unknown>): Par
 
   const rawAttachments = Array.isArray(meta.attachments) ? meta.attachments : [];
   const attachments = rawAttachments.map((entry, index) => {
-    const url = typeof entry === 'string' ? template(entry, run).trim() : template(String((entry as any)?.url ?? ''), run).trim();
-    const filename =
+    const url =
       typeof entry === 'string'
-        ? ''
-        : template(String((entry as any)?.filename ?? ''), run).trim();
+        ? template(entry, run).trim()
+        : template(String((entry as any)?.url ?? ''), run).trim();
+    const filename =
+      typeof entry === 'string' ? '' : template(String((entry as any)?.filename ?? ''), run).trim();
     if (!url) throw new EmailActionError(`Attachment ${index + 1} is missing a URL`, 'validation');
     if (!/^https?:\/\//i.test(url))
-      throw new EmailActionError(`Attachment ${index + 1} has an invalid URL: ${url}`, 'validation');
+      throw new EmailActionError(
+        `Attachment ${index + 1} has an invalid URL: ${url}`,
+        'validation'
+      );
     return { url, filename };
   });
 
-  return { to, cc, bcc, subject, bodyPlain, bodyHtml: str(meta.bodyHtml), replyTo, fromName, fromEmail, attachments };
+  return {
+    to,
+    cc,
+    bcc,
+    subject,
+    bodyPlain,
+    bodyHtml: str(meta.bodyHtml),
+    replyTo,
+    fromName,
+    fromEmail,
+    attachments,
+  };
 }
 
 const EXT_TYPES: Record<string, string> = {
@@ -205,7 +229,10 @@ export async function fetchAttachment(
   fetchImpl: typeof fetch
 ): Promise<EmailAttachment> {
   const fail = (reason: string): never => {
-    throw new EmailActionError(`attachment_fetch_failed: ${url} (${reason})`, 'attachment_fetch_failed');
+    throw new EmailActionError(
+      `attachment_fetch_failed: ${url} (${reason})`,
+      'attachment_fetch_failed'
+    );
   };
   let response: Response;
   try {
@@ -253,7 +280,9 @@ export async function fetchAttachment(
 
 const headerWord = (value: string): string =>
   // RFC 2047 encode-word for non-ASCII; ASCII subjects pass through (CRLF rejected earlier).
-  /^[\x20-\x7E]*$/.test(value) ? value : `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`;
+  /^[\x20-\x7E]*$/.test(value)
+    ? value
+    : `=?UTF-8?B?${Buffer.from(value, 'utf8').toString('base64')}?=`;
 
 function wrapBase64(data: string): string {
   return (data.match(/.{1,76}/g) || []).join('\r\n');
@@ -350,7 +379,11 @@ export function buildMime(
 }
 
 export const toBase64Url = (value: string): string =>
-  Buffer.from(value, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  Buffer.from(value, 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 
 interface GmailServerRow {
   id: string;
@@ -451,7 +484,9 @@ async function assertOwnedFrom(
       { headers: { Authorization: `Bearer ${token}` } }
     );
     if (response.ok) {
-      const body = (await response.json()) as { sendAs?: { sendAsEmail?: string; verified?: boolean }[] };
+      const body = (await response.json()) as {
+        sendAs?: { sendAsEmail?: string; verified?: boolean }[];
+      };
       const owned = (body.sendAs || [])
         .filter((entry) => entry.verified !== false)
         .map((entry) => (entry.sendAsEmail || '').toLowerCase());
@@ -471,10 +506,7 @@ async function assertOwnedFrom(
 function classifyGmailSendError(status: number, bodyText: string): EmailActionError {
   const lower = bodyText.toLowerCase();
   if (status === 401 || /invalid credentials|invalid_grant|unauthenticated/.test(lower))
-    return new EmailActionError(
-      'Gmail connection is revoked or invalid — reconnect Gmail',
-      'auth'
-    );
+    return new EmailActionError('Gmail connection is revoked or invalid — reconnect Gmail', 'auth');
   if (status === 429 || /quota|rate limit|too many requests|user rate limit/.test(lower))
     return new EmailActionError(
       `Gmail send quota exhausted or rate limited (HTTP ${status}) — try again later or reduce volume`,
@@ -538,7 +570,9 @@ export async function sendEmailAction(
   } catch (error) {
     const timedOut = (error as Error)?.name === 'AbortError';
     throw new EmailActionError(
-      timedOut ? 'Gmail send timed out (at-least-once: a retry may duplicate)' : 'Gmail send failed: network error',
+      timedOut
+        ? 'Gmail send timed out (at-least-once: a retry may duplicate)'
+        : 'Gmail send failed: network error',
       'provider',
       true
     );
