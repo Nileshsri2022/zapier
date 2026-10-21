@@ -108,6 +108,29 @@ Gate status: ⛔ **no implementation approved** — docs only.
 | Q-WHT-05 | Test vs production URLs + rotation? | ✅ **Separate test/prod URLs** (test = samples, no runs); rotation **revokes old URL immediately** |
 | Q-WHT-06 | Dedupe on caller retries? (added in round 7) | ✅ **Dedupe on `x-request-id` when present**; no header ⇒ deliver |
 
+### Implementation notes (continued)
+
+- **T5 — Catch Hook:** standalone `apps/hooks/src/catchHook.ts` router — all
+  five verbs, raw capture with 1MB → 413, JSON/form parsing (+ bodyRaw
+  fallback), fixed-200-empty acks, per-hook authMode (none/static 401/hmac
+  403) with per-zap secret, `x-request-id` dedupe (legacy event_id kept),
+  separate test URL (samples capped at 10 in `Trigger.metadata.hookSamples`,
+  never enqueues), rotatable production URL segment (old URLs 410
+  immediately), header allowlist + authorization/cookie redaction. Config
+  UI rewritten to the spec surface; dashboard renders hookId-aware URLs;
+  zapId threaded PublishZap → Modal (also un-breaks the GitHub URL display).
+- **T6 — WhatsApp inbound:** mandatory `X-Hub-Signature-256` added (fail
+  closed — missing app secret config also rejects, matching the spec's
+  "always rejected" wording and the Gmail precedent), §4 contract
+  (ISO timestamp, `text:{body}`, media metadata, `raw`), phone-number-id
+  filter kept via WhatsAppServer binding, messageId dedupe kept, unknown
+  types → `'unknown'` + raw, full batch fan-out (entries × changes ×
+  messages), processing errors now 5xx so Meta retries land under the
+  messageId dedupe. **Note:** app secret sourced from env
+  `WHATSAPP_APP_SECRET` — the schema has no `appSecret` column on
+  WhatsAppServer; adding it is a migration deferred with connection-UX
+  work (non-critical).
+
 ## T6 — WhatsApp trigger (inbound) ✅ **grilled** (round 8)
 
 | ID | Question | Answer |

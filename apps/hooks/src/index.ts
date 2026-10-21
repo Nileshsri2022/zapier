@@ -32,7 +32,15 @@ app.use((req, res, next) => {
 // available for HMAC verification and bodyRaw.
 app.use('/hooks', catchHookRouter);
 
-app.use(express.json());
+app.use(
+  express.json({
+    // Expose the exact received bytes for HMAC verification (WhatsApp
+    // X-Hub-Signature-256 and other raw-body signers).
+    verify: (req: any, _res: any, buf: Buffer) => {
+      req.rawBody = buf;
+    },
+  })
+);
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {
