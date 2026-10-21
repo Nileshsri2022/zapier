@@ -47,6 +47,9 @@ export function looksLikeHeaderRow(firstRow: any[]): boolean {
   });
 }
 
+/** Field inside the row-hash hash that marks it as baselined (#46). */
+const BASELINE_FIELD = '__meta__';
+
 export class GoogleSheetsPoller extends BasePoller {
   name = 'google-sheets';
   emoji = '📊';
@@ -165,6 +168,12 @@ export class GoogleSheetsPoller extends BasePoller {
     }));
 
     const redisKey = this.getRedisKey(trigger.id);
+    // A missing baseline means this is the first poll for the trigger (or the
+    // hash key expired after 30 idle days). Publishing a Zap must not fire one
+    // run per pre-existing row, so the first poll only records what is already
+    // there (#46). `__meta__` lives in the same hash, so its presence *is* the
+    // baseline marker and it survives exactly as long as the row hashes do.
+    const hasBaseline = (await redis.hget(redisKey, BASELINE_FIELD)) !== null;
     const fireRows: SheetsRowEvent[] = [];
     // Hashes are collected, not written, until every run for this poll has been
     // enqueued. Writing them inline marked a row "seen" before its run existed,
@@ -190,7 +199,8 @@ export class GoogleSheetsPoller extends BasePoller {
       const isChangedRow = Boolean(oldHash) && oldHash !== newHash;
 
       // New Row mode drops in-place edits (they only refresh the hash).
-      const shouldFire = isNewRow || (!newRowOnly && isChangedRow);
+      // Nothing fires on the baseline poll: every row is "new" by definition.
+      const shouldFire = hasBaseline && (isNewRow || (!newRowOnly && isChangedRow));
 
       if (shouldFire) {
         const rowData: Record<string, any> = {};
@@ -218,6 +228,21 @@ export class GoogleSheetsPoller extends BasePoller {
       }
 
       hashUpdates[rowKey] = newHash;
+    }
+    hashUpdates[BASELINE_FIELD] = '1';
+
+    if (!hasBaseline) {
+      // Record the current sheet as the baseline. No runs, by design.
+      await redis.hset(redisKey, hashUpdates);
+      await redis.expire(redisKey, 60 * 60 * 24 * 30);
+      await client.googleSheetsTrigger.update({
+        where: { id: trigger.id },
+        data: { lastPolledAt: new Date() },
+      });
+      console.log(
+        `${this.emoji} Baselined ${Object.keys(hashUpdates).length - 1} row(s) for trigger ${trigger.id} — no runs fired`
+      );
+      return 0;
     }
 
     // Nothing to enqueue: persisting the hashes is the whole effect of the poll.

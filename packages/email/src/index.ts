@@ -82,9 +82,7 @@ async function checkBucket(
   };
 }
 
-async function checkRateLimit(
-  scope?: EmailScope
-): Promise<{
+async function checkRateLimit(scope?: EmailScope): Promise<{
   allowed: boolean;
   remaining: number;
   resetIn: number;
