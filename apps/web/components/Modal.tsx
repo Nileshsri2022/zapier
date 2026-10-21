@@ -22,6 +22,7 @@ import {
   ScheduleMetaData,
   GitHubMetaData,
   DiscordMetaData,
+  TelegramMetaData,
 } from './metadata';
 
 // APPS and types are now imported from ./modal/
@@ -61,7 +62,9 @@ const Modal = ({
   const [connectingBot, setConnectingBot] = useState(false);
 
   const handleSaveMetaData = (data: any) => {
-    onClick && onClick({ ...selectedItem, metadata: data });
+    // Merge — step-3 forms must not drop keys threaded earlier (botId,
+    // serverId, hook ids...).
+    onClick && onClick({ ...selectedItem, metadata: { ...(selectedItem?.metadata || {}), ...data } });
     resetModal();
   };
 
@@ -216,17 +219,21 @@ const Modal = ({
       selectedItem.type === 'Solana' ||
       selectedItem.type === 'AI Transform' ||
       selectedItem.type === 'Discord Send Message' ||
-      selectedItem.type.startsWith('Schedule'); // Add Schedule
+      selectedItem.type.startsWith('Schedule') ||
+      selectedItem.type.startsWith('Telegram'); // T7: chat-type filter
 
     if (needsMetadata) {
-      // Add serverId to metadata for OAuth apps
+      // Preserve metadata threaded in the account step (botId for Telegram)
+      // and add serverId for OAuth apps.
+      let nextItem = itemWithAccount;
       if (
         selectedApp?.id === 'sheets' ||
         selectedApp?.id === 'gmail' ||
         selectedApp?.id === 'calendar'
       ) {
-        setSelectedItem({ ...selectedItem, serverId: selectedServerId });
+        nextItem = { ...nextItem, serverId: selectedServerId };
       }
+      setSelectedItem(nextItem);
       setStep(3);
     } else {
       onClick && onClick(itemWithAccount);
@@ -596,6 +603,8 @@ const Modal = ({
               selectedType={selectedItem?.type}
               zapId={zapId}
             />
+          ) : selectedItem?.type?.startsWith('Telegram') ? (
+            <TelegramMetaData handleClick={handleSaveMetaData} />
           ) : selectedItem?.type?.includes('Gmail') ? (
             <GmailMetaData
               handleClick={handleSaveMetaData}

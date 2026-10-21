@@ -26,6 +26,13 @@ jest.mock('@repo/db', () => ({
       update: jest.fn(),
       create: jest.fn(),
     },
+    telegramBot: {
+      findUnique: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      create: jest.fn(),
+    },
     whatsAppTrigger: {
       findUnique: jest.fn(),
       findMany: jest.fn(),

@@ -141,6 +141,23 @@ Gate status: ⛔ **no implementation approved** — docs only.
 | Q-WA-T-04 | Signature validation mandatory? | ✅ **Mandatory** — reject unsigned/invalid always |
 | Q-WA-T-05 | Filtering? | ✅ **Filter by phone number id** on shared Meta connection (multi-number WABA routing) |
 
+### Implementation notes (continued)
+
+- **T7 — Telegram inbound:** dedupe moved to `update_id` per Q-TG-T-05
+  (was message_id — test assertion updated to spec), §4 contract
+  (`updateId/chat/from/date/text/entities/media/replyToMessageId/raw` +
+  flat legacy aliases; `text` now null for non-text per spec), media
+  metadata with photo-array size handling and message-level captions,
+  per-Zap chat-type filter from `Trigger.metadata.chatTypes` (supergroup
+  matches group; new TelegramMetaData form + Modal step-3 wiring — the
+  step-3 save now *merges* metadata so threaded botId survives),
+  `secret_token` passed to `setWebhook` and validated when
+  `TELEGRAM_WEBHOOK_SECRET` is set, and a **getUpdates polling fallback**
+  as cron route `POST /api/cron/poll-telegram` (hooks service,
+  Bearer CRON_SECRET fail-closed): only webhook-less bots are polled,
+  offset advances only after a clean batch (failures keep it → Telegram
+  redelivers → update_id dedupe absorbs), 401/429/409 classified.
+
 ## T7 — Telegram trigger (inbound) ✅ **grilled** (round 9)
 
 | ID | Question | Answer |

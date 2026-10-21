@@ -6,6 +6,7 @@ import { verifyWhatsAppWebhook, handleWhatsAppWebhook } from './whatsappHandler'
 import { handleTelegramWebhook } from './telegramHandler';
 import { handleGoogleCalendarWebhook } from './googleCalendarHandler';
 import { catchHookRouter } from './catchHook';
+import { pollTelegramBots } from './telegramPoll';
 
 dotenv.config();
 
@@ -67,6 +68,32 @@ app.post('/api/webhooks/telegram', handleTelegramWebhook);
 // Google Calendar Webhook Routes (Push Notifications)
 // ============================================
 app.post('/api/webhooks/google-calendar', handleGoogleCalendarWebhook);
+
+// ============================================
+// Telegram polling fallback (T7 Q-TG-T-02)
+// Cron-secured: Bearer CRON_SECRET, fail closed when unset (same posture
+// as the processor's cron routes). Only bots WITHOUT a registered webhook
+// are polled — getUpdates and setWebhook cannot coexist (409).
+// ============================================
+function verifyCronSecret(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  next();
+}
+
+app.post('/api/cron/poll-telegram', verifyCronSecret, async (req: Request, res: Response) => {
+  try {
+    const result = await pollTelegramBots();
+    res.json({ message: 'Telegram polling sweep complete', ...result });
+  } catch (error) {
+    console.error('❌ Telegram polling sweep failed:', error);
+    res.status(500).json({ error: 'Polling sweep failed' });
+  }
+});
 
 // JSON parsing error handler (must be after routes)
 app.use((err: any, req: any, res: any, next: NextFunction) => {

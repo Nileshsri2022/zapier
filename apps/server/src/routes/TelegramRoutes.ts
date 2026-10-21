@@ -91,6 +91,10 @@ router.post(
         await axios.post(`${TELEGRAM_API}${botToken}/setWebhook`, {
           url: webhookUrl,
           allowed_updates: ['message', 'callback_query'],
+          // T7: secret-token header validated by the hooks ingress when set
+          ...(process.env.TELEGRAM_WEBHOOK_SECRET
+            ? { secret_token: process.env.TELEGRAM_WEBHOOK_SECRET }
+            : {}),
         });
         await client.telegramBot.update({
           where: { id: bot.id },
@@ -160,6 +164,9 @@ router.post('/bots/:id/webhook', authMiddleware, async (req: Request, res: Respo
     await axios.post(`${TELEGRAM_API}${bot.botToken}/setWebhook`, {
       url: `${webhookBase}/api/webhooks/telegram/${bot.id}`,
       allowed_updates: ['message', 'callback_query'],
+      ...(process.env.TELEGRAM_WEBHOOK_SECRET
+        ? { secret_token: process.env.TELEGRAM_WEBHOOK_SECRET }
+        : {}),
     });
 
     await client.telegramBot.update({
