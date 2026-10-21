@@ -116,29 +116,19 @@ export async function executeActionWithRetry(
       }
 
       if (actionType.startsWith('WhatsApp')) {
-        const { to, message, phoneNumberId, accessToken } = metadata;
-        const resolvedTo = replaceKeys(to, zapRunMetadata);
-        const resolvedMessage = replaceKeys(message, zapRunMetadata);
-
-        // Dynamic imports for sendWhatsApp
-        const { sendWhatsAppMessage } = await import('./sendWhatsApp.js');
-
-        const result = await sendWhatsAppMessage(
-          phoneNumberId,
-          accessToken,
-          resolvedTo,
-          resolvedMessage
+        // A5: shared Meta connection, template/freeform kinds, strict phone
+        // validation. Credentials never come from step metadata.
+        const { sendWhatsAppAction } = await import('./sendWhatsApp.js');
+        const output = await sendWhatsAppAction(
+          metadata,
+          { ...zapRunMetadata, userId: zapRunMetadata?.userId ?? context?.userId },
+          {}
         );
-
-        if (!result.success) {
-          throw new Error(`WhatsApp send failed: ${result.error}`);
-        }
-
-        console.log(`✅ WhatsApp message sent to ${resolvedTo}`);
+        console.log(`✅ WhatsApp ${output.kind} message sent to ${output.to}`);
         return {
           success: true,
-          message: `WhatsApp sent to ${resolvedTo}`,
-          output: { to: resolvedTo, sentAt: new Date().toISOString() },
+          message: `WhatsApp sent to ${output.to}`,
+          output,
         };
       }
 

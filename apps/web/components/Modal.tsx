@@ -24,6 +24,7 @@ import {
   GitHubMetaData,
   DiscordMetaData,
   TelegramMetaData,
+  WhatsAppMetaData,
 } from './metadata';
 
 // APPS and types are now imported from ./modal/
@@ -653,6 +654,9 @@ const Modal = ({
             <SolanaMetaData handleClick={handleSaveMetaData} />
           ) : selectedItem?.type?.includes('Gmail') ? (
             <GmailMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} />
+          ) : selectedItem?.type?.startsWith('WhatsApp') ? (
+            // A5: WhatsApp Send action — sender picker, template/freeform.
+            <WhatsAppMetaData handleClick={handleSaveMetaData} />
           ) : selectedItem?.type === 'Discord Send Message' ? (
             <DiscordMetaData handleClick={handleSaveMetaData} />
           ) : (

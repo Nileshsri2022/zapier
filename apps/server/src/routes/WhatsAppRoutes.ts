@@ -204,6 +204,69 @@ router.post(
 );
 
 // ============================================
+// WhatsApp Message Templates (A5 / Q-WA-A-02)
+// ============================================
+
+/**
+ * Approved templates for the builder dropdown, fetched from Meta and reduced to
+ * name/language/param count. The WABA access token stays server-side and is
+ * never returned. `paramCount` counts {{n}} placeholders in the BODY component
+ * so the builder can validate positional params before the run.
+ */
+router.get('/templates', authMiddleware, async (req: Request, res: Response): Promise<any> => {
+  try {
+    // @ts-ignore - id is set by authMiddleware
+    const userId = req.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const serverId = String(req.query.serverId ?? '');
+    const server = await client.whatsAppServer.findFirst({
+      where: { userId, isActive: true, ...(serverId ? { id: serverId } : {}) },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!server) return res.status(404).json({ message: 'No active WhatsApp connection' });
+
+    const url =
+      `https://graph.facebook.com/v18.0/${server.businessId}/message_templates` +
+      '?fields=name,language,status,components&limit=200';
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${server.accessToken}` },
+    });
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      return res.status(502).json({
+        message: 'Meta rejected the template listing',
+        status: response.status,
+        error: body.slice(0, 300),
+      });
+    }
+    const payload: any = await response.json().catch(() => ({}));
+    const templates = (Array.isArray(payload?.data) ? payload.data : [])
+      .filter((entry: any) => String(entry?.status ?? '').toUpperCase() === 'APPROVED')
+      .map((entry: any) => {
+        const bodyComponent = (Array.isArray(entry?.components) ? entry.components : []).find(
+          (component: any) => String(component?.type ?? '').toUpperCase() === 'BODY'
+        );
+        const text = String(bodyComponent?.text ?? '');
+        const placeholders = new Set(
+          Array.from(text.matchAll(/\{\{\s*(\d+)\s*\}\}/g)).map((match) => match[1])
+        );
+        return {
+          name: String(entry?.name ?? ''),
+          language: String(entry?.language ?? 'en_US'),
+          paramCount: placeholders.size,
+          status: 'APPROVED',
+        };
+      });
+
+    res.json({ templates });
+  } catch (error: any) {
+    console.error('Error fetching WhatsApp templates:', error);
+    res.status(500).json({ message: 'Failed to fetch WhatsApp templates' });
+  }
+});
+
+// ============================================
 // WhatsApp Trigger Routes
 // ============================================
 

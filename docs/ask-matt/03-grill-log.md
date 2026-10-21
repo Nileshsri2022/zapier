@@ -372,6 +372,47 @@ Gate status: ⛔ **no implementation approved** — docs only.
 | Q-WA-A-05 | Success definition? | ✅ **API-accepted (200 + messageId)**; delivery receipts = future (T6-E2 backlog) |
 | Q-WA-A-06 | Sender number? (added round 15) | ✅ **Per-step picker of the connection's phone number ids** |
 
+### A5 — WhatsApp action implementation notes
+
+- **A5 — WhatsApp Send:** `apps/worker/src/sendWhatsApp.ts` rewritten around
+  `sendWhatsAppAction`. Q-WA-A-06 sender resolution now comes from the shared
+  `WhatsAppServer` connection (active row for the run's `userId`, optionally
+  narrowed by `fromPhoneNumberId`); a foreign/unconfigured number id or a
+  missing connection fails with `auth` before any network call — step metadata
+  can no longer carry a token.
+- **Q-WA-A-04** strict recipient rule: `+` optional, `+`/space/dash/parens
+  stripped, digits only, 7–15 digits, no leading 0, and **no `+` requires 11+
+  digits** so a bare national number is rejected as `invalid_recipient` naming
+  the raw value.
+- **Q-WA-A-01/Q-A2:** `template` messages send `{{1}}..{{n}}` positional params
+  (run metadata resolves `{mapped}`/`{{mapped}}` while numeric `{{n}}` slots
+  stay untouched) shipped as a BODY component; `freeform` text (≤4096) enforces
+  the **24h window** — pre-checked against `lastCustomerMessageAt` when present
+  and classified from Meta's `131047` otherwise, with **no auto-fallback** to a
+  template. `param_count_mismatch` is caught pre-send when the dropdown's
+  `paramCount` is known.
+- **Q-WA-A-03** media-by-link: `image|document|video|audio` with `link` +
+  caption, and the URL is probed (HEAD, GET fallback) first — unreachable ⇒
+  `media_fetch_failed` and the run fails (never a silent text-only send).
+- **Q-WA-A-05** API acceptance (a `wamid…`) is success; delivery statuses are
+  not awaited. Output is the §4 shape (`sent`, `messageId`, `to`,
+  `fromPhoneNumberId`, `kind`, `acceptedAt`, `error: null`). Error classes:
+  `invalid_recipient`, `template_not_found`, `template_not_approved`,
+  `param_count_mismatch`, `outside_session_window`, `media_fetch_failed`,
+  `auth`, `rate_limited` (retryable), `provider` (5xx retryable). Tokens are
+  never logged or echoed.
+- **Q-WA-A-02** dropdown source: new `GET /api/whatsapp/templates` returns only
+  **APPROVED** templates for the caller's WABA with `name/language/paramCount`
+  (counts derived from the BODY component's `{{n}}` placeholders); the access
+  token stays server-side.
+- Builder: new `WhatsAppMetaData` (sender picker limited to the connection,
+  template dropdown + generated param inputs, freeform text/media/caption with
+  a 24h-window note) wired into the Modal for WhatsApp **action** steps, which
+  previously fell through to "No configuration needed".
+- Tests: new `apps/worker/tests/sendWhatsApp.test.ts` (18) and
+  `apps/server/tests/integrations/whatsapp-templates.test.ts` (4); the old
+  axios-timeout WhatsApp case moved to the new transport test.
+
 ## A6 — Telegram action (send) ✅ **grilled** (round 16)
 
 | ID | Question | Answer |
