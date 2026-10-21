@@ -95,17 +95,12 @@ export function FilterBuilder({ zapId, initialConditions = [], onSave }: FilterB
   return (
     <div className="filter-builder">
       {/* Header */}
-      <div
-        className="filter-builder__header"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
+      <div className="filter-builder__header" onClick={() => setIsExpanded(!isExpanded)}>
         <div className="filter-builder__head-left">
           <Filter size={18} className="filter-builder__icon" />
           <span className="filter-builder__title">Filters</span>
           {conditions.length > 0 && (
-            <span className="filter-builder__count">
-              {conditions.length}
-            </span>
+            <span className="filter-builder__count">{conditions.length}</span>
           )}
         </div>
         <div className="filter-builder__head-right">
@@ -173,11 +168,7 @@ export function FilterBuilder({ zapId, initialConditions = [], onSave }: FilterB
 
           {/* Actions */}
           <div className="filter-builder__actions">
-            <button
-              type="button"
-              onClick={addCondition}
-              className="filter-builder__add-btn"
-            >
+            <button type="button" onClick={addCondition} className="filter-builder__add-btn">
               <Plus size={16} />
               Add Condition
             </button>

@@ -165,7 +165,13 @@ describe('T7 contract (§4)', () => {
         text: undefined,
         photo: [
           { file_id: 'small', file_unique_id: 'us', width: 90, height: 60 },
-          { file_id: 'AgACAgIAAx…', file_unique_id: 'AQAD…', width: 800, height: 600, mime_type: 'image/jpeg' },
+          {
+            file_id: 'AgACAgIAAx…',
+            file_unique_id: 'AQAD…',
+            width: 800,
+            height: 600,
+            mime_type: 'image/jpeg',
+          },
         ],
         caption: 'look at this',
       },
@@ -288,5 +294,37 @@ describe('buildTelegramRunPayload pure helpers', () => {
     expect(p.command).toBe('/start');
     expect(p.commandArgs).toBe('now');
     expect(p.updateId).toBe(3);
+  });
+
+  // Telegram appends `@botname` in groups (privacy mode), which is exactly where
+  // command-driven Zaps are used. The mention is addressing, not an argument.
+  it('strips the @botname mention from commandArgs (group-chat form)', () => {
+    const update: any = {
+      update_id: 4,
+      message: { ...baseUpdate.message, text: '/start@zapmate_bot alpha beta' },
+    };
+    const p = buildTelegramRunPayload(update, update.message);
+    expect(p.isCommand).toBe(true);
+    expect(p.command).toBe('/start');
+    expect(p.commandArgs).toBe('alpha beta');
+  });
+
+  it('has empty args for a bare mentioned command', () => {
+    const update: any = {
+      update_id: 5,
+      message: { ...baseUpdate.message, text: '/help@zapmate_bot' },
+    };
+    const p = buildTelegramRunPayload(update, update.message);
+    expect(p.command).toBe('/help');
+    expect(p.commandArgs).toBe('');
+  });
+
+  it('does not leak the mention when argument text repeats the command', () => {
+    const update: any = {
+      update_id: 6,
+      message: { ...baseUpdate.message, text: '/deploy@zapmate_bot deploy production' },
+    };
+    const p = buildTelegramRunPayload(update, update.message);
+    expect(p.commandArgs).toBe('deploy production');
   });
 });

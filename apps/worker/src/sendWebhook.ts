@@ -108,12 +108,7 @@ export function assertAllowedTarget(rawUrl: string, allowPrivateNetwork = false)
       );
   }
   const ipv6 = host.toLowerCase();
-  if (
-    ipv6 === '::1' ||
-    ipv6.startsWith('fe80:') ||
-    ipv6.startsWith('fc') ||
-    ipv6.startsWith('fd')
-  )
+  if (ipv6 === '::1' || ipv6.startsWith('fe80:') || ipv6.startsWith('fc') || ipv6.startsWith('fd'))
     throw new WebhookActionError(
       `Blocked target "${host}": private/link-local addresses are denied by default`,
       'blocked_target'
@@ -153,15 +148,13 @@ function parseAcceptStatuses(raw: unknown): number[] | 'any' {
     return values;
   }
   if (Array.isArray(raw)) return parseAcceptStatuses(raw.join(','));
-  throw new WebhookActionError('acceptStatuses must be "any" or a list of status codes', 'validation');
+  throw new WebhookActionError(
+    'acceptStatuses must be "any" or a list of status codes',
+    'validation'
+  );
 }
 
-function buildAuth(
-  auth: any,
-  url: URL,
-  headers: Record<string, string>,
-  secrets: string[]
-): void {
+function buildAuth(auth: any, url: URL, headers: Record<string, string>, secrets: string[]): void {
   if (!auth) return;
   const type = String(auth.type ?? 'none').toLowerCase();
   if (type === 'none' || !type) return;
@@ -229,7 +222,9 @@ export function buildRequest(rawMetadata: unknown, run: Record<string, unknown>)
   const secrets: string[] = [];
   buildAuth(metadata.auth, url, headers, secrets);
 
-  const bodyMode = String(metadata.bodyMode ?? (metadata.body === undefined ? 'none' : 'json')).toLowerCase();
+  const bodyMode = String(
+    metadata.bodyMode ?? (metadata.body === undefined ? 'none' : 'json')
+  ).toLowerCase();
   let body: string | undefined;
   if (bodyMode !== 'none' && bodyMode !== '') {
     if (method === 'GET')
@@ -263,19 +258,20 @@ export function buildRequest(rawMetadata: unknown, run: Record<string, unknown>)
       if (payload && typeof payload === 'object' && !Array.isArray(payload))
         for (const [key, value] of Object.entries(payload))
           if (value !== undefined && value !== null) params.set(key, String(value));
-      else if (typeof payload === 'string')
-        payload
-          .split('&')
-          .filter(Boolean)
-          .forEach((pair) => {
-            const [key, ...rest] = pair.split('=');
-            if (key) params.set(key, rest.join('='));
-          });
+          else if (typeof payload === 'string')
+            payload
+              .split('&')
+              .filter(Boolean)
+              .forEach((pair) => {
+                const [key, ...rest] = pair.split('=');
+                if (key) params.set(key, rest.join('='));
+              });
       body = params.toString();
       if (!headers['Content-Type'] && !headers['content-type'])
         headers['Content-Type'] = 'application/x-www-form-urlencoded';
     } else if (bodyMode === 'raw') {
-      body = typeof metadata.body === 'string' ? metadata.body : JSON.stringify(metadata.body ?? '');
+      body =
+        typeof metadata.body === 'string' ? metadata.body : JSON.stringify(metadata.body ?? '');
       if (!headers['Content-Type'] && !headers['content-type'])
         headers['Content-Type'] = 'text/plain; charset=utf-8';
     } else {

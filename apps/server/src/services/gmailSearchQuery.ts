@@ -37,9 +37,7 @@ export interface SearchableEmail {
   bodyPlain?: string;
 }
 
-type QueryToken =
-  | { kind: 'field'; field: string; value: string }
-  | { kind: 'text'; value: string };
+type QueryToken = { kind: 'field'; field: string; value: string } | { kind: 'text'; value: string };
 
 /** Tokenize a Gmail-style query into field and free-text tokens. */
 export function tokenizeGmailQuery(query: string): QueryToken[] {
@@ -71,12 +69,7 @@ function includesCI(haystack: string | undefined | null, needle: string): boolea
 
 function matchesToken(token: QueryToken, email: SearchableEmail): boolean {
   if (token.kind === 'text') {
-    const fields = [
-      email.subject,
-      email.from,
-      email.snippet,
-      email.bodyPlain ?? email.body,
-    ];
+    const fields = [email.subject, email.from, email.snippet, email.bodyPlain ?? email.body];
     return fields.some((f) => includesCI(f, token.value));
   }
 

@@ -43,7 +43,10 @@ function makeDb(overrides: Record<string, any> = {}) {
   };
 }
 
-function jsonResponse(body: unknown, init: { status?: number; headers?: Record<string, string> } = {}) {
+function jsonResponse(
+  body: unknown,
+  init: { status?: number; headers?: Record<string, string> } = {}
+) {
   return {
     ok: (init.status ?? 200) < 400,
     status: init.status ?? 200,
@@ -85,9 +88,9 @@ describe('validation (spec §4/§6): nothing is sent', () => {
   });
 
   it('rejects header injection in subject/fromName', () => {
-    expect(() => parseEmailInput({ ...validMeta(), subject: 'x\r\nBcc: evil@bad.co' }, RUN)).toThrow(
-      expect.objectContaining({ code: 'validation' })
-    );
+    expect(() =>
+      parseEmailInput({ ...validMeta(), subject: 'x\r\nBcc: evil@bad.co' }, RUN)
+    ).toThrow(expect.objectContaining({ code: 'validation' }));
     expect(() => parseEmailInput({ ...validMeta(), fromName: 'a\nBcc: x@y.co' }, RUN)).toThrow(
       expect.objectContaining({ code: 'validation' })
     );
@@ -195,7 +198,10 @@ describe('Q-EMAIL-04 attachments: ≤5 MB, fail closed', () => {
     const declared = jest.fn(async () => ({
       ok: true,
       status: 200,
-      headers: { get: (key: string) => (key.toLowerCase() === 'content-length' ? String(ATTACHMENT_MAX_BYTES + 1) : null) },
+      headers: {
+        get: (key: string) =>
+          key.toLowerCase() === 'content-length' ? String(ATTACHMENT_MAX_BYTES + 1) : null,
+      },
       body: bodyOf(8),
     }));
     await expect(
@@ -284,7 +290,10 @@ describe('send path, from policy and error classes', () => {
       })
     ).resolves.toMatchObject({ sent: true });
     const send = (defaultFetch.mock.calls[0] as [string, any])[1].body;
-    const decoded = Buffer.from(JSON.parse(send).raw.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString();
+    const decoded = Buffer.from(
+      JSON.parse(send).raw.replace(/-/g, '+').replace(/_/g, '/'),
+      'base64'
+    ).toString();
     expect(decoded).toContain('owner@example.com');
   });
 
@@ -322,7 +331,10 @@ describe('send path, from policy and error classes', () => {
       text: async () => 'User-rate limit exceeded',
     }));
     await expect(
-      sendEmailAction(validMeta(), RUN, { fetchImpl: quota as unknown as typeof fetch, db: makeDb() as any })
+      sendEmailAction(validMeta(), RUN, {
+        fetchImpl: quota as unknown as typeof fetch,
+        db: makeDb() as any,
+      })
     ).rejects.toMatchObject({ code: 'quota', retryable: false });
 
     const revoked = jest.fn(async () => ({
@@ -330,7 +342,10 @@ describe('send path, from policy and error classes', () => {
       text: async () => 'Invalid Credentials',
     }));
     await expect(
-      sendEmailAction(validMeta(), RUN, { fetchImpl: revoked as unknown as typeof fetch, db: makeDb() as any })
+      sendEmailAction(validMeta(), RUN, {
+        fetchImpl: revoked as unknown as typeof fetch,
+        db: makeDb() as any,
+      })
     ).rejects.toMatchObject({ code: 'auth', retryable: false });
   });
 
@@ -346,7 +361,10 @@ describe('send path, from policy and error classes', () => {
   it('refreshes an expired token and retries transient 5xx only', async () => {
     const expired = { ...server, accessToken: 'stale', tokenExpiry: new Date(Date.now() - 1000) };
     const db = {
-      gmailServer: { findFirst: jest.fn(async () => expired), update: jest.fn(async () => expired) },
+      gmailServer: {
+        findFirst: jest.fn(async () => expired),
+        update: jest.fn(async () => expired),
+      },
     };
     const fetchImpl = jest.fn(async (url: string) => {
       if (String(url).includes('oauth2.googleapis.com/token'))

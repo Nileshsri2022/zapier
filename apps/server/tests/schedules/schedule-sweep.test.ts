@@ -145,9 +145,12 @@ describe('process-schedules — contract + idempotency', () => {
 
 describe('POST /api/schedule/preview (M5 next-fires)', () => {
   it('returns five local fires for a valid cron in the selected timezone', async () => {
-    const res = await request(app)
-      .post('/api/schedule/preview')
-      .send({ scheduleType: 'cron', cron: '*/15 9-17 * * 1-5', timezone: 'Asia/Kolkata', count: 5 });
+    const res = await request(app).post('/api/schedule/preview').send({
+      scheduleType: 'cron',
+      cron: '*/15 9-17 * * 1-5',
+      timezone: 'Asia/Kolkata',
+      count: 5,
+    });
 
     expect(res.status).toBe(200);
     expect(res.body.fires).toHaveLength(5);

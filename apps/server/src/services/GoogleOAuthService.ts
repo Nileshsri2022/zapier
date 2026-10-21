@@ -138,9 +138,7 @@ export class GoogleOAuthService {
       return {
         userId,
         service: parsed.service,
-        ...(typeof parsed.name === 'string' && parsed.name.trim()
-          ? { name: parsed.name }
-          : {}),
+        ...(typeof parsed.name === 'string' && parsed.name.trim() ? { name: parsed.name } : {}),
       };
     } catch {
       throw new Error('Invalid state parameter');

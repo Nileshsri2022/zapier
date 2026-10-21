@@ -411,7 +411,7 @@ describe('GoogleSheetsPoller — T2 grilled spec (docs/ask-matt, round 4)', () =
     });
   });
 
-  it("New Row mode: fires only on appends — an in-place edit just refreshes the hash", async () => {
+  it('New Row mode: fires only on appends — an in-place edit just refreshes the hash', async () => {
     (client.googleSheetsTrigger.findMany as jest.Mock).mockResolvedValue([
       triggerWithType('Google Sheets New Row'),
     ]);
@@ -522,9 +522,7 @@ describe('GoogleSheetsPoller — T2 grilled spec (docs/ask-matt, round 4)', () =
 
     expect(result.processed).toBe(2);
     expect(enqueueRun).toHaveBeenCalledTimes(2);
-    const rows = (enqueueRun as jest.Mock).mock.calls.map(
-      (c: any[]) => c[0].metadata.rowNumber
-    );
+    const rows = (enqueueRun as jest.Mock).mock.calls.map((c: any[]) => c[0].metadata.rowNumber);
     expect(rows).toEqual([2, 5]);
   });
 
@@ -544,9 +542,7 @@ describe('GoogleSheetsPoller — T2 grilled spec (docs/ask-matt, round 4)', () =
     const result = await poller.poll();
 
     expect(result.processed).toBe(2);
-    const events = (enqueueRun as jest.Mock).mock.calls.map(
-      (c: any[]) => c[0].metadata.event
-    );
+    const events = (enqueueRun as jest.Mock).mock.calls.map((c: any[]) => c[0].metadata.event);
     expect(events).toEqual(['updated', 'created']);
   });
 });

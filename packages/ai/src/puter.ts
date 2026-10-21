@@ -40,34 +40,34 @@ export async function callPuter(request: ProviderRequest): Promise<ProviderResul
         });
         worker.stdout?.resume();
         worker.stderr?.resume();
-          worker.once(
-            'message',
-            (message: {
-              ok?: boolean;
-              result?: ProviderResult;
-              status?: number;
-              refusal?: boolean;
-            }) => {
-              if (message.ok && message.result) finish(message.result);
-              else if (message.refusal)
-                finish(
+        worker.once(
+          'message',
+          (message: {
+            ok?: boolean;
+            result?: ProviderResult;
+            status?: number;
+            refusal?: boolean;
+          }) => {
+            if (message.ok && message.result) finish(message.result);
+            else if (message.refusal)
+              finish(
+                undefined,
+                new AiStepError(
+                  'AI provider refused to process this content',
+                  false,
                   undefined,
-                  new AiStepError(
-                    'AI provider refused to process this content',
-                    false,
-                    undefined,
-                    'policy_refusal'
-                  )
-                );
-              else
-                finish(
-                  undefined,
-                  typeof message.status === 'number'
-                    ? providerHttpError(message.status)
-                    : new AiStepError('Puter SDK request failed; check account configuration')
-                );
-            }
-          );
+                  'policy_refusal'
+                )
+              );
+            else
+              finish(
+                undefined,
+                typeof message.status === 'number'
+                  ? providerHttpError(message.status)
+                  : new AiStepError('Puter SDK request failed; check account configuration')
+              );
+          }
+        );
         worker.once('error', () =>
           finish(undefined, new AiStepError('Puter SDK execution failed'))
         );

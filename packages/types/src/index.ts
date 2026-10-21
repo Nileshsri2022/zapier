@@ -44,7 +44,19 @@ export const StepConditionSchema = z.object({
   value: z.string().max(1000).default(''),
 });
 export type StepCondition = z.infer<typeof StepConditionSchema>;
-const stepConditions = z.array(StepConditionSchema).max(20).optional();
+const MAX_CONDITIONS = 20;
+const stepConditions = z.array(StepConditionSchema).max(MAX_CONDITIONS).optional();
+
+// Zap-level filters are evaluated by the worker's `evaluateFilters`, the same
+// function that evaluates per-step conditions, so a filter condition has exactly
+// the shape a step condition has — including the operator enum the evaluator
+// implements. Validating here stops an operator the worker cannot evaluate from
+// ever reaching the database (see #49); the worker also fails closed on one
+// (#50).
+const UpdateZapFiltersSchema = z.object({
+  filterConditions: z.array(StepConditionSchema).max(MAX_CONDITIONS),
+});
+type TUpdateZapFilters = z.infer<typeof UpdateZapFiltersSchema>;
 
 // ZapSchemas
 const CreateZapSchema = z.object({
@@ -145,6 +157,7 @@ export {
   RenameZapSchema,
   EnableZapSchema,
   UpdateZapActionsSchema,
+  UpdateZapFiltersSchema,
   ConnectTelegramBotSchema,
   ConnectWhatsAppSchema,
   PaginationQuerySchema,
@@ -159,6 +172,7 @@ export type {
   TRenameZap,
   TEnableZap,
   TUpdateZapActions,
+  TUpdateZapFilters,
   TConnectTelegramBot,
   TConnectWhatsApp,
   TPaginationQuery,

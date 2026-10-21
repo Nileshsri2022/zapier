@@ -28,10 +28,7 @@ const arrange = (triggerType: string, tx: ReturnType<typeof buildTx>) => {
 };
 
 const send = (triggerType: string, triggerMetadata: any) =>
-  composeZap(
-    { triggerId: `trigger-${triggerType}`, triggerMetadata, steps: [] },
-    { userId: 1 }
-  );
+  composeZap({ triggerId: `trigger-${triggerType}`, triggerMetadata, steps: [] }, { userId: 1 });
 
 describe('composeZap — WhatsApp/Telegram trigger rows', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -85,9 +82,9 @@ describe('composeZap — WhatsApp/Telegram trigger rows', () => {
     arrange('WhatsApp Message Received', tx);
     (client.whatsAppServer.findFirst as jest.Mock).mockResolvedValue(null);
 
-    await expect(send('WhatsApp Message Received', { serverId: 'someone-elses' })).rejects.toMatchObject(
-      { code: 'CONNECTION_NOT_OWNED' }
-    );
+    await expect(
+      send('WhatsApp Message Received', { serverId: 'someone-elses' })
+    ).rejects.toMatchObject({ code: 'CONNECTION_NOT_OWNED' });
 
     expect(tx.whatsAppTrigger.create).not.toHaveBeenCalled();
     expect(client.$transaction).not.toHaveBeenCalled();

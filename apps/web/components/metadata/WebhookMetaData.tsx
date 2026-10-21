@@ -86,8 +86,8 @@ const WebhookMetaData = ({ handleClick, zapId }: WebhookMetaDataProps) => {
       <div className="meta-form__header">
         <h3 className="meta-form__title">Catch Hook</h3>
         <p className="meta-form__subtitle">
-          Any system that can make an HTTP request can trigger this Zap. Test and production
-          URLs are separate — test stores samples and never runs the Zap.
+          Any system that can make an HTTP request can trigger this Zap. Test and production URLs
+          are separate — test stores samples and never runs the Zap.
         </p>
       </div>
 
@@ -109,7 +109,9 @@ const WebhookMetaData = ({ handleClick, zapId }: WebhookMetaDataProps) => {
             {copied === 'prod' ? '✓ Copied' : 'Copy'}
           </button>
         </div>
-        <p className="meta-form__hint">Accepts GET, POST, PUT, PATCH, DELETE — replies 200 (empty) immediately.</p>
+        <p className="meta-form__hint">
+          Accepts GET, POST, PUT, PATCH, DELETE — replies 200 (empty) immediately.
+        </p>
       </div>
 
       {/* Test URL */}
@@ -130,7 +132,9 @@ const WebhookMetaData = ({ handleClick, zapId }: WebhookMetaDataProps) => {
             {copied === 'test' ? '✓ Copied' : 'Copy'}
           </button>
         </div>
-        <p className="meta-form__hint">Stores up to 10 recent samples for field mapping — never triggers the Zap.</p>
+        <p className="meta-form__hint">
+          Stores up to 10 recent samples for field mapping — never triggers the Zap.
+        </p>
       </div>
       {hint && <p className="meta-form__hint-warning">{hint}</p>}
 

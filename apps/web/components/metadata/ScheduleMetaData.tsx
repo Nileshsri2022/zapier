@@ -74,7 +74,8 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
           setPreviewFires((data.fires || []).map((f: any) => f.local));
         }
       } catch (e) {
-        if ((e as any)?.name !== 'AbortError') setCronError('Preview failed — check the expression');
+        if ((e as any)?.name !== 'AbortError')
+          setCronError('Preview failed — check the expression');
       } finally {
         setPreviewLoading(false);
       }
@@ -132,8 +133,8 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
     <div className="meta-form">
       <div className="meta-form__summary">
         <p className="meta-form__summary-title">
-          <span>📅</span>{' '}
-          Schedule: {isCron ? 'Custom Cron' : scheduleType.replace('every', 'Every ')}
+          <span>📅</span> Schedule:{' '}
+          {isCron ? 'Custom Cron' : scheduleType.replace('every', 'Every ')}
         </p>
         <p className="meta-form__summary-note">{getScheduleDescription()}</p>
       </div>
@@ -141,7 +142,9 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
       {/* M5 — custom 5-field cron */}
       {isCron && (
         <div>
-          <label className="meta-form__label">Cron expression (5 fields: min hour dom month dow)</label>
+          <label className="meta-form__label">
+            Cron expression (5 fields: min hour dom month dow)
+          </label>
           <input
             type="text"
             name="cron"

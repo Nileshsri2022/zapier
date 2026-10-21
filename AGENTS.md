@@ -14,9 +14,33 @@ npm run lint
 
 `npm test` wraps each app's (and package's) own runner — never run bare `npx jest` from the root (no preset; use `--config apps/<app>/jest.config.js --rootDir apps/<app>`).
 
+**Bug repros live in the owning app's suite**, not in a separate folder. A repro referenced from an
+issue only helps if it still runs, and a directory outside the suites is invisible to CI. Put it in
+`apps/<app>/tests/` beside the tests that already cover that seam, and reference the test name from
+the issue.
+
 ## Before you edit
 
 `edit_file` fails on guessed context. `grep -n "exact text" <file>` first, then anchor the edit on a line you have actually read. Prefer `sed -n 'A,Bp'` to confirm boundaries for multi-line edits.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as GitHub issues in `Nileshsri2022/zapier`, driven with the `gh` CLI. This
+sandbox's `gh` is 2.23.0, so sub-issues and native issue dependencies are unavailable — use the
+`Part of #<parent>` / `Blocked by: #<n>` text fallbacks. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles map 1:1 to label strings (`needs-triage`, `needs-info`,
+`ready-for-agent`, `ready-for-human`, `wontfix`), with `bug` / `enhancement` as separate category
+labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` at the root plus `docs/adr/`. Read both before exploring. See
+`docs/agents/domain.md`.
 
 ## Map
 

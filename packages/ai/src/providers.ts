@@ -98,7 +98,12 @@ async function boundedJsonFetch(
     )
       throw new AiStepError('AI provider request timed out', true, undefined, 'timeout');
     // HTTP transport errors are sanitized, never leak URL, headers or provider body.
-    throw new AiStepError('AI provider network request failed', true, undefined, 'provider_unavailable');
+    throw new AiStepError(
+      'AI provider network request failed',
+      true,
+      undefined,
+      'provider_unavailable'
+    );
   } finally {
     clearTimeout(timer);
     directInFlight--;

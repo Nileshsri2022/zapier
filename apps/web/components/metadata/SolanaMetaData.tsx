@@ -100,9 +100,7 @@ const SolanaMetaData = ({
         onChange={handleFormDataChange}
       />
 
-      {needsAddress && (
-        <FormInput label="Address" name="address" onChange={handleFormDataChange} />
-      )}
+      {needsAddress && <FormInput label="Address" name="address" onChange={handleFormDataChange} />}
 
       {needsOwner && (
         <>

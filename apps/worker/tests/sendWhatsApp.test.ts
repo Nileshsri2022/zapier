@@ -75,7 +75,12 @@ describe('Q-WA-A-04 strict recipient validation', () => {
     const fetchImpl = jest.fn() as unknown as typeof fetch;
     await expect(
       sendWhatsAppAction(
-        { to: '98765', fromPhoneNumberId: SERVER.phoneNumberId, kind: 'freeform', freeform: { text: 'hi' } },
+        {
+          to: '98765',
+          fromPhoneNumberId: SERVER.phoneNumberId,
+          kind: 'freeform',
+          freeform: { text: 'hi' },
+        },
         RUN,
         { fetchImpl, db: dbWith() as any }
       )
@@ -86,7 +91,11 @@ describe('Q-WA-A-04 strict recipient validation', () => {
 
 describe('Q-WA-A-06 sender comes from the connection', () => {
   it('resolves the configured number id and rejects foreign ones', async () => {
-    const server = await resolveSender({ fromPhoneNumberId: SERVER.phoneNumberId }, 42, dbWith() as any);
+    const server = await resolveSender(
+      { fromPhoneNumberId: SERVER.phoneNumberId },
+      42,
+      dbWith() as any
+    );
     expect(server.phoneNumberId).toBe(SERVER.phoneNumberId);
 
     await expect(
@@ -97,11 +106,10 @@ describe('Q-WA-A-06 sender comes from the connection', () => {
   it('fails closed with no connection', async () => {
     const fetchImpl = jest.fn() as unknown as typeof fetch;
     await expect(
-      sendWhatsAppAction(
-        { to: '919876543210', kind: 'freeform', freeform: { text: 'hi' } },
-        RUN,
-        { fetchImpl, db: dbWith([]) as any }
-      )
+      sendWhatsAppAction({ to: '919876543210', kind: 'freeform', freeform: { text: 'hi' } }, RUN, {
+        fetchImpl,
+        db: dbWith([]) as any,
+      })
     ).rejects.toMatchObject({ code: 'auth' });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
@@ -238,22 +246,20 @@ describe('Q-WA-A-01 freeform and the 24h window', () => {
       })
     ) as unknown as typeof fetch;
     await expect(
-      sendWhatsAppAction(
-        { to: '919876543210', kind: 'freeform', freeform: { text: 'hi' } },
-        RUN,
-        { fetchImpl, db: dbWith() as any }
-      )
+      sendWhatsAppAction({ to: '919876543210', kind: 'freeform', freeform: { text: 'hi' } }, RUN, {
+        fetchImpl,
+        db: dbWith() as any,
+      })
     ).rejects.toMatchObject({ code: 'outside_session_window' });
   });
 
   it('rejects empty freeform messages and over-long text', async () => {
     const fetchImpl = jest.fn() as unknown as typeof fetch;
     await expect(
-      sendWhatsAppAction(
-        { to: '919876543210', kind: 'freeform', freeform: { text: '   ' } },
-        RUN,
-        { fetchImpl, db: dbWith() as any }
-      )
+      sendWhatsAppAction({ to: '919876543210', kind: 'freeform', freeform: { text: '   ' } }, RUN, {
+        fetchImpl,
+        db: dbWith() as any,
+      })
     ).rejects.toMatchObject({ code: 'validation' });
 
     await expect(
@@ -291,7 +297,9 @@ describe('Q-WA-A-03 media by link + caption', () => {
   });
 
   it('fails the run when the media URL is unreachable (no silent text-only send)', async () => {
-    const fetchImpl = jest.fn(async () => ({ ok: false, status: 404 }) as Response) as unknown as typeof fetch;
+    const fetchImpl = jest.fn(
+      async () => ({ ok: false, status: 404 }) as Response
+    ) as unknown as typeof fetch;
     await expect(
       sendWhatsAppAction(
         {
@@ -339,22 +347,20 @@ describe('credentials and transport', () => {
       errorResponse(429, { code: 131056, message: 'Rate limit hit' })
     ) as unknown as typeof fetch;
     await expect(
-      sendWhatsAppAction(
-        { to: '919876543210', kind: 'freeform', freeform: { text: 'hi' } },
-        RUN,
-        { fetchImpl: limited, db: dbWith() as any }
-      )
+      sendWhatsAppAction({ to: '919876543210', kind: 'freeform', freeform: { text: 'hi' } }, RUN, {
+        fetchImpl: limited,
+        db: dbWith() as any,
+      })
     ).rejects.toMatchObject({ code: 'rate_limited', retryable: true });
 
     const unauthorized = jest.fn(async () =>
       errorResponse(401, { code: 190, message: 'Invalid OAuth access token' })
     ) as unknown as typeof fetch;
     await expect(
-      sendWhatsAppAction(
-        { to: '919876543210', kind: 'freeform', freeform: { text: 'hi' } },
-        RUN,
-        { fetchImpl: unauthorized, db: dbWith() as any }
-      )
+      sendWhatsAppAction({ to: '919876543210', kind: 'freeform', freeform: { text: 'hi' } }, RUN, {
+        fetchImpl: unauthorized,
+        db: dbWith() as any,
+      })
     ).rejects.toMatchObject({ code: 'auth', retryable: false });
   });
 

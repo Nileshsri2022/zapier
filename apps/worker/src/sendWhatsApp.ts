@@ -164,7 +164,10 @@ export async function assertMediaReachable(
   try {
     url = new URL(mediaUrl);
   } catch {
-    throw new WhatsAppActionError(`media_fetch_failed: invalid media URL "${mediaUrl}"`, 'media_fetch_failed');
+    throw new WhatsAppActionError(
+      `media_fetch_failed: invalid media URL "${mediaUrl}"`,
+      'media_fetch_failed'
+    );
   }
   if (!['http:', 'https:'].includes(url.protocol))
     throw new WhatsAppActionError(
@@ -205,7 +208,10 @@ function buildTemplatePayload(
   const templateConfig = metadata.template ?? {};
   const name = String(templateConfig.name ?? metadata.templateName ?? '').trim();
   if (!name)
-    throw new WhatsAppActionError('A template must be selected for template messages', 'validation');
+    throw new WhatsAppActionError(
+      'A template must be selected for template messages',
+      'validation'
+    );
   const language = String(templateConfig.language ?? metadata.templateLanguage ?? 'en_US').trim();
   const rawParams = Array.isArray(templateConfig.params)
     ? templateConfig.params
@@ -215,19 +221,14 @@ function buildTemplatePayload(
           .filter((entry) => entry.trim() !== '')
       : [];
   const params = rawParams.map((param: unknown) => template(param, run).trim());
-  const declaredCount = Number(
-    templateConfig.paramCount ?? metadata.templateParamCount ?? NaN
-  );
+  const declaredCount = Number(templateConfig.paramCount ?? metadata.templateParamCount ?? NaN);
   if (Number.isFinite(declaredCount) && declaredCount !== params.length)
     throw new WhatsAppActionError(
       `param_count_mismatch: template "${name}" expects ${declaredCount} parameter(s), got ${params.length}`,
       'param_count_mismatch'
     );
   if (params.some((param: string) => !param))
-    throw new WhatsAppActionError(
-      'Template parameters must not be empty',
-      'validation'
-    );
+    throw new WhatsAppActionError('Template parameters must not be empty', 'validation');
   if (params.length > 10)
     throw new WhatsAppActionError(
       'A template body supports at most 10 positional parameters',
@@ -243,7 +244,11 @@ function buildTemplatePayload(
       name,
       language: { code: language },
       ...(params.length
-        ? { components: [{ type: 'body', parameters: params.map((text: string) => ({ type: 'text', text })) }] }
+        ? {
+            components: [
+              { type: 'body', parameters: params.map((text: string) => ({ type: 'text', text })) },
+            ],
+          }
         : {}),
     },
   };
@@ -290,8 +295,7 @@ function buildFreeformPayload(
     };
   }
 
-  if (text.length > 1024 && caption)
-    throw new WhatsAppActionError('Too much text', 'validation');
+  if (text.length > 1024 && caption) throw new WhatsAppActionError('Too much text', 'validation');
 
   return {
     messaging_product: 'whatsapp',
@@ -376,7 +380,8 @@ export async function sendWhatsAppAction(
   const now = deps.now ?? Date.now;
 
   const metadata = parseMetadata(rawMetadata);
-  const userId = Number((runMetadata as any)?.userId ?? (runMetadata as any)?.zap?.userId ?? 0) || 0;
+  const userId =
+    Number((runMetadata as any)?.userId ?? (runMetadata as any)?.zap?.userId ?? 0) || 0;
   const server = await resolveSender(metadata, userId, db);
 
   const recipient = normalizeRecipient(template(metadata.to, runMetadata));

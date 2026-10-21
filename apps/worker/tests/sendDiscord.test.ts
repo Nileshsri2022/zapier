@@ -60,9 +60,13 @@ describe('sendDiscordMessage', () => {
   });
 
   it('rejects unanchored webhook URLs with trailing paths or invalid domains', () => {
-    expect(isValidDiscordWebhookUrl('https://discord.com/api/webhooks/123/token/extra-path')).toBe(false);
+    expect(isValidDiscordWebhookUrl('https://discord.com/api/webhooks/123/token/extra-path')).toBe(
+      false
+    );
     expect(isValidDiscordWebhookUrl('https://ptb.discord.com/api/webhooks/123/token')).toBe(false);
-    expect(isValidDiscordWebhookUrl('https://malicious-site.com/api/webhooks/123/token')).toBe(false);
+    expect(isValidDiscordWebhookUrl('https://malicious-site.com/api/webhooks/123/token')).toBe(
+      false
+    );
     expect(isValidDiscordWebhookUrl('https://discord.com/api/webhooks/123/token')).toBe(true);
     expect(isValidDiscordWebhookUrl('https://discordapp.com/api/webhooks/123/token')).toBe(true);
   });
@@ -232,7 +236,9 @@ describe('sendDiscordMessage', () => {
 
     expect(result.success).toBe(false);
     expect(result.isFatal).toBe(true);
-    expect(result.error).toContain('Either content or embed (with title, description, or fields) is required');
+    expect(result.error).toContain(
+      'Either content or embed (with title, description, or fields) is required'
+    );
   });
 
   it('delivers content successfully and omits incomplete embed when message content is provided', async () => {
@@ -279,9 +285,7 @@ describe('sendDiscordMessage', () => {
       embed: {
         title: 'TX {trigger.data.txHash}',
         description: 'Transferred {trigger.data.amount} SOL by {trigger.data.user}',
-        fields: [
-          { name: 'Recipient', value: '{trigger.data.user}', inline: true },
-        ],
+        fields: [{ name: 'Recipient', value: '{trigger.data.user}', inline: true }],
       },
     };
 

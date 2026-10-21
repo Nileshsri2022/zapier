@@ -328,23 +328,10 @@ export const updateZapFilters = async (req: Request, res: Response): Promise<any
     // @ts-ignore
     const userId = req.id;
     const zapId = req.params.zapId as string;
+    // Shape and operator vocabulary are enforced by `validateBody(
+    // UpdateZapFiltersSchema)` on the route: by here every condition is one the
+    // worker's `evaluateFilters` can actually evaluate.
     const { filterConditions } = req.body;
-
-    // Validate filterConditions is an array
-    if (!Array.isArray(filterConditions)) {
-      return res.status(400).json({
-        message: 'filterConditions must be an array',
-      });
-    }
-
-    // Validate each condition has required fields
-    for (const condition of filterConditions) {
-      if (!condition.field || !condition.operator) {
-        return res.status(400).json({
-          message: "Each condition must have 'field' and 'operator'",
-        });
-      }
-    }
 
     // Verify the Zap belongs to the user
     const zap = await client.zap.findFirst({

@@ -139,7 +139,6 @@ describe('Worker Action Execution Seam: Discord Send Message', () => {
     expect(post).toHaveBeenCalledTimes(1);
   });
 
-
   it('retries dynamic backoff on HTTP 429 rate limit and succeeds within execution seam', async () => {
     // Attempt 1: 429 Rate limited with retry_after = 0.01s
     post.mockRejectedValueOnce({
@@ -168,7 +167,6 @@ describe('Worker Action Execution Seam: Discord Send Message', () => {
     expect(result.data?.output.messageId).toBe('msg-recovered-429');
     expect(post).toHaveBeenCalledTimes(2);
   });
-
 
   it('transitions ZapRun status to failed in database on fatal Discord error', async () => {
     mockUpdateMany.mockResolvedValueOnce({ count: 1 });

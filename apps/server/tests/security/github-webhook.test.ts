@@ -16,7 +16,11 @@ app.use('/api/github', GitHubRouter);
 
 const payload = {
   ref: 'refs/heads/main',
-  repository: { name: 'zapier', full_name: 'acme/zapier', html_url: 'https://github.com/acme/zapier' },
+  repository: {
+    name: 'zapier',
+    full_name: 'acme/zapier',
+    html_url: 'https://github.com/acme/zapier',
+  },
   sender: { login: 'octocat', html_url: 'https://github.com/octocat' },
 };
 

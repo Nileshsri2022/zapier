@@ -158,9 +158,7 @@ export class GoogleSheetsPoller extends BasePoller {
     // headerless (all-numeric/empty first row) -> data includes row 1 with
     // col_1..col_n keys (Q-SHEETS-04).
     const headerless = !looksLikeHeaderRow(allRows[0] || []);
-    const headers = headerless
-      ? []
-      : (allRows[0] || []).map((h: any) => (h ?? '').toString());
+    const headers = headerless ? [] : (allRows[0] || []).map((h: any) => (h ?? '').toString());
     const dataRows = (headerless ? allRows : allRows.slice(1)).map((values, idx) => ({
       index: (headerless ? 1 : 2) + idx,
       values: values || [],

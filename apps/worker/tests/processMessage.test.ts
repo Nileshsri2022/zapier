@@ -54,9 +54,7 @@ describe('worker run lifecycle', () => {
 
     const result = await processMessage(kafkaMessage({ zapRunId: 'run-1', stage: 1 }));
 
-    expect(result).toEqual(
-      expect.objectContaining({ success: false, reason: 'action_not_found' })
-    );
+    expect(result).toEqual(expect.objectContaining({ success: false, reason: 'action_not_found' }));
     expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'run-1', status: { in: ['pending', 'running'] } },

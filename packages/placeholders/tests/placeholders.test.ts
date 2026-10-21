@@ -48,7 +48,11 @@ describe('notation', () => {
     ['numeric path segment', '{stepOutputs.2.amount}', '42'],
     ['array-free numeric key', '{2}', 'two'],
     ['notation inside prose', 'Hi {lead.name}, you ordered {lead.qty}.', 'Hi Ada, you ordered 3.'],
-    ['two placeholders in a subject line', 'Fwd: {message} (from {lead.email})', 'Fwd: hello (from ada@acme.io)'],
+    [
+      'two placeholders in a subject line',
+      'Fwd: {message} (from {lead.email})',
+      'Fwd: hello (from ada@acme.io)',
+    ],
     ['previousOutput path', '{previousOutput.fields.name}', 'Grace'],
   ];
 
@@ -89,7 +93,10 @@ describe('graph walking', () => {
 
   it('walks arrays of objects and arrays of strings', () => {
     expect(
-      resolvePlaceholders({ items: [{ name: '{lead.name}' }, '{message}'], tags: ['{lead.qty}'] }, RUN)
+      resolvePlaceholders(
+        { items: [{ name: '{lead.name}' }, '{message}'], tags: ['{lead.qty}'] },
+        RUN
+      )
     ).toEqual({ items: [{ name: 'Ada' }, 'hello'], tags: ['3'] });
   });
 
@@ -189,9 +196,9 @@ describe('positional passthrough (WhatsApp template slots)', () => {
         positional: true,
       })
     ).toBe('{"1":"x","2":"Ada"}');
-    expect(
-      resolvePlaceholders('Hi {{1}}, order {lead.name}', RUN, { positional: true })
-    ).toBe('Hi {{1}}, order Ada');
+    expect(resolvePlaceholders('Hi {{1}}, order {lead.name}', RUN, { positional: true })).toBe(
+      'Hi {{1}}, order Ada'
+    );
   });
 
   it('resolves numeric keys when positional is off', () => {

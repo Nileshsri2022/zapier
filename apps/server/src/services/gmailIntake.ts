@@ -270,9 +270,7 @@ async function dispatchGmailEvent(
       });
 
       if (intake.status === 'queued') {
-        console.log(
-          `📝 Gmail ZapRun queued: ${intake.zapRunId} for Zap ${zap.id} (${eventType})`
-        );
+        console.log(`📝 Gmail ZapRun queued: ${intake.zapRunId} for Zap ${zap.id} (${eventType})`);
         result.created++;
       } else {
         result.skipped++;

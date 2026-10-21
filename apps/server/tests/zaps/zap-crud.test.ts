@@ -32,8 +32,7 @@ describe('ZapController - Create Zap', () => {
   });
 
   describe('createZap', () => {
-    const buildCreateRequest = (body: any) =>
-      ({ body, 'id': '123' } as unknown as Request);
+    const buildCreateRequest = (body: any) => ({ body, id: '123' }) as unknown as Request;
 
     const validBody = {
       availableTriggerId: 'trigger-123',

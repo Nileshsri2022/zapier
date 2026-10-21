@@ -18,10 +18,7 @@ interface TelegramBot {
   botName?: string;
 }
 
-const TelegramActionMetaData = ({
-  handleClick,
-  botId,
-}: MetaDataFormProps & { botId?: string }) => {
+const TelegramActionMetaData = ({ handleClick, botId }: MetaDataFormProps & { botId?: string }) => {
   const [bots, setBots] = useState<TelegramBot[]>([]);
   const [selectedBot, setSelectedBot] = useState(botId ?? '');
   const [form, setForm] = useState({
@@ -94,9 +91,7 @@ const TelegramActionMetaData = ({
       ...(form.parseMode !== 'none' ? { parseMode: form.parseMode } : {}),
       ...(form.linkPreview ? { linkPreview: true } : {}),
       ...(form.silent ? { silent: true } : {}),
-      ...(form.replyToMessageId.trim()
-        ? { replyToMessageId: Number(form.replyToMessageId) }
-        : {}),
+      ...(form.replyToMessageId.trim() ? { replyToMessageId: Number(form.replyToMessageId) } : {}),
     });
   };
 
@@ -124,18 +119,19 @@ const TelegramActionMetaData = ({
       />
 
       <label className="meta-form__label">
-        <input
-          type="checkbox"
-          checked={useMedia}
-          onChange={(e) => setUseMedia(e.target.checked)}
-        />{' '}
+        <input type="checkbox" checked={useMedia} onChange={(e) => setUseMedia(e.target.checked)} />{' '}
         Send media (photo or document) instead of text
       </label>
 
       {useMedia ? (
         <>
           <label className="meta-form__label">Media kind</label>
-          <select className="meta-form__input" name="mediaKind" value={form.mediaKind} onChange={update}>
+          <select
+            className="meta-form__input"
+            name="mediaKind"
+            value={form.mediaKind}
+            onChange={update}
+          >
             <option value="photo">Photo</option>
             <option value="document">Document</option>
           </select>
@@ -156,7 +152,12 @@ const TelegramActionMetaData = ({
       )}
 
       <label className="meta-form__label">Parse mode</label>
-      <select className="meta-form__input" name="parseMode" value={form.parseMode} onChange={update}>
+      <select
+        className="meta-form__input"
+        name="parseMode"
+        value={form.parseMode}
+        onChange={update}
+      >
         <option value="none">None (safest — mapped data cannot break parsing)</option>
         <option value="HTML">HTML</option>
         <option value="MarkdownV2">MarkdownV2</option>

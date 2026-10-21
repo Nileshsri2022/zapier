@@ -7,7 +7,8 @@ import Button from '../Button';
 import { MetaDataFormProps } from '../modal/types';
 
 // Canonical Discord webhook pattern, anchored to prevent trailing path bypass
-export const DISCORD_WEBHOOK_PATTERN = /^https:\/\/(?:discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
+export const DISCORD_WEBHOOK_PATTERN =
+  /^https:\/\/(?:discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
 
 export const COMMON_PLACEHOLDERS = [
   '{trigger.data.txHash}',
@@ -45,7 +46,9 @@ export function parseHexColor(colorHex: string): number {
 export function formatInitialColor(color?: string | number): string {
   if (color === 0) return '#000000';
   if (typeof color === 'number' && Number.isFinite(color)) {
-    return `#${Math.max(0, Math.min(16777215, Math.floor(color))).toString(16).padStart(6, '0')}`;
+    return `#${Math.max(0, Math.min(16777215, Math.floor(color)))
+      .toString(16)
+      .padStart(6, '0')}`;
   }
   if (typeof color === 'string' && color.trim()) {
     const clean = color.trim();
@@ -60,12 +63,17 @@ interface EmbedFieldState {
   inline?: boolean;
 }
 
-export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps & { initialData?: any }) => {
+export const DiscordMetaData = ({
+  handleClick,
+  initialData,
+}: MetaDataFormProps & { initialData?: any }) => {
   const [webhookUrl, setWebhookUrl] = useState(initialData?.webhookUrl || '');
   const [content, setContent] = useState(initialData?.content || '');
 
   // Sender Identity customization
-  const [showIdentity, setShowIdentity] = useState(Boolean(initialData?.username || initialData?.avatarUrl));
+  const [showIdentity, setShowIdentity] = useState(
+    Boolean(initialData?.username || initialData?.avatarUrl)
+  );
   const [username, setUsername] = useState(initialData?.username || '');
   const [avatarUrl, setAvatarUrl] = useState(initialData?.avatarUrl || '');
 
@@ -87,9 +95,13 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
 
   // Testing feedback
   const [testLoading, setTestLoading] = useState(false);
-  const [testMessage, setTestMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [testMessage, setTestMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
-  const isValidUrl = webhookUrl.trim().length > 0 && DISCORD_WEBHOOK_PATTERN.test(webhookUrl.trim());
+  const isValidUrl =
+    webhookUrl.trim().length > 0 && DISCORD_WEBHOOK_PATTERN.test(webhookUrl.trim());
   const isDescriptionValid = embedDescription.length <= 4096;
   const isTitleValid = embedTitle.length <= 256;
   const isContentValid = content.length <= 2000;
@@ -98,21 +110,16 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
   const areFieldsValid = embedFields.every((f) => f.name.length <= 256 && f.value.length <= 1024);
 
   // Rich embed is valid if it has title, description, or valid fields (spec §23, §72; url requires title)
-  const hasValidFields = embedFields.some((f) => f.name.trim().length > 0 && f.value.trim().length > 0);
-  const hasEmbedContent =
-    showEmbed && (
-      embedTitle.trim().length > 0 ||
-      embedDescription.trim().length > 0 ||
-      hasValidFields
-    );
-
-  const isEmbedValid = !showEmbed || (
-    hasEmbedContent &&
-    isTitleValid &&
-    isDescriptionValid &&
-    isEmbedUrlValid &&
-    areFieldsValid
+  const hasValidFields = embedFields.some(
+    (f) => f.name.trim().length > 0 && f.value.trim().length > 0
   );
+  const hasEmbedContent =
+    showEmbed &&
+    (embedTitle.trim().length > 0 || embedDescription.trim().length > 0 || hasValidFields);
+
+  const isEmbedValid =
+    !showEmbed ||
+    (hasEmbedContent && isTitleValid && isDescriptionValid && isEmbedUrlValid && areFieldsValid);
 
   const canSave =
     isValidUrl &&
@@ -150,12 +157,18 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
     }
 
     if (!content.trim() && !hasEmbedContent) {
-      setTestMessage({ type: 'error', text: 'Enter message content or configure an embed to test.' });
+      setTestMessage({
+        type: 'error',
+        text: 'Enter message content or configure an embed to test.',
+      });
       return;
     }
 
     if (showEmbed && embedUrl.trim() && !embedTitle.trim()) {
-      setTestMessage({ type: 'error', text: 'Discord requires an Embed Title to link an Embed URL.' });
+      setTestMessage({
+        type: 'error',
+        text: 'Discord requires an Embed Title to link an Embed URL.',
+      });
       return;
     }
 
@@ -201,12 +214,17 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
 
       testPayload.embeds = [
         {
-          title: embedTitle.trim() ? resolveSamplePlaceholders(embedTitle.trim()).slice(0, 256) : undefined,
+          title: embedTitle.trim()
+            ? resolveSamplePlaceholders(embedTitle.trim()).slice(0, 256)
+            : undefined,
           description: embedDescription.trim()
             ? resolveSamplePlaceholders(embedDescription.trim()).slice(0, 4096)
             : undefined,
           color: parseHexColor(embedColor),
-          url: embedTitle.trim() && embedUrl.trim() ? resolveSamplePlaceholders(embedUrl.trim()) : undefined,
+          url:
+            embedTitle.trim() && embedUrl.trim()
+              ? resolveSamplePlaceholders(embedUrl.trim())
+              : undefined,
           timestamp: testTimestamp,
           fields: validFields.length > 0 ? validFields : undefined,
         },
@@ -255,9 +273,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
           inline: Boolean(f.inline),
         }));
 
-      const resolvedEmbedTimestamp = includeTimestamp
-        ? (embedTimestamp.trim() || 'now')
-        : undefined;
+      const resolvedEmbedTimestamp = includeTimestamp ? embedTimestamp.trim() || 'now' : undefined;
 
       metadata.embed = {
         title: embedTitle.trim() ? embedTitle.trim().slice(0, 256) : undefined,
@@ -284,7 +300,8 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
         />
         {webhookUrl.length > 0 && !isValidUrl && (
           <p className="meta-form__error-text">
-            Must be a valid Discord webhook URL (e.g. https://discord.com/api/webhooks/&#123;id&#125;/&#123;token&#125;)
+            Must be a valid Discord webhook URL (e.g.
+            https://discord.com/api/webhooks/&#123;id&#125;/&#123;token&#125;)
           </p>
         )}
       </div>
@@ -292,7 +309,13 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
       <div>
         <div className="meta-form__row">
           <label className="meta-form__label">Message Content</label>
-          <span className={content.length > 2000 ? 'meta-form__counter meta-form__counter--danger' : 'meta-form__counter'}>
+          <span
+            className={
+              content.length > 2000
+                ? 'meta-form__counter meta-form__counter--danger'
+                : 'meta-form__counter'
+            }
+          >
             {content.length}/2000
           </span>
         </div>
@@ -305,7 +328,9 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
           onChange={(e) => setContent(e.target.value)}
         />
         {content.length > 2000 && (
-          <p className="meta-form__error-text">Message content exceeds Discord&apos;s 2,000-character limit.</p>
+          <p className="meta-form__error-text">
+            Message content exceeds Discord&apos;s 2,000-character limit.
+          </p>
         )}
 
         <div className="meta-form__pills">
@@ -342,7 +367,13 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
             <div>
               <div className="meta-form__row">
                 <label className="meta-form__label">Embed Title</label>
-                <span className={embedTitle.length > 256 ? 'meta-form__counter meta-form__counter--danger' : 'meta-form__counter'}>
+                <span
+                  className={
+                    embedTitle.length > 256
+                      ? 'meta-form__counter meta-form__counter--danger'
+                      : 'meta-form__counter'
+                  }
+                >
                   {embedTitle.length}/256
                 </span>
               </div>
@@ -355,14 +386,22 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
                 onChange={(e: any) => setEmbedTitle(e.target.value)}
               />
               {embedTitle.length > 256 && (
-                <p className="meta-form__error-text">Embed title exceeds Discord&apos;s 256-character limit.</p>
+                <p className="meta-form__error-text">
+                  Embed title exceeds Discord&apos;s 256-character limit.
+                </p>
               )}
             </div>
 
             <div>
               <div className="meta-form__row">
                 <label className="meta-form__label">Embed Description</label>
-                <span className={embedDescription.length > 4096 ? 'meta-form__counter meta-form__counter--danger' : 'meta-form__counter'}>
+                <span
+                  className={
+                    embedDescription.length > 4096
+                      ? 'meta-form__counter meta-form__counter--danger'
+                      : 'meta-form__counter'
+                  }
+                >
                   {embedDescription.length}/4096
                 </span>
               </div>
@@ -375,7 +414,9 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
                 onChange={(e) => setEmbedDescription(e.target.value)}
               />
               {embedDescription.length > 4096 && (
-                <p className="meta-form__error-text">Embed description exceeds Discord&apos;s 4,096-character limit.</p>
+                <p className="meta-form__error-text">
+                  Embed description exceeds Discord&apos;s 4,096-character limit.
+                </p>
               )}
             </div>
 
@@ -385,7 +426,11 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
                 <div className="meta-form__color-row">
                   <input
                     type="color"
-                    value={typeof embedColor === 'string' && embedColor.startsWith('#') ? embedColor : '#5865F2'}
+                    value={
+                      typeof embedColor === 'string' && embedColor.startsWith('#')
+                        ? embedColor
+                        : '#5865F2'
+                    }
                     onChange={(e) => setEmbedColor(e.target.value)}
                     className="meta-form__color-picker"
                   />
@@ -440,9 +485,7 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
             {/* Embed Fields */}
             <div>
               <div className="meta-form__row">
-                <span className="meta-form__label">
-                  Embed Fields ({embedFields.length}/25)
-                </span>
+                <span className="meta-form__label">Embed Fields ({embedFields.length}/25)</span>
                 <button
                   type="button"
                   onClick={handleAddField}
@@ -487,10 +530,14 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
                     </button>
                   </div>
                   {field.name.length > 256 && (
-                    <p className="meta-form__error-text">Field name exceeds 256 characters ({field.name.length}/256).</p>
+                    <p className="meta-form__error-text">
+                      Field name exceeds 256 characters ({field.name.length}/256).
+                    </p>
                   )}
                   {field.value.length > 1024 && (
-                    <p className="meta-form__error-text">Field value exceeds 1,024 characters ({field.value.length}/1024).</p>
+                    <p className="meta-form__error-text">
+                      Field value exceeds 1,024 characters ({field.value.length}/1024).
+                    </p>
                   )}
                 </div>
               ))}
@@ -524,7 +571,13 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
             <div>
               <div className="meta-form__row">
                 <label className="meta-form__label">Sender Name Override (Optional)</label>
-                <span className={username.length > 80 ? 'meta-form__counter meta-form__counter--danger' : 'meta-form__counter'}>
+                <span
+                  className={
+                    username.length > 80
+                      ? 'meta-form__counter meta-form__counter--danger'
+                      : 'meta-form__counter'
+                  }
+                >
                   {username.length}/80
                 </span>
               </div>
@@ -537,7 +590,9 @@ export const DiscordMetaData = ({ handleClick, initialData }: MetaDataFormProps 
                 onChange={(e: any) => setUsername(e.target.value)}
               />
               {username.length > 80 && (
-                <p className="meta-form__error-text">Sender name exceeds Discord&apos;s 80-character limit.</p>
+                <p className="meta-form__error-text">
+                  Sender name exceeds Discord&apos;s 80-character limit.
+                </p>
               )}
             </div>
             <FormInput

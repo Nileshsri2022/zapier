@@ -67,7 +67,8 @@ const Modal = ({
   const handleSaveMetaData = (data: any) => {
     // Merge — step-3 forms must not drop keys threaded earlier (botId,
     // serverId, hook ids...).
-    onClick && onClick({ ...selectedItem, metadata: { ...(selectedItem?.metadata || {}), ...data } });
+    onClick &&
+      onClick({ ...selectedItem, metadata: { ...(selectedItem?.metadata || {}), ...data } });
     resetModal();
   };
 

@@ -34,8 +34,7 @@ const signedPost = (payload: object, opts: { signature?: string | null } = {}) =
   const req = request(app).post('/api/webhooks/whatsapp');
   if (opts.signature === null) return req.send(payload);
   const sig =
-    opts.signature ??
-    `sha256=${crypto.createHmac('sha256', APP_SECRET).update(raw).digest('hex')}`;
+    opts.signature ?? `sha256=${crypto.createHmac('sha256', APP_SECRET).update(raw).digest('hex')}`;
   return req.set('X-Hub-Signature-256', sig).send(payload);
 };
 
@@ -109,6 +108,32 @@ describe('GET verification challenge', () => {
     const res = await request(app)
       .get('/api/webhooks/whatsapp')
       .query({ 'hub.mode': 'subscribe', 'hub.verify_token': 'nope', 'hub.challenge': 'x' });
+    expect(res.status).toBe(403);
+  });
+
+  // The token used to fall back to a string committed to this repo, so an app
+  // whose token was never configured could still be verified — and its webhook
+  // registration taken over — by anyone who read the source.
+  it('fails closed when no verify token is configured', async () => {
+    delete process.env.WHATSAPP_VERIFY_TOKEN;
+
+    const res = await request(app).get('/api/webhooks/whatsapp').query({
+      'hub.mode': 'subscribe',
+      'hub.verify_token': 'zapmate_whatsapp_verify',
+      'hub.challenge': 'ch@123',
+    });
+
+    expect(res.status).toBe(403);
+    expect(res.text).not.toContain('ch@123');
+  });
+
+  it('fails closed on a bare subscribe with no token configured', async () => {
+    delete process.env.WHATSAPP_VERIFY_TOKEN;
+
+    const res = await request(app)
+      .get('/api/webhooks/whatsapp')
+      .query({ 'hub.mode': 'subscribe', 'hub.challenge': 'ch@123' });
+
     expect(res.status).toBe(403);
   });
 });
@@ -299,10 +324,7 @@ describe('redelivery + non-message events', () => {
     expect(res.status).toBe(200);
     expect(mockEnqueueRun).toHaveBeenCalledTimes(2);
     const keys = mockEnqueueRun.mock.calls.map((c: any[]) => c[0].dedup.key);
-    expect(keys).toEqual([
-      'zap-1:wamid.HBgLMOTk4NzY1NDMyMTABCA==',
-      'zap-1:wamid.SECOND',
-    ]);
+    expect(keys).toEqual(['zap-1:wamid.HBgLMOTk4NzY1NDMyMTABCA==', 'zap-1:wamid.SECOND']);
   });
 
   it('non-WhatsApp object acks 200 without a run', async () => {

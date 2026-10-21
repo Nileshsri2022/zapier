@@ -62,8 +62,8 @@ const TelegramMetaData = ({ handleClick }: MetaDataFormProps) => {
 
       <div className="meta-form__panel">
         <p className="meta-form__hint">
-          Note: in groups, bots only see commands and replies unless privacy mode is
-          disabled in BotFather (/setprivacy).
+          Note: in groups, bots only see commands and replies unless privacy mode is disabled in
+          BotFather (/setprivacy).
         </p>
       </div>
 

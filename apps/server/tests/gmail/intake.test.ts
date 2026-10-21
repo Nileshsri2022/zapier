@@ -258,10 +258,7 @@ describe('intakeGmailDelivery — legacy delivery (hydrate → match → enqueue
   });
 
   it('warns and enqueues nothing for a relay delivery with no message id', async () => {
-    const result = await intakeGmailDelivery(
-      legacyDelivery({ messageId: undefined }),
-      deps
-    );
+    const result = await intakeGmailDelivery(legacyDelivery({ messageId: undefined }), deps);
 
     expect(result).toEqual({ runsEnqueued: 0 });
     expect(mockEnqueueRun).not.toHaveBeenCalled();
@@ -308,10 +305,7 @@ describe('intakeGmailDelivery — mailbox resolution', () => {
   it('warns with a machine-readable reason when no server is connected', async () => {
     (client.gmailServer.findMany as jest.Mock).mockResolvedValue([]);
 
-    const result = await intakeGmailDelivery(
-      legacyDelivery({ messageId: 'msg-1' }),
-      deps
-    );
+    const result = await intakeGmailDelivery(legacyDelivery({ messageId: 'msg-1' }), deps);
 
     expect(result).toEqual({ runsEnqueued: 0 });
     expect(mockEnqueueRun).not.toHaveBeenCalled();

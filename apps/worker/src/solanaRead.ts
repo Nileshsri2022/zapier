@@ -89,7 +89,10 @@ export function validateAddress(value: unknown, field = 'address'): string {
   try {
     new PublicKey(address);
   } catch {
-    throw new SolanaActionError(`Invalid Solana address for ${field}: ${address}`, 'invalid_address');
+    throw new SolanaActionError(
+      `Invalid Solana address for ${field}: ${address}`,
+      'invalid_address'
+    );
   }
   return address;
 }
@@ -170,9 +173,7 @@ async function rpcCall(
   const body = (await response.json().catch(() => ({}))) as RpcResponse;
   if (!response.ok || body.error)
     throw new SolanaActionError(
-      redact(
-        `Solana RPC error (${method}): ${body.error?.message ?? `HTTP ${response.status}`}`,
-        ),
+      redact(`Solana RPC error (${method}): ${body.error?.message ?? `HTTP ${response.status}`}`),
       'rpc_error'
     );
   return body.result;
@@ -253,13 +254,21 @@ export async function runSolanaAction(
       ...base,
       operation: 'getLatestBlockhash',
       blockhash: String(result?.value?.blockhash ?? ''),
-      lastValidBlockHeight: Number(result?.context?.slot ?? result?.value?.lastValidBlockHeight ?? 0),
+      lastValidBlockHeight: Number(
+        result?.context?.slot ?? result?.value?.lastValidBlockHeight ?? 0
+      ),
     };
   }
 
   if (operation === 'getBalance') {
     const address = validateAddress(metadata.address);
-    const result = await rpcCall(config, 'getBalance', [address, { commitment }], fetchImpl, redact);
+    const result = await rpcCall(
+      config,
+      'getBalance',
+      [address, { commitment }],
+      fetchImpl,
+      redact
+    );
     const lamports = String(result?.value ?? 0);
     return {
       ...base,

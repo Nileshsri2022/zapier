@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Tooltip from '@/components/Tooltip';
 import { API_URL, HOOKS_URL } from '@/lib/config';
+import { webhookUrlFor } from '@/lib/webhookUrl';
 import ZapRunHistory from '@/components/ZapRunHistory';
 import { appIcon } from '@/lib/appIcon';
 
@@ -182,7 +183,9 @@ export default function Page() {
               <th className="dash-th">Webhook URL</th>
               <th className="dash-th">Created At</th>
               <th className="dash-th dash-th--center">Status</th>
-              <th className="dash-th"><span className="u-sr-only">Actions</span></th>
+              <th className="dash-th">
+                <span className="u-sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -192,10 +195,18 @@ export default function Page() {
                 const hookMeta: any =
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   (zap as any).trigger?.metadata || {};
-                const baseUrl = `${HOOKS_URL}/hooks/${session?.user?.id}/${zap.id}`;
-                // Rotated hooks carry prodHookId in trigger metadata — the
-                // base URL is revoked the moment one exists (T5 Q-WHT-05).
-                const url = hookMeta.prodHookId ? `${baseUrl}/${hookMeta.prodHookId}` : baseUrl;
+                // Only the Webhook trigger is reachable through the catch-hook
+                // ingress. Rotated hooks carry prodHookId in trigger metadata —
+                // the base URL is revoked the moment one exists (T5 Q-WHT-05).
+                const url = webhookUrlFor(
+                  {
+                    id: zap.id,
+                    userId: session?.user?.id,
+                    triggerType: zap.trigger?.trigger?.type,
+                    prodHookId: hookMeta.prodHookId,
+                  },
+                  HOOKS_URL
+                );
 
                 return (
                   <tr key={zap.id}>
@@ -239,42 +250,42 @@ export default function Page() {
                       ))}
                     </td>
                     <td className="dash-td">
-                      <div className="dash-url-row">
-                        <span className="dash-url">{url}</span>
-                        {hookMeta.testHookId && (
-                          <button
-                            type="button"
-                            className="dash-url dash-url--test"
-                            title="Copy Test URL (stores samples, never runs the Zap)"
-                            onClick={() =>
-                              handleUrlCopy(
-                                `${HOOKS_URL}/hooks/test/${session?.user?.id}/${zap.id}/${hookMeta.testHookId}`
-                              )
-                            }
+                      {url && (
+                        <div className="dash-url-row">
+                          <span className="dash-url">{url}</span>
+                          {hookMeta.testHookId && (
+                            <button
+                              type="button"
+                              className="dash-url dash-url--test"
+                              title="Copy Test URL (stores samples, never runs the Zap)"
+                              onClick={() =>
+                                handleUrlCopy(
+                                  `${HOOKS_URL}/hooks/test/${session?.user?.id}/${zap.id}/${hookMeta.testHookId}`
+                                )
+                              }
+                            >
+                              Test URL
+                            </button>
+                          )}
+                          <svg
+                            onClick={() => handleUrlCopy(url)}
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            strokeWidth={1.5}
+                            fill="none"
+                            stroke="currentColor"
+                            className="dash-copy"
                           >
-                            Test URL
-                          </button>
-                        )}
-                        <svg
-                          onClick={() => handleUrlCopy(url)}
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 24 24"
-                          strokeWidth={1.5}
-                          fill="none"
-                          stroke="currentColor"
-                          className="dash-copy"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75"
-                          />
-                        </svg>
-                      </div>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75"
+                            />
+                          </svg>
+                        </div>
+                      )}
                     </td>
-                    <td className="dash-td">
-                      {formatDateTimeToCustomString(zap.createdDate)}
-                    </td>
+                    <td className="dash-td">{formatDateTimeToCustomString(zap.createdDate)}</td>
                     <td className="dash-td dash-td--center">
                       <label className="dash-switch">
                         <input
@@ -285,7 +296,11 @@ export default function Page() {
                         />
                         <span className="dash-switch__track" aria-hidden="true" />
                       </label>
-                      <div><span className="dash-status" data-on={zap.isActive}>{zap.isActive ? 'Live' : 'Paused'}</span></div>
+                      <div>
+                        <span className="dash-status" data-on={zap.isActive}>
+                          {zap.isActive ? 'Live' : 'Paused'}
+                        </span>
+                      </div>
                     </td>
                     <td
                       onClick={() =>
@@ -308,10 +323,7 @@ export default function Page() {
                       </svg>
                       {index === selectedRow && (
                         <div className="dash-menu">
-                          <div
-                            onClick={() => setRenameEnabled(index)}
-                            className="dash-menu__item"
-                          >
+                          <div onClick={() => setRenameEnabled(index)} className="dash-menu__item">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               fill="none"
@@ -382,8 +394,13 @@ export default function Page() {
                 <td colSpan={6}>
                   <div className="dash-empty">
                     <h3>No zaps yet</h3>
-                    <p>Build your first zap: pick a trigger, add an action, and ZapMate runs it for you from then on.</p>
-                    <Button variant="primary" onClick={handleCreateClick}>Create your first zap</Button>
+                    <p>
+                      Build your first zap: pick a trigger, add an action, and ZapMate runs it for
+                      you from then on.
+                    </p>
+                    <Button variant="primary" onClick={handleCreateClick}>
+                      Create your first zap
+                    </Button>
                   </div>
                 </td>
               </tr>
@@ -397,8 +414,15 @@ export default function Page() {
             data?.zaps?.map((zap: TZap, index) => {
               // @ts-ignore
               const hookMeta: any = (zap as any).trigger?.metadata || {};
-              const baseUrl = `${HOOKS_URL}/hooks/${session?.user?.id}/${zap.id}`;
-              const url = hookMeta.prodHookId ? `${baseUrl}/${hookMeta.prodHookId}` : baseUrl;
+              const url = webhookUrlFor(
+                {
+                  id: zap.id,
+                  userId: session?.user?.id,
+                  triggerType: zap.trigger?.trigger?.type,
+                  prodHookId: hookMeta.prodHookId,
+                },
+                HOOKS_URL
+              );
 
               return (
                 <div key={zap.id} className="dash-card">
@@ -441,29 +465,29 @@ export default function Page() {
                   </div>
 
                   {/* Date */}
-                  <p className="dash-card__meta">
-                    {formatDateTimeToCustomString(zap.createdDate)}
-                  </p>
+                  <p className="dash-card__meta">{formatDateTimeToCustomString(zap.createdDate)}</p>
 
                   {/* Actions */}
                   <div className="dash-card__footer">
-                    <button
-                      type="button"
-                      onClick={() => handleUrlCopy(url)}
-                      className="dash-card__btn"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        width="16"
-                        height="16"
+                    {url && (
+                      <button
+                        type="button"
+                        onClick={() => handleUrlCopy(url)}
+                        className="dash-card__btn"
                       >
-                        <path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z" />
-                        <path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z" />
-                      </svg>
-                      Copy URL
-                    </button>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          width="16"
+                          height="16"
+                        >
+                          <path d="M12.232 4.232a2.5 2.5 0 0 1 3.536 3.536l-1.225 1.224a.75.75 0 0 0 1.061 1.06l1.224-1.224a4 4 0 0 0-5.656-5.656l-3 3a4 4 0 0 0 .225 5.865.75.75 0 0 0 .977-1.138 2.5 2.5 0 0 1-.142-3.667l3-3Z" />
+                          <path d="M11.603 7.963a.75.75 0 0 0-.977 1.138 2.5 2.5 0 0 1 .142 3.667l-3 3a2.5 2.5 0 0 1-3.536-3.536l1.225-1.224a.75.75 0 0 0-1.061-1.06l-1.224 1.224a4 4 0 1 0 5.656 5.656l3-3a4 4 0 0 0-.225-5.865Z" />
+                        </svg>
+                        Copy URL
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setHistoryZap(zap)}
@@ -511,8 +535,13 @@ export default function Page() {
           {data.total === 0 && !loading && (
             <div className="dash-empty">
               <h3>No zaps yet</h3>
-              <p>Build your first zap: pick a trigger, add an action, and ZapMate runs it for you from then on.</p>
-              <Button variant="primary" onClick={handleCreateClick}>Create your first zap</Button>
+              <p>
+                Build your first zap: pick a trigger, add an action, and ZapMate runs it for you
+                from then on.
+              </p>
+              <Button variant="primary" onClick={handleCreateClick}>
+                Create your first zap
+              </Button>
             </div>
           )}
         </div>

@@ -231,7 +231,11 @@ const WhatsAppMetaData = ({ handleClick }: MetaDataFormProps) => {
             placeholder="Your order shipped 📦 — mapped fields like {{previousOutput.fields.name}} work"
             onChange={update}
           />
-          <FormInput label="Media URL (optional, ≤ image/document/video/audio link)" name="mediaUrl" onChange={update} />
+          <FormInput
+            label="Media URL (optional, ≤ image/document/video/audio link)"
+            name="mediaUrl"
+            onChange={update}
+          />
           <FormInput label="Media caption (optional)" name="caption" onChange={update} />
           <label className="meta-form__label">
             <input type="checkbox" name="previewUrl" checked={form.previewUrl} onChange={update} />{' '}

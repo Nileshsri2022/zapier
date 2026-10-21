@@ -1,11 +1,6 @@
 import client from '@repo/db';
 import { AiMetadataError, validateActionMetadata } from './ai';
-import {
-  computeNextRun,
-  normalizeCron,
-  validateCron,
-  type ScheduleType,
-} from './schedule';
+import { computeNextRun, normalizeCron, validateCron, type ScheduleType } from './schedule';
 
 /**
  * Zap composition — the one place that knows what a Zap is made of.
@@ -189,8 +184,7 @@ const gmailAdapter: TriggerAdapter = {
     const internal = GMAIL_TYPE_MAP[triggerType];
     if (!internal) return;
 
-    const searchQuery =
-      typeof metadata.searchQuery === 'string' ? metadata.searchQuery.trim() : '';
+    const searchQuery = typeof metadata.searchQuery === 'string' ? metadata.searchQuery.trim() : '';
     const watchedLabels = Array.isArray(metadata.watchedLabels)
       ? metadata.watchedLabels
       : typeof metadata.watchedLabels === 'string' && metadata.watchedLabels.trim()
@@ -309,7 +303,8 @@ const scheduleAdapter: TriggerAdapter = {
 
   async createShadowRow(tx, { zapId, triggerType, metadata }) {
     const scheduleType = SCHEDULE_TYPE_MAP[triggerType] ?? 'hourly';
-    const cronExpression = scheduleType === 'cron' ? normalizeCron(String(metadata?.cron ?? '')) : null;
+    const cronExpression =
+      scheduleType === 'cron' ? normalizeCron(String(metadata?.cron ?? '')) : null;
 
     // First run on the user's wall clock, honouring timezone and day rules.
     const nextRunAt = computeNextRun({
@@ -351,7 +346,13 @@ const whatsappAdapter: TriggerAdapter = {
         'WhatsApp trigger requires a connected WhatsApp server'
       );
     }
-    await requireOwnedConnection(db, 'whatsAppServer', metadata.serverId, userId, 'WhatsApp server');
+    await requireOwnedConnection(
+      db,
+      'whatsAppServer',
+      metadata.serverId,
+      userId,
+      'WhatsApp server'
+    );
   },
 
   async createShadowRow(tx, { zapId, metadata }) {

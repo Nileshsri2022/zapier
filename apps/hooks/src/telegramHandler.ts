@@ -62,7 +62,15 @@ export interface TelegramUpdate {
   callback_query?: any;
 }
 
-const MEDIA_KINDS = ['photo', 'video', 'document', 'audio', 'voice', 'sticker', 'animation'] as const;
+const MEDIA_KINDS = [
+  'photo',
+  'video',
+  'document',
+  'audio',
+  'voice',
+  'sticker',
+  'animation',
+] as const;
 
 /**
  * §4 data contract (+ legacy aliases). `raw` is the full update so future
@@ -74,8 +82,13 @@ export function buildTelegramRunPayload(
 ): Record<string, any> {
   const text = typeof message.text === 'string' ? message.text : null;
   const isCommand = text?.startsWith('/') || false;
-  const command = isCommand ? (text!.split(' ')[0] || '').split('@')[0] || null : null;
-  const commandArgs = isCommand ? text!.slice(command!.length).trim() : null;
+  // Telegram appends `@botname` in groups (privacy mode), which is where
+  // command-driven Zaps are used. The mention is addressing, not an argument, so
+  // slice by the RAW first token before dropping it — slicing by the stripped
+  // command leaves `@botname` at the head of commandArgs.
+  const firstToken = isCommand ? (text!.split(/\s/)[0] ?? '') : '';
+  const command = isCommand ? firstToken.split('@')[0] || null : null;
+  const commandArgs = isCommand ? text!.slice(firstToken.length).trim() : null;
 
   const mediaKind = MEDIA_KINDS.find((k) => message[k]);
   const mediaBlockRaw = mediaKind ? message[mediaKind] : null;
@@ -142,10 +155,7 @@ export function buildTelegramRunPayload(
  * Q-TG-T-03 chat-type filter: absent/empty metadata.chatTypes = no
  * restriction; supergroup normalizes to group for matching.
  */
-export function matchesChatTypeFilter(
-  message: TelegramMessage,
-  chatTypes: unknown
-): boolean {
+export function matchesChatTypeFilter(message: TelegramMessage, chatTypes: unknown): boolean {
   if (!Array.isArray(chatTypes) || chatTypes.length === 0) return true;
   const raw = message?.chat?.type;
   const normalized = raw === 'supergroup' ? 'group' : raw;

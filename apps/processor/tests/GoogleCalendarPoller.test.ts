@@ -1,4 +1,9 @@
-import { GoogleCalendarPoller, calendarInstanceKey, isAllDayEvent, buildCalendarRunPayload } from '../src/pollers/GoogleCalendarPoller';
+import {
+  GoogleCalendarPoller,
+  calendarInstanceKey,
+  isAllDayEvent,
+  buildCalendarRunPayload,
+} from '../src/pollers/GoogleCalendarPoller';
 import client from '@repo/db';
 import redis from '@repo/redis';
 import { enqueueRun } from '@repo/runs';
@@ -78,9 +83,7 @@ describe('GoogleCalendarPoller — T3 grilled spec', () => {
 
   describe('pollNewEvent', () => {
     it('fires the unified contract for events created after the last poll, scoped to trigger.calendarId', async () => {
-      (client.googleCalendarTrigger.findMany as jest.Mock).mockResolvedValue([
-        baseTrigger(),
-      ]);
+      (client.googleCalendarTrigger.findMany as jest.Mock).mockResolvedValue([baseTrigger()]);
       mockEventsList.mockResolvedValue({ data: { items: [baseEvent] } });
 
       const result = await poller.poll();
@@ -116,9 +119,7 @@ describe('GoogleCalendarPoller — T3 grilled spec', () => {
     });
 
     it('expands recurring series into one run per occurrence with distinct instanceKeys', async () => {
-      (client.googleCalendarTrigger.findMany as jest.Mock).mockResolvedValue([
-        baseTrigger(),
-      ]);
+      (client.googleCalendarTrigger.findMany as jest.Mock).mockResolvedValue([baseTrigger()]);
       const mkInstance = (suffix: string, start: string) => ({
         ...baseEvent,
         id: `series-1_${suffix}`,
@@ -140,20 +141,14 @@ describe('GoogleCalendarPoller — T3 grilled spec', () => {
       expect(result.processed).toBe(2);
       const metas = (enqueueRun as jest.Mock).mock.calls.map((c: any[]) => c[0].metadata);
       expect(metas).toHaveLength(2);
-      expect(metas[0].instanceKey).toBe(
-        `series-1@${'2026-10-22T15:00:00+05:30'}`
-      );
-      expect(metas[1].instanceKey).toBe(
-        `series-1@${'2026-10-23T15:00:00+05:30'}`
-      );
+      expect(metas[0].instanceKey).toBe(`series-1@${'2026-10-22T15:00:00+05:30'}`);
+      expect(metas[1].instanceKey).toBe(`series-1@${'2026-10-23T15:00:00+05:30'}`);
       expect(metas.every((m: any) => m.recurringEventId === 'series-1')).toBe(true);
       expect(new Set(metas.map((m: any) => m.instanceKey)).size).toBe(2);
     });
 
     it('flags all-day events (start.date, no dateTime) with allDay: true', async () => {
-      (client.googleCalendarTrigger.findMany as jest.Mock).mockResolvedValue([
-        baseTrigger(),
-      ]);
+      (client.googleCalendarTrigger.findMany as jest.Mock).mockResolvedValue([baseTrigger()]);
       mockEventsList.mockResolvedValue({
         data: {
           items: [
@@ -177,9 +172,7 @@ describe('GoogleCalendarPoller — T3 grilled spec', () => {
     });
 
     it('never fires events created before the trigger last poll (no historic burst)', async () => {
-      (client.googleCalendarTrigger.findMany as jest.Mock).mockResolvedValue([
-        baseTrigger(),
-      ]);
+      (client.googleCalendarTrigger.findMany as jest.Mock).mockResolvedValue([baseTrigger()]);
       mockEventsList.mockResolvedValue({
         data: { items: [{ ...baseEvent, created: '2026-10-01T00:00:00Z' }] },
       });

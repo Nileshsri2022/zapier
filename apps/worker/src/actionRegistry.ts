@@ -1,9 +1,4 @@
-import {
-  acceptedActionTypes,
-  findAction,
-  type ActionEntry,
-  type ExecutorKey,
-} from '@repo/actions';
+import { acceptedActionTypes, findAction, type ActionEntry, type ExecutorKey } from '@repo/actions';
 import { resolvePlaceholders } from '@repo/placeholders';
 import { actionShouldRetry, withRetry, type RetryConfig, type RetryResult } from './utils/retry';
 import { EmailActionError } from './sendEmail';

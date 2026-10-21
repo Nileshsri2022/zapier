@@ -1,7 +1,4 @@
-import {
-  buildGmailRunPayload,
-  shouldTrigger,
-} from '../../src/services/gmailIntake';
+import { buildGmailRunPayload, shouldTrigger } from '../../src/services/gmailIntake';
 
 /**
  * Gmail Matching Search trigger + grilled payload contract additions
@@ -45,9 +42,9 @@ describe('shouldTrigger — matching_search', () => {
   });
 
   it('does not fire when the query does not match', async () => {
-    await expect(shouldTrigger(searchTrigger('from:bob@example.com'), newEmailPayload)).resolves.toBe(
-      false
-    );
+    await expect(
+      shouldTrigger(searchTrigger('from:bob@example.com'), newEmailPayload)
+    ).resolves.toBe(false);
   });
 
   it('never fires without a query (no whole-mailbox fan-out)', async () => {
@@ -67,9 +64,9 @@ describe('shouldTrigger — matching_search', () => {
   });
 
   it('unknown trigger types still return false', async () => {
-    await expect(shouldTrigger({ triggerType: 'nope', metadata: {} }, newEmailPayload)).resolves.toBe(
-      false
-    );
+    await expect(
+      shouldTrigger({ triggerType: 'nope', metadata: {} }, newEmailPayload)
+    ).resolves.toBe(false);
   });
 });
 

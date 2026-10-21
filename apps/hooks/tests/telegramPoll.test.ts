@@ -76,9 +76,7 @@ describe('pollTelegramBots', () => {
   });
 
   it('holds the offset when any update fails (at-least-once redelivery)', async () => {
-    mockProcessMessage
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error('db down'));
+    mockProcessMessage.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('db down'));
 
     const result = await pollTelegramBots();
 
@@ -124,7 +122,11 @@ describe('pollTelegramBots', () => {
 
   it('API-level retry_after (ok:false with parameters) → offset held', async () => {
     mockFetch.mockResolvedValue(
-      jsonResponse(200, { ok: false, description: 'Too Many Requests', parameters: { retry_after: 17 } })
+      jsonResponse(200, {
+        ok: false,
+        description: 'Too Many Requests',
+        parameters: { retry_after: 17 },
+      })
     );
     const result = await pollTelegramBots();
     expect(result.errors).toBe(1);

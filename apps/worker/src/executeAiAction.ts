@@ -68,9 +68,10 @@ export async function executeAiAction(
           config,
           String(resolvePlaceholders(config.input, runMetadata)),
           {
-          ...execution,
-          state,
-        });
+            ...execution,
+            state,
+          }
+        );
         return { success: true, message: `AI ${output.mode} via ${output.provider}`, output };
       } catch (error) {
         throw safeAiError(error);

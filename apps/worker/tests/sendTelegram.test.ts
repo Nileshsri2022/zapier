@@ -44,7 +44,11 @@ describe('Q-TG-A-01 text sends (§4 output)', () => {
   it('posts text and returns messageId/chat/date/text', async () => {
     const fetchImpl = jest.fn(async () => telegramOk()) as unknown as typeof fetch;
     const out = await sendTelegramAction(
-      { botId: 'bot-1', chatId: '-1001234567890', text: 'Order {{previousOutput.fields.id}} shipped 📦' },
+      {
+        botId: 'bot-1',
+        chatId: '-1001234567890',
+        text: 'Order {{previousOutput.fields.id}} shipped 📦',
+      },
       { ...RUN, previousOutput: { fields: { id: '42' } } },
       { fetchImpl, db: dbWith() as any }
     );
@@ -67,11 +71,10 @@ describe('Q-TG-A-01 text sends (§4 output)', () => {
   it('resolves the bot from the shared connection and rejects foreign bots', async () => {
     const fetchImpl = jest.fn() as unknown as typeof fetch;
     await expect(
-      sendTelegramAction(
-        { botId: 'bot-1', chatId: '123', text: 'hi' },
-        RUN,
-        { fetchImpl, db: dbWith(null) as any }
-      )
+      sendTelegramAction({ botId: 'bot-1', chatId: '123', text: 'hi' }, RUN, {
+        fetchImpl,
+        db: dbWith(null) as any,
+      })
     ).rejects.toMatchObject({ code: 'auth' });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
@@ -88,11 +91,10 @@ describe('Q-TG-A-02 parse modes', () => {
     );
 
     const fetchImpl = jest.fn(async () => telegramOk()) as unknown as typeof fetch;
-    await sendTelegramAction(
-      { botId: 'bot-1', chatId: '123', text: '<b>hi</b>' },
-      RUN,
-      { fetchImpl, db: dbWith() as any }
-    );
+    await sendTelegramAction({ botId: 'bot-1', chatId: '123', text: '<b>hi</b>' }, RUN, {
+      fetchImpl,
+      db: dbWith() as any,
+    });
     expect(lastPayload(fetchImpl).parse_mode).toBeUndefined();
 
     await sendTelegramAction(
@@ -107,7 +109,8 @@ describe('Q-TG-A-02 parse modes', () => {
     const fetchImpl = jest.fn(async () =>
       telegramError(400, {
         ok: false,
-        description: "Bad Request: can't parse entities: Unsupported start tag \"foo\" at byte offset 4",
+        description:
+          'Bad Request: can\'t parse entities: Unsupported start tag "foo" at byte offset 4',
       })
     ) as unknown as typeof fetch;
 
@@ -142,13 +145,19 @@ describe('Q-TG-A-04 over-limit fails loudly', () => {
   });
 
   it('rejects captions over 1024 characters', async () => {
-    const fetchImpl = jest.fn(async () => ({ ok: true, status: 200 }) as Response) as unknown as typeof fetch;
+    const fetchImpl = jest.fn(
+      async () => ({ ok: true, status: 200 }) as Response
+    ) as unknown as typeof fetch;
     await expect(
       sendTelegramAction(
         {
           botId: 'bot-1',
           chatId: '123',
-          media: { kind: 'photo', source: 'https://cdn.example.com/p.png', caption: 'x'.repeat(CAPTION_LIMIT + 1) },
+          media: {
+            kind: 'photo',
+            source: 'https://cdn.example.com/p.png',
+            caption: 'x'.repeat(CAPTION_LIMIT + 1),
+          },
         },
         RUN,
         { fetchImpl, db: dbWith() as any }
@@ -159,11 +168,10 @@ describe('Q-TG-A-04 over-limit fails loudly', () => {
   it('accepts exactly 4096 characters', async () => {
     const fetchImpl = jest.fn(async () => telegramOk()) as unknown as typeof fetch;
     await expect(
-      sendTelegramAction(
-        { botId: 'bot-1', chatId: '123', text: 'x'.repeat(TEXT_LIMIT) },
-        RUN,
-        { fetchImpl, db: dbWith() as any }
-      )
+      sendTelegramAction({ botId: 'bot-1', chatId: '123', text: 'x'.repeat(TEXT_LIMIT) }, RUN, {
+        fetchImpl,
+        db: dbWith() as any,
+      })
     ).resolves.toMatchObject({ sent: true });
   });
 });
@@ -195,14 +203,20 @@ describe('Q-TG-A-03 chat targeting', () => {
 describe('Q-TG-A-01 media sends', () => {
   it('sends a photo with caption after verifying the URL', async () => {
     const fetchImpl = jest.fn(async (url: string) =>
-      String(url).includes('api.telegram.org') ? telegramOk() : ({ ok: true, status: 200 } as Response)
+      String(url).includes('api.telegram.org')
+        ? telegramOk()
+        : ({ ok: true, status: 200 } as Response)
     ) as unknown as typeof fetch;
 
     const out = await sendTelegramAction(
       {
         botId: 'bot-1',
         chatId: '-1001234567890',
-        media: { kind: 'photo', source: 'https://cdn.example.com/label.png', caption: 'Label preview' },
+        media: {
+          kind: 'photo',
+          source: 'https://cdn.example.com/label.png',
+          caption: 'Label preview',
+        },
       },
       RUN,
       { fetchImpl, db: dbWith() as any }
@@ -226,7 +240,9 @@ describe('Q-TG-A-01 media sends', () => {
   });
 
   it('fails the run when media is unreachable (no text substitute)', async () => {
-    const fetchImpl = jest.fn(async () => ({ ok: false, status: 404 }) as Response) as unknown as typeof fetch;
+    const fetchImpl = jest.fn(
+      async () => ({ ok: false, status: 404 }) as Response
+    ) as unknown as typeof fetch;
     await expect(
       sendTelegramAction(
         {
@@ -297,7 +313,9 @@ describe('Q-TG-A-05 options and error classes', () => {
       [429, { description: 'Too Many Requests', parameters: { retry_after: 7 } }, 'rate_limited'],
     ];
     for (const [status, body, code] of cases) {
-      const fetchImpl = jest.fn(async () => telegramError(status, { ok: false, ...body })) as unknown as typeof fetch;
+      const fetchImpl = jest.fn(async () =>
+        telegramError(status, { ok: false, ...body })
+      ) as unknown as typeof fetch;
       await expect(
         sendTelegramAction({ botId: 'bot-1', chatId: '123', text: 'hi' }, RUN, {
           fetchImpl,
@@ -307,7 +325,11 @@ describe('Q-TG-A-05 options and error classes', () => {
     }
 
     const limited = jest.fn(async () =>
-      telegramError(429, { ok: false, description: 'Too Many Requests', parameters: { retry_after: 7 } })
+      telegramError(429, {
+        ok: false,
+        description: 'Too Many Requests',
+        parameters: { retry_after: 7 },
+      })
     ) as unknown as typeof fetch;
     const error = await sendTelegramAction({ botId: 'bot-1', chatId: '123', text: 'hi' }, RUN, {
       fetchImpl: limited,

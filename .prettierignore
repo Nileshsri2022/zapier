@@ -5,3 +5,17 @@ dist
 *.min.js
 bun.lock
 package-lock.json
+
+# Vendored skill definitions. `skills-lock.json` tracks each skill's source and
+# a computed hash, so reformatting them makes every re-sync collide with
+# upstream (mattpocock/skills).
+.agents/
+
+# Prose. These are authored by humans and by the skills themselves, and
+# prettier's markdown pass rewrites emphasis markers (`_x_` -> `*x*`) and table
+# padding — churn in the source with no change in rendering. GLOSSARY.md in
+# particular is a curated domain artifact.
+docs/
+teach/
+reports/
+*.md
