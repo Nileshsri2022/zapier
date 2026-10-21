@@ -21,6 +21,22 @@ jest.mock('@repo/db', () => ({
       update: jest.fn(),
       delete: jest.fn(),
     },
+    googleCalendarTrigger: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
+    googleCalendarServer: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+    },
     $disconnect: jest.fn(),
   },
 }));
@@ -32,12 +48,20 @@ jest.mock('@repo/redis', () => ({
     hset: jest.fn(),
     expire: jest.fn(),
     del: jest.fn(),
+    get: jest.fn(),
+    set: jest.fn(),
+    sadd: jest.fn(),
+    smembers: jest.fn(),
   },
   redis: {
     hget: jest.fn(),
     hset: jest.fn(),
     expire: jest.fn(),
     del: jest.fn(),
+    get: jest.fn(),
+    set: jest.fn(),
+    sadd: jest.fn(),
+    smembers: jest.fn(),
   },
 }));
 

@@ -10,6 +10,71 @@ import client from '@repo/db';
 import { BasePoller } from './BasePoller';
 import { PollResult } from './types';
 
+export type CalendarEventKind = 'created' | 'updated' | 'cancelled';
+
+/**
+ * Stable key for one occurrence: recurring instances are expanded with
+ * distinct ids, but the explicit key (recurringEventId@start) names the
+ * occurrence identity per spec §3 (Q-CAL-02/Q-CAL-05).
+ */
+export function calendarInstanceKey(event: {
+  id?: string | null;
+  recurringEventId?: string | null;
+  start?: { dateTime?: string | null; date?: string | null } | null;
+}): string {
+  const start = event.start?.dateTime || event.start?.date || '';
+  return event.recurringEventId ? `${event.recurringEventId}@${start}` : String(event.id ?? '');
+}
+
+/** All-day events carry `start.date` instead of `start.dateTime` (Q-CAL-04). */
+export function isAllDayEvent(event: {
+  start?: { dateTime?: string | null; date?: string | null } | null;
+}): boolean {
+  return Boolean(event.start?.date && !event.start?.dateTime);
+}
+
+/**
+ * Unified run payload for the three grilled lifecycle events
+ * (docs/ask-matt/triggers/google-calendar.md §4): eventId, instanceKey,
+ * status, event, summary/description/location, start/end, allDay,
+ * recurringEventId, organizer, attendees, htmlLink, updatedAt — plus the
+ * legacy trigger_type/event_id/html_link aliases so existing zaps keep
+ * mapping. Recurring events are expanded by the API (singleEvents: true);
+ * update detection watermarks per instance via redis + enqueueRun dedup.
+ */
+export function buildCalendarRunPayload(
+  event: calendar_v3.Schema$Event,
+  kind: CalendarEventKind
+): Record<string, any> {
+  const allDay = isAllDayEvent(event as any);
+  const status = event.status || (kind === 'cancelled' ? 'cancelled' : 'confirmed');
+  return {
+    // Spec contract (docs/ask-matt §4)
+    eventId: event.id ?? null,
+    instanceKey: calendarInstanceKey(event as any),
+    status,
+    event: kind,
+    summary: event.summary ?? (kind === 'cancelled' ? 'Deleted Event' : ''),
+    description: event.description ?? null,
+    location: event.location ?? null,
+    start: event.start ?? null,
+    end: event.end ?? null,
+    allDay,
+    recurringEventId: event.recurringEventId ?? null,
+    organizer: event.organizer ?? null,
+    attendees: event.attendees ?? [],
+    htmlLink: event.htmlLink ?? null,
+    created: event.created ?? null,
+    updatedAt: event.updated ?? null,
+    // Legacy aliases (existing templates/filters depend on these names)
+    trigger_type:
+      kind === 'created' ? 'new_event' : kind === 'updated' ? 'event_updated' : 'event_cancelled',
+    event_id: event.id ?? null,
+    html_link: event.htmlLink ?? null,
+    updated: event.updated ?? null,
+  };
+}
+
 export class GoogleCalendarPoller extends BasePoller {
   name = 'google-calendar';
   emoji = '📅';
@@ -163,18 +228,14 @@ export class GoogleCalendarPoller extends BasePoller {
         const alreadyTriggered = await redis.get(redisKey);
 
         if (!alreadyTriggered) {
-          await this.createZapRun(trigger.zapId, {
-            trigger_type: 'new_event',
-            event_id: event.id,
-            summary: event.summary,
-            description: event.description,
-            start: event.start,
-            end: event.end,
-            location: event.location,
-            attendees: event.attendees,
-            html_link: event.htmlLink,
-            created: event.created,
-          });
+          await this.createZapRun(
+            trigger.zapId,
+            buildCalendarRunPayload(event as calendar_v3.Schema$Event, 'created'),
+            {
+              scope: 'calendar',
+              key: `${trigger.zapId}:cal:created:${calendarInstanceKey(event as any)}`,
+            }
+          );
 
           await redis.set(redisKey, '1', { ex: 86400 });
           processed++;
@@ -222,16 +283,14 @@ export class GoogleCalendarPoller extends BasePoller {
         const alreadyTriggered = await redis.get(redisKey);
 
         if (!alreadyTriggered) {
-          await this.createZapRun(trigger.zapId, {
-            trigger_type: 'event_updated',
-            event_id: event.id,
-            summary: event.summary,
-            description: event.description,
-            start: event.start,
-            end: event.end,
-            location: event.location,
-            updated: event.updated,
-          });
+          await this.createZapRun(
+            trigger.zapId,
+            buildCalendarRunPayload(event as calendar_v3.Schema$Event, 'updated'),
+            {
+              scope: 'calendar',
+              key: `${trigger.zapId}:cal:updated:${calendarInstanceKey(event as any)}:${event.updated}`,
+            }
+          );
 
           await redis.set(redisKey, '1', { ex: 86400 });
           processed++;
@@ -357,11 +416,14 @@ export class GoogleCalendarPoller extends BasePoller {
         for (const event of response.data.items || []) {
           // Cancelled events have status 'cancelled'
           if (event.status === 'cancelled' && event.id) {
-            await this.createZapRun(trigger.zapId, {
-              trigger_type: 'event_cancelled',
-              event_id: event.id,
-              summary: event.summary || 'Deleted Event',
-            });
+            await this.createZapRun(
+              trigger.zapId,
+              buildCalendarRunPayload(event as calendar_v3.Schema$Event, 'cancelled'),
+              {
+                scope: 'calendar',
+                key: `${trigger.zapId}:cal:cancelled:${calendarInstanceKey(event as any)}`,
+              }
+            );
             processed++;
             console.log(`${this.emoji} Event cancelled: ${event.id}`);
           }
