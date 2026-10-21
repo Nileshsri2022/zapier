@@ -60,6 +60,13 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      # `format:check` already existed in package.json but was never wired, so
+      # drift accumulated silently (76 files when this was added). It covers
+      # code only — .prettierignore excludes the vendored .agents/ skills and
+      # all prose, where prettier's markdown pass only churns the source.
+      - name: Format check
+        run: bun run format:check
+
       - name: Run server tests
         run: cd apps/server && bun run test
 
