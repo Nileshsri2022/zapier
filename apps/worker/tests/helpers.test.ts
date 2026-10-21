@@ -1,4 +1,3 @@
-import { getSolanaPrivateKey } from '../src/sendSolana';
 import { evaluateFilters } from '../src/evaluateFilters';
 import { withRetry, isRetryableError } from '../src/utils/retry';
 
@@ -12,32 +11,6 @@ const originalEnv = { ...process.env };
 
 afterEach(() => {
   process.env = { ...originalEnv };
-});
-
-describe('getSolanaPrivateKey', () => {
-  it('reads the documented SOLANA_PRIVATE_KEY', () => {
-    process.env.SOLANA_PRIVATE_KEY = 'doc-key';
-    delete process.env.SOL_PRIVATE_KEY;
-    expect(getSolanaPrivateKey()).toBe('doc-key');
-  });
-
-  it('still reads the legacy SOL_PRIVATE_KEY', () => {
-    delete process.env.SOLANA_PRIVATE_KEY;
-    process.env.SOL_PRIVATE_KEY = 'legacy-key';
-    expect(getSolanaPrivateKey()).toBe('legacy-key');
-  });
-
-  it('prefers the documented name when both are set', () => {
-    process.env.SOLANA_PRIVATE_KEY = 'doc';
-    process.env.SOL_PRIVATE_KEY = 'legacy';
-    expect(getSolanaPrivateKey()).toBe('doc');
-  });
-
-  it('returns undefined when nothing is configured', () => {
-    delete process.env.SOLANA_PRIVATE_KEY;
-    delete process.env.SOL_PRIVATE_KEY;
-    expect(getSolanaPrivateKey()).toBeUndefined();
-  });
 });
 
 describe('evaluateFilters', () => {

@@ -289,6 +289,37 @@ Gate status: ⛔ **no implementation approved** — docs only.
 | Q-SOL-04 | RPC endpoint? | ✅ **Default public RPC + user-provided override** |
 | Q-SOL-05 | Commitment level? | ✅ **`confirmed`** (recorded as the default for the future send backlog; timeout 60s) |
 
+### A3 — Solana implementation notes
+
+- **A3 — Solana (read-only v1):** `apps/worker/src/sendSolana.ts` (and its
+  `sendSol` transfer plus both key-env readers) is **deleted**; the action is
+  now `apps/worker/src/solanaRead.ts`, which has **zero key-handling code**
+  (no `Keypair`, `fromSecretKey`, signing or `PRIVATE_KEY` references — pinned
+  by a source-scan test). Send/token/raw-tx/stake operations are **backlog**:
+  asking for them returns a `validation` error that names the read-only scope
+  instead of silently no-op'ing.
+- Operations implemented per Q-SOL-01: **O1 getBalance** (lamports string +
+  exact `sol` decimal), **O2 getTokenAccounts** (mint filter or token-program
+  filter, `uiAmount` recomputed from base units), **O3 getAccount**
+  (base64 data + owner/lamports/executable, `account_not_found` when absent),
+  **O8 getLatestBlockhash / getSlot / getVersion**.
+- Q-SOL-02/Q-SOL-04: network is part of the action config
+  (`mainnet-beta` default, `devnet`, `testnet`) with a public endpoint default
+  and optional private RPC override; override credentials are **redacted**
+  from every surfaced message (`<custom-rpc>` / `<redacted>`) and never logged.
+- Q-SOL-05: `commitment: "confirmed"` echoed on every read. Precision: integer
+  BigInt math only — `lamportsToSolString`/`toDecimalString` return strings,
+  never floats.
+- Error classes: `validation`, `invalid_address` (pre-call, no RPC), 
+  `account_not_found`, `rpc_rate_limited` (429, retryable + "add your own RPC"
+  hint), `rpc_unavailable` (5xx/network, retryable), `rpc_error`.
+- Builder: `SolanaMetaData` now selects operation + network, exposes the RPC
+  override, and shows only the inputs that operation needs, with an explicit
+  "read-only, no keys ever stored" note.
+- Tests: new `apps/worker/tests/solanaRead.test.ts` (15 fixtures, including the
+  no-key source scan); the old `solana.test.ts` and the `getSolanaPrivateKey`
+  helper cases are removed with the transfer path.
+
 ## A4 — Webhook action (HTTP request) ✅ **grilled** (round 14)
 
 | ID | Question | Answer |

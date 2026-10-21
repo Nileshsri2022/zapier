@@ -4,7 +4,6 @@ import client from '@repo/db';
 import dotenv from 'dotenv';
 import { sendZapFailureNotification } from '@repo/email';
 import { withRetry, RetryResult } from './utils/retry';
-import { sendSol, getSolanaPrivateKey } from './sendSolana';
 import { sendDiscordMessage, resolveDiscordPlaceholders } from './sendDiscord';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
 import { isKnownActionType } from './utils/actionTypes';
@@ -89,30 +88,21 @@ export async function executeActionWithRetry(
       }
 
       if (actionType === 'Solana') {
-        const { address, amount } = metadata;
-        const resolvedAddress = replaceKeys(address, zapRunMetadata);
-        const resolvedAmount = replaceKeys(amount, zapRunMetadata);
-
-        // Check if a Solana key is configured (documented name, then legacy).
-        // Fail the run loudly instead of silently skipping a configured transfer.
-        if (!getSolanaPrivateKey()) {
-          throw new Error(
-            'Solana action configured but SOLANA_PRIVATE_KEY is not set. ' +
-              'Configure the key or remove the Solana step from the Zap.'
-          );
-        }
-
-        console.log(`Sending ${resolvedAmount} SOL to ${resolvedAddress}...`);
-        await sendSol(resolvedAddress, resolvedAmount);
-        console.log(`✅ SOL sent successfully to ${resolvedAddress}`);
+        // A3: read-only v1 — no keys, no signing, no transfers (send ops are
+        // backlog behind an external-signer security review).
+        const { runSolanaAction } = await import('./solanaRead.js');
+        const resolved = {
+          ...metadata,
+          address: metadata?.address ? replaceKeys(String(metadata.address), zapRunMetadata) : undefined,
+          owner: metadata?.owner ? replaceKeys(String(metadata.owner), zapRunMetadata) : undefined,
+          mint: metadata?.mint ? replaceKeys(String(metadata.mint), zapRunMetadata) : undefined,
+        };
+        const output = await runSolanaAction(resolved);
+        console.log(`✅ Solana ${output.operation} on ${output.network}`);
         return {
           success: true,
-          message: `${resolvedAmount} SOL sent to ${resolvedAddress}`,
-          output: {
-            address: resolvedAddress,
-            amount: resolvedAmount,
-            sentAt: new Date().toISOString(),
-          },
+          message: `Solana ${output.operation} on ${output.network}`,
+          output,
         };
       }
 
