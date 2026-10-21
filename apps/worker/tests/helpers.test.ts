@@ -51,6 +51,42 @@ describe('evaluateFilters', () => {
       })
     ).toBe(true);
   });
+
+  // A filter is an authorization-shaped decision ("do not run unless …"), so a
+  // condition the worker cannot evaluate must never be read as "pass".
+  describe('when an operator cannot be evaluated', () => {
+    beforeEach(() => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('fails closed on an operator it cannot evaluate', () => {
+      expect(evaluateFilters([{ field: 'subject', operator: 'regex', value: '.*' }], payload)).toBe(
+        false
+      );
+    });
+
+    it('fails closed on a near-miss typo of a supported operator', () => {
+      expect(
+        evaluateFilters([{ field: 'from', operator: 'equal', value: 'billing@acme.com' }], payload)
+      ).toBe(false);
+    });
+
+    it('fails closed when an unevaluable condition sits beside passing ones', () => {
+      expect(
+        evaluateFilters(
+          [
+            { field: 'from', operator: 'equals', value: 'billing@acme.com' }, // passes
+            { field: 'subject', operator: 'regex', value: '.*' }, // cannot be evaluated
+          ],
+          payload
+        )
+      ).toBe(false);
+    });
+  });
 });
 
 describe('withRetry', () => {

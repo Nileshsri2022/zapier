@@ -63,8 +63,13 @@ function evaluateCondition(condition: FilterCondition, data: any): boolean {
       return String(actualValue).toLowerCase().endsWith(String(expectedValue).toLowerCase());
 
     default:
-      console.warn(`Unknown operator: ${condition.operator}`);
-      return true; // Default to passing for unknown operators
+      // A filter is an authorization-shaped decision ("do not run unless …"),
+      // so an operator we cannot evaluate must never be read as "pass".
+      console.error(
+        `Unknown operator "${condition.operator}" on field "${condition.field}": ` +
+          `treating the condition as NOT met (fail closed)`
+      );
+      return false;
   }
 }
 
