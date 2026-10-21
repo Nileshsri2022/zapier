@@ -166,6 +166,12 @@ export class GoogleSheetsPoller extends BasePoller {
 
     const redisKey = this.getRedisKey(trigger.id);
     const fireRows: SheetsRowEvent[] = [];
+    // Hashes are collected, not written, until every run for this poll has been
+    // enqueued. Writing them inline marked a row "seen" before its run existed,
+    // so a failed enqueue (Kafka down, intake throwing) lost the row for good
+    // (#47). `createZapRun` is idempotent on the row hash, so re-polling after a
+    // failure cannot double-fire.
+    const hashUpdates: Record<string, string> = {};
 
     for (const row of dataRows) {
       // Fully-empty rows are skipped entirely — never fire, never hash
@@ -211,14 +217,15 @@ export class GoogleSheetsPoller extends BasePoller {
         );
       }
 
-      // Update hash in Redis
-      await redis.hset(redisKey, { [rowKey]: newHash });
+      hashUpdates[rowKey] = newHash;
     }
 
-    // Set TTL (30 days)
-    await redis.expire(redisKey, 60 * 60 * 24 * 30);
-
+    // Nothing to enqueue: persisting the hashes is the whole effect of the poll.
     if (fireRows.length === 0) {
+      await redis.hset(redisKey, hashUpdates);
+      // Set TTL (30 days)
+      await redis.expire(redisKey, 60 * 60 * 24 * 30);
+
       await client.googleSheetsTrigger.update({
         where: { id: trigger.id },
         data: { lastPolledAt: new Date() },
@@ -260,6 +267,11 @@ export class GoogleSheetsPoller extends BasePoller {
         key: `${trigger.zapId}:sheets:${row.row_number}:${row.event}:${row.rowHash}`,
       });
     }
+
+    // Every run exists now, so the rows are safe to mark as seen. A throw above
+    // propagates without touching Redis, and the next poll retries the rows.
+    await redis.hset(redisKey, hashUpdates);
+    await redis.expire(redisKey, 60 * 60 * 24 * 30);
 
     // Update last polled timestamp
     await client.googleSheetsTrigger.update({
