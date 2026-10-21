@@ -1,4 +1,4 @@
-import { verifyIngress } from './engine';
+import { refuse, verifyIngress } from './engine';
 import {
   catchHookHmacSpec,
   catchHookLegacySpec,
@@ -49,6 +49,11 @@ export function verifyCatchHook(
   if (mode === 'none') return verifyIngress(catchHookOpenSpec, request, undefined);
   if (mode === 'static') return verifyIngress(catchHookStaticSpec, request, options.secret);
   if (mode === 'hmac') return verifyIngress(catchHookHmacSpec, request, options.secret);
+  // An authMode nobody recognizes is a configuration error — it must not fall
+  // through to the legacy implicit spec, which is an audited open door.
+  if (mode) {
+    return refuse('UNSUPPORTED_AUTH_MODE', `catch-hook: unsupported authMode "${mode}"`, 401);
+  }
   return verifyIngress(catchHookLegacySpec, request, options.secret);
 }
 

@@ -200,10 +200,28 @@ describe('catch hook modes', () => {
     });
   });
 
-  it('an unknown authMode falls back to the strict legacy path', () => {
-    expect(verifyCatchHook({ headers: {} }, { authMode: 'weird', secret: SECRET })).toMatchObject({
+  it('an unknown authMode is refused, never silently treated as legacy (Q6)', () => {
+    // Legacy implicit mode is an audited open door; a config typo must not
+    // inherit it.
+    expect(
+      verifyCatchHook({ headers: {} }, { authMode: 'weird' })
+    ).toEqual({
       ok: false,
+      code: 'UNSUPPORTED_AUTH_MODE',
+      status: 401,
+      message: expect.stringContaining('weird'),
     });
+    expect(
+      verifyCatchHook({ headers: {}, rawBody: RAW }, { authMode: 'weird', secret: SECRET })
+    ).toMatchObject({ ok: false, code: 'UNSUPPORTED_AUTH_MODE' });
+  });
+
+  it('an absent authMode still means legacy implicit', () => {
+    expect(verifyCatchHook({ headers: {} }, { secret: SECRET })).toMatchObject({
+      ok: false,
+      code: 'MISSING_CREDENTIAL',
+    });
+    expect(verifyCatchHook({ headers: {} }, {})).toEqual({ ok: true });
   });
 });
 
