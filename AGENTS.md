@@ -1,12 +1,12 @@
 # AGENTS.md
 
-ZapMate — bun/Turbo monorepo. `apps/` = hook ingress, poller, API, worker, web; `packages/` = db, types, ai, runs, ingress, email, redis, kafka.
+ZapMate — bun/Turbo monorepo. `apps/` = hook ingress, poller, API, worker, web; `packages/` = db, types, ai, runs, ingress, placeholders, email, redis, kafka.
 
 ## Commands
 
 ```bash
 npm install --ignore-scripts   # no bun in this sandbox; skip-scripts avoids a bcrypt node-gyp failure
-npm test                       # all suites (server, worker, hooks, processor, web, packages/ingress)
+npm test                       # all suites (server, worker, hooks, processor, web, packages/placeholders, packages/ingress)
 npm run typecheck              # ratchet: fails only on NEW tsc errors vs tsc-baseline.json
 npm run generate               # Prisma client (needed for @repo/db; postinstall does it when online)
 npm run lint

@@ -36,6 +36,19 @@ intake: hooks webhooks, Telegram, WhatsApp, Google Calendar push, the server
 webhook and Gmail routes, cron schedules, GitHub webhooks, and integration
 pollers.
 
+## Placeholder resolution
+
+The single deep module (`@repo/placeholders`) that turns `{{a.b}}` / `{a.b}` in
+a step's stored metadata into values from run metadata before an action
+executes. It owns both notations, dotted paths, recursion through objects and
+arrays, the JSON round trip (parse → resolve → stringify, so output is always
+valid JSON), and the rule that an unresolved reference stays literal. Resolved
+values are never re-resolved, so run data cannot inject a reference.
+
+_Callers keep their own vocabulary and validation; they never walk metadata
+themselves. Adding an action does not add a resolver._
+_Avoid_: "templating engine", "field mapper" as separate things — there is one rule._
+
 ## Ingress verification
 
 The single deep module (`@repo/ingress`) that decides whether an inbound
