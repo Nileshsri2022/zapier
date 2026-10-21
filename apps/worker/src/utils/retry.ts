@@ -78,6 +78,18 @@ export async function withRetry<T>(
 }
 
 /**
+ * Retry gate for action modules that classify their own errors (Solana, Email,
+ * WhatsApp, Telegram, Webhook). A specific `retryable` flag always wins, so
+ * validation/auth/chat-not-found failures fail fast instead of burning the
+ * bounded budget; errors that carry no flag keep the historical behaviour.
+ */
+export function actionShouldRetry(error: Error): boolean {
+  if ((error as any)?.isFatal) return false;
+  const retryable = (error as any)?.retryable;
+  return typeof retryable === 'boolean' ? retryable : true;
+}
+
+/**
  * Sleep utility
  */
 export function sleep(ms: number): Promise<void> {

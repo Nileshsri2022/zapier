@@ -1,5 +1,5 @@
 import { evaluateFilters } from '../src/evaluateFilters';
-import { withRetry, isRetryableError } from '../src/utils/retry';
+import { withRetry, isRetryableError, actionShouldRetry } from '../src/utils/retry';
 
 /**
  * Smoke tests for the worker's pure helpers.
@@ -93,5 +93,29 @@ describe('isRetryableError', () => {
 
   it('treats validation failures as not retryable', () => {
     expect(isRetryableError(new Error('Invalid email address'))).toBe(false);
+  });
+});
+
+describe('actionShouldRetry', () => {
+  it('honours an explicit retryable flag so classified failures fail fast', () => {
+    // A5/A6 validation-style errors must never burn the retry budget.
+    expect(actionShouldRetry(Object.assign(new Error('invalid_recipient'), { retryable: false }))).toBe(
+      false
+    );
+    expect(actionShouldRetry(Object.assign(new Error('rate limited'), { retryable: true }))).toBe(
+      true
+    );
+    // A3/A4 classes use the same shape.
+    expect(actionShouldRetry(Object.assign(new Error('rpc_rate_limited'), { retryable: true }))).toBe(
+      true
+    );
+    expect(actionShouldRetry(Object.assign(new Error('blocked_target'), { retryable: false }))).toBe(
+      false
+    );
+  });
+
+  it('keeps historical behaviour for unclassified errors and honours isFatal', () => {
+    expect(actionShouldRetry(new Error('socket hang up'))).toBe(true);
+    expect(actionShouldRetry(Object.assign(new Error('fatal'), { isFatal: true }))).toBe(false);
   });
 });

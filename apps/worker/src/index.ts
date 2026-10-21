@@ -3,7 +3,7 @@ import kafka from '@repo/kafka';
 import client from '@repo/db';
 import dotenv from 'dotenv';
 import { sendZapFailureNotification } from '@repo/email';
-import { withRetry, RetryResult } from './utils/retry';
+import { withRetry, RetryResult, actionShouldRetry } from './utils/retry';
 import { sendDiscordMessage, resolveDiscordPlaceholders } from './sendDiscord';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
 import { isKnownActionType } from './utils/actionTypes';
@@ -188,7 +188,7 @@ export async function executeActionWithRetry(
     {
       maxRetries: 3,
       initialDelayMs: 1000,
-      shouldRetry: (error: Error) => !(error as any).isFatal,
+      shouldRetry: actionShouldRetry,
     }
   );
 }

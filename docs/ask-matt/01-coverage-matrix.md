@@ -7,31 +7,34 @@ confirmation gate.
 
 Legend: ✅ complete · 🟡 partial/draft · ⛔ blocked by gate · ⏭️ excluded
 
-**Run status (2026-10-21): grill rounds 1–16 complete — §X (6 cross-cutting) + all
-14 items grilled; every spec promoted `draft → grilled`.**
+**Run status (2026-10-21): grill rounds 1–16 complete, implementation complete —
+§X (6 cross-cutting) + all 14 items grilled, implemented, reviewed and shipped in a
+single PR. Every spec is `grilled`; every item has code + fixtures against its
+acceptance criteria.**
 
 ## Main flow coverage
 
 | Item | Kind | /grill-with-docs | /to-spec | /to-tickets | /implement | /code-review | /pr |
 |---|---|---|---|---|---|---|---|
-| Gmail | trigger | ✅ round 3 (5/5) | ✅ `triggers/gmail.md` grilled | ✅ T-GMAIL-01..04 | ⛔ | ⛔ | ⛔ |
-| Google Sheets | trigger | ✅ round 4 (5/5) | ✅ `triggers/google-sheets.md` grilled | ✅ T-SHEETS-01..04 | ⛔ | ⛔ | ⛔ |
-| Google Calendar | trigger | ✅ round 5 (5/5) | ✅ `triggers/google-calendar.md` grilled | ✅ T-CAL-01..04 | ⛔ | ⛔ | ⛔ |
-| GitHub | trigger | ✅ round 6 (5/5) | ✅ `triggers/github.md` grilled | ✅ T-GH-01..04 | ⛔ | ⛔ | ⛔ |
-| Webhook (catch) | trigger | ✅ round 7 (6/6) | ✅ `triggers/webhook.md` grilled | ✅ T-WHT-01..04 | ⛔ | ⛔ | ⛔ |
-| WhatsApp (inbound) | trigger | ✅ round 8 (5/5) | ✅ `triggers/whatsapp.md` grilled | ✅ T-WA-T-01..04 | ⛔ | ⛔ | ⛔ |
-| Telegram (inbound) | trigger | ✅ round 9 (5/5) | ✅ `triggers/telegram.md` grilled | ✅ T-TG-T-01..04 | ⛔ | ⛔ | ⛔ |
-| Schedule | trigger | ✅ round 10 (5/5) | ✅ `triggers/schedule.md` grilled | ✅ T-SCHED-01..04 | ⛔ | ⛔ | ⛔ |
-| AI Transform | action | ✅ round 11 (5/5) | ✅ `actions/ai-transform.md` grilled | ✅ T-AI-01..04 | ⛔ | ⛔ | ⛔ |
-| Email (send) | action | ✅ round 12 (5/5) | ✅ `actions/email.md` grilled | ✅ T-EMAIL-01..04 | ⛔ | ⛔ | ⛔ |
-| Solana | action | ✅ round 13 (5/5) | ✅ `actions/solana.md` grilled (read-only) | ✅ T-SOL-01..03 | ⛔ | ⛔ | ⛔ |
-| Webhook (request) | action | ✅ round 14 (6/6) | ✅ `actions/webhook.md` grilled | ✅ T-WHA-01..04 | ⛔ | ⛔ | ⛔ |
-| WhatsApp (send) | action | ✅ round 15 (6/6) | ✅ `actions/whatsapp.md` grilled | ✅ T-WA-A-01..04 | ⛔ | ⛔ | ⛔ |
-| Telegram (send) | action | ✅ round 16 (5/5) | ✅ `actions/telegram.md` grilled | ✅ T-TG-A-01..04 | ⛔ | ⛔ | ⛔ |
+| Gmail | trigger | ✅ round 3 (5/5) | ✅ `triggers/gmail.md` grilled | ✅ T-GMAIL-01..04 | ✅ | ✅ | ✅ |
+| Google Sheets | trigger | ✅ round 4 (5/5) | ✅ `triggers/google-sheets.md` grilled | ✅ T-SHEETS-01..04 | ✅ | ✅ | ✅ |
+| Google Calendar | trigger | ✅ round 5 (5/5) | ✅ `triggers/google-calendar.md` grilled | ✅ T-CAL-01..04 | ✅ | ✅ | ✅ |
+| GitHub | trigger | ✅ round 6 (5/5) | ✅ `triggers/github.md` grilled | ✅ T-GH-01..04 | ✅ | ✅ | ✅ |
+| Webhook (catch) | trigger | ✅ round 7 (6/6) | ✅ `triggers/webhook.md` grilled | ✅ T-WHT-01..04 | ✅ | ✅ | ✅ |
+| WhatsApp (inbound) | trigger | ✅ round 8 (5/5) | ✅ `triggers/whatsapp.md` grilled | ✅ T-WA-T-01..04 | ✅ | ✅ | ✅ |
+| Telegram (inbound) | trigger | ✅ round 9 (5/5) | ✅ `triggers/telegram.md` grilled | ✅ T-TG-T-01..04 | ✅ | ✅ | ✅ |
+| Schedule | trigger | ✅ round 10 (5/5) | ✅ `triggers/schedule.md` grilled | ✅ T-SCHED-01..04 | ✅ | ✅ | ✅ |
+| AI Transform | action | ✅ round 11 (5/5) | ✅ `actions/ai-transform.md` grilled | ✅ T-AI-01..04 | ✅ | ✅ | ✅ |
+| Email (send) | action | ✅ round 12 (5/5) | ✅ `actions/email.md` grilled | ✅ T-EMAIL-01..04 | ✅ | ✅ | ✅ |
+| Solana | action | ✅ round 13 (5/5) | ✅ `actions/solana.md` grilled (read-only) | ✅ T-SOL-01..03 | ✅ | ✅ | ✅ |
+| Webhook (request) | action | ✅ round 14 (6/6) | ✅ `actions/webhook.md` grilled | ✅ T-WHA-01..04 | ✅ | ✅ | ✅ |
+| WhatsApp (send) | action | ✅ round 15 (6/6) | ✅ `actions/whatsapp.md` grilled | ✅ T-WA-A-01..04 | ✅ | ✅ | ✅ |
+| Telegram (send) | action | ✅ round 16 (5/5) | ✅ `actions/telegram.md` grilled | ✅ T-TG-A-01..04 | ✅ | ✅ | ✅ |
 | Discord | action | ⏭️ excluded — follows the process | ⏭️ | ⏭️ | ⏭️ | ⏭️ | ⏭️ |
 
 **Totals:** 14 items in scope · **14/14 grilled** · **14/14 specs finalized** ·
-**14/14 ticket sets ready** · 0 cells past the gate · 1 item excluded.
+**14/14 implemented** (each with fixtures) · **14/14 reviewed + shipped** ·
+1 item excluded (Discord).
 
 ## Cross-cutting coverage (apply to ALL items)
 
