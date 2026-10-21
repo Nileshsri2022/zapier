@@ -14,6 +14,11 @@ npm run lint
 
 `npm test` wraps each app's (and package's) own runner — never run bare `npx jest` from the root (no preset; use `--config apps/<app>/jest.config.js --rootDir apps/<app>`).
 
+**Bug repros live in the owning app's suite**, not in a separate folder. A repro referenced from an
+issue only helps if it still runs, and a directory outside the suites is invisible to CI. Put it in
+`apps/<app>/tests/` beside the tests that already cover that seam, and reference the test name from
+the issue.
+
 ## Before you edit
 
 `edit_file` fails on guessed context. `grep -n "exact text" <file>` first, then anchor the edit on a line you have actually read. Prefer `sed -n 'A,Bp'` to confirm boundaries for multi-line edits.
