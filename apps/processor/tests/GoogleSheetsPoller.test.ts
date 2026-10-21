@@ -638,7 +638,6 @@ describe('GoogleSheetsPoller — #47 hashes are persisted only after enqueue', (
     expect(redis.hset).toHaveBeenCalledTimes(1);
   });
 });
-
 /**
  * #46 — publishing a Sheets Zap used to fire one run for every row already in
  * the sheet, because "no stored hash" was read as "new row". The first poll is
