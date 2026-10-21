@@ -19,6 +19,7 @@ export const GitHubMetaData: React.FC<GitHubMetaDataProps> = ({
 }) => {
   const [webhookUrl, setWebhookUrl] = useState<string>('');
   const [webhookSecret, setWebhookSecret] = useState<string>('');
+  const [branchFilter, setBranchFilter] = useState<string>('');
   const [copied, setCopied] = useState<'url' | 'secret' | null>(null);
 
   // Generate webhook URL when zapId is available
@@ -49,6 +50,8 @@ export const GitHubMetaData: React.FC<GitHubMetaDataProps> = ({
     handleClick({
       webhookSecret: webhookSecret || undefined,
       eventType: selectedType?.replace('GitHub ', '').toLowerCase(),
+      // Q-GH-05: optional push branch filter, no default restriction
+      branchFilter: branchFilter.trim() || undefined,
     });
   };
 
@@ -116,6 +119,21 @@ export const GitHubMetaData: React.FC<GitHubMetaDataProps> = ({
           Add this secret in GitHub webhook settings for signature verification
         </p>
       </div>
+
+      {/* Optional push branch filter (Q-GH-05 — no default restriction) */}
+      {selectedType?.includes('Push') && (
+        <div>
+          <label className="meta-form__label">Branch filter (Optional)</label>
+          <input
+            type="text"
+            value={branchFilter}
+            onChange={(e) => setBranchFilter(e.target.value)}
+            placeholder="e.g. main or main,release/* — empty fires on all branches"
+            className="meta-form__input"
+          />
+          <p className="meta-form__hint">Comma-separated branch names; leave empty to fire on every push</p>
+        </div>
+      )}
 
       {/* Setup Instructions */}
       <div className="meta-form__panel">

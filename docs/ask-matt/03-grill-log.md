@@ -71,6 +71,22 @@ Gate status: ⛔ **no implementation approved** — docs only.
 | Q-CAL-04 | All-day events included? | ✅ **Included** as normal events with `allDay: true` |
 | Q-CAL-05 | How to detect "updated" without re-firing "new"? | ✅ **Watermark on `updated` timestamp** per eventId (instance key for recurrences) |
 
+### Implementation notes (continued)
+
+- **T4 — GitHub:** receiver rewritten to the grilled §4 contract (qualified
+  `event` e.g. `issues.opened`, trimmed repository/sender/issue/pull_request/
+  push slices, `deliveryId` + `raw` always present), push = one run with
+  `commits[]` capped at 20 and `commitCount` = true total (GitHub `size`),
+  optional branch/tag filter honored from `Trigger.metadata` (UI field added
+  to the Push config, no default restriction), dedupe keyed on
+  `X-GitHub-Delivery` (payload-digest fallback), per-zap secret from the
+  config UI verified alongside the env secret (fail-closed when either set).
+  **Consciously deferred (non-critical):** the *polling fallback* (REST
+  since-cursor + rate-limit backoff) — this app has no GitHub connection
+  model (OAuth/PAT storage) to authenticate a poller with; the v1 delivery
+  path is the manually-registered repo webhook. Revisit when GitHub
+  connection UX lands. Legacy `GitHub Release` mapping kept as-is.
+
 ## T4 — GitHub (trigger) ✅ **grilled** (round 6)
 
 | ID | Question | Answer |

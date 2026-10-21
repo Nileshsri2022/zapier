@@ -3,16 +3,40 @@ import crypto from 'crypto';
 import client from '@repo/db';
 import { enqueueRun } from '@repo/runs';
 
+/**
+ * GitHub webhook ingress — T4 spec (docs/ask-matt/triggers/github.md, round 6).
+ *
+ * - Contract §4: qualified event ("issues.opened", "pull_request.opened",
+ *   "push"), trimmed slices (repository/sender/issue/pull_request/push),
+ *   deliveryId + raw passthrough always present.
+ * - Dedupe §5: X-GitHub-Delivery keyed (delivery-id set), one run per push
+ *   with commits[] bundled, list capped at 20 while commitCount is the true
+ *   total.
+ * - Optional branch/tag filter evaluated on ref — no default restriction
+ *   (Q-GH-05: everything fires until the builder filters).
+ * - Signature: env GITHUB_WEBHOOK_SECRET enforced fail-closed when set;
+ *   per-zap secret saved by the config UI (Trigger.metadata.webhookSecret)
+ *   is also verified; only fully unconfigured (dev) deliveries run unsigned.
+ * - Legacy beyond-spec: `GitHub Release` mapping + release slice kept, all
+ *   pre-existing payload aliases kept (repository.name/full_name/url,
+ *   sender.url, action, head_commit, top-level branch/ref/commits).
+ * - Polling fallback (REST cursor): consciously deferred — this app has no
+ *   GitHub connection model to authenticate a poller with; delivery path
+ *   here is the manually-registered repo webhook. Logged in grill log T4.
+ */
+
 const router = Router();
 
-// Verify GitHub webhook signature
+/** Spec §5: commits[] bundled per push, list capped at 20. */
+export const PUSH_COMMIT_CAP = 20;
+
+// Verify GitHub webhook signature (HMAC-SHA256 over the raw body)
 function verifyGitHubSignature(
   payload: string,
   signature: string | undefined,
   secret: string
 ): boolean {
   if (!signature) return false;
-
   const expectedSignature = `sha256=${crypto
     .createHmac('sha256', secret)
     .update(payload)
@@ -36,83 +60,146 @@ function getGitHubTriggerType(event: string): string | null {
   return eventMap[event] || null;
 }
 
-// Extract relevant data from GitHub payload
-function extractPayloadData(event: string, payload: any): Record<string, any> {
-  const baseData = {
-    event,
+/** Branch/tag filter evaluated on ref — absent/empty = no restriction. */
+export function matchesRefFilter(
+  ref: string,
+  metadata: { branchFilter?: unknown; tagFilter?: unknown } | null | undefined
+): boolean {
+  const refName = String(ref || '').replace(/^refs\/heads\//, '').replace(/^refs\/tags\//, '');
+  const asList = (v: unknown): string[] => {
+    if (Array.isArray(v)) return v.map(String);
+    if (typeof v === 'string') return v.split(',').map((s) => s.trim()).filter(Boolean);
+    return [];
+  };
+  const branches = asList(metadata?.branchFilter);
+  const tags = asList(metadata?.tagFilter);
+  const isTag = String(ref || '').startsWith('refs/tags/');
+  if (isTag) {
+    return tags.length === 0 || tags.includes(refName);
+  }
+  return branches.length === 0 || branches.includes(refName);
+}
+
+/**
+ * Spec §4 contract builder — trimmed normalized slices + raw passthrough.
+ * Legacy aliases are supersets of the old payload so existing templates
+ * keep mapping.
+ */
+export function buildGithubRunPayload(
+  event: string,
+  payload: any,
+  deliveryId: string
+): Record<string, any> {
+  const action = typeof payload?.action === 'string' ? payload.action : undefined;
+  const data: Record<string, any> = {
+    event: action ? `${event}.${action}` : event,
     repository: {
-      name: payload.repository?.name || '',
-      full_name: payload.repository?.full_name || '',
-      url: payload.repository?.html_url || '',
+      fullName: payload?.repository?.full_name || '',
+      htmlUrl: payload?.repository?.html_url || '',
+      private: Boolean(payload?.repository?.private),
+      defaultBranch: payload?.repository?.default_branch || null,
+      // legacy aliases
+      name: payload?.repository?.name || '',
+      full_name: payload?.repository?.full_name || '',
+      url: payload?.repository?.html_url || '',
     },
     sender: {
-      login: payload.sender?.login || '',
-      url: payload.sender?.html_url || '',
+      login: payload?.sender?.login || '',
+      id: payload?.sender?.id ?? null,
+      avatarUrl: payload?.sender?.avatar_url || null,
+      // legacy alias
+      url: payload?.sender?.html_url || '',
     },
+    deliveryId,
+    raw: payload,
+    // legacy aliases kept at top level
+    ...(action ? { action } : {}),
   };
 
   switch (event) {
-    case 'push':
-      return {
-        ...baseData,
-        ref: payload.ref || '',
-        branch: payload.ref?.replace('refs/heads/', '') || '',
-        commits: payload.commits?.length || 0,
-        head_commit: {
-          message: payload.head_commit?.message || '',
-          author: payload.head_commit?.author?.name || '',
-          url: payload.head_commit?.url || '',
-        },
-        pusher: {
-          name: payload.pusher?.name || '',
-          email: payload.pusher?.email || '',
-        },
+    case 'issues': {
+      const issue = payload?.issue;
+      data.issue = {
+        number: issue?.number ?? 0,
+        title: issue?.title || '',
+        body: issue?.body || '',
+        state: issue?.state || '',
+        labels: (issue?.labels || []).map((l: any) => (typeof l === 'string' ? l : l?.name)).filter(Boolean),
+        htmlUrl: issue?.html_url || '',
+        // legacy aliases
+        url: issue?.html_url || '',
+        user: issue?.user?.login || '',
       };
-
-    case 'pull_request':
-      return {
-        ...baseData,
-        action: payload.action || '',
-        pull_request: {
-          title: payload.pull_request?.title || '',
-          number: payload.pull_request?.number || 0,
-          state: payload.pull_request?.state || '',
-          url: payload.pull_request?.html_url || '',
-          body: payload.pull_request?.body || '',
-          user: payload.pull_request?.user?.login || '',
-        },
+      break;
+    }
+    case 'pull_request': {
+      const pr = payload?.pull_request;
+      data.pull_request = {
+        number: pr?.number ?? 0,
+        title: pr?.title || '',
+        state: pr?.state || '',
+        draft: Boolean(pr?.draft),
+        base: pr?.base?.ref || '',
+        head: pr?.head?.ref || '',
+        merged: Boolean(pr?.merged),
+        htmlUrl: pr?.html_url || '',
+        // legacy aliases
+        url: pr?.html_url || '',
+        body: pr?.body || '',
+        user: pr?.user?.login || '',
       };
-
-    case 'issues':
-      return {
-        ...baseData,
-        action: payload.action || '',
-        issue: {
-          title: payload.issue?.title || '',
-          number: payload.issue?.number || 0,
-          state: payload.issue?.state || '',
-          url: payload.issue?.html_url || '',
-          body: payload.issue?.body || '',
-          user: payload.issue?.user?.login || '',
-        },
+      break;
+    }
+    case 'push': {
+      const commits = Array.isArray(payload?.commits) ? payload.commits : [];
+      // GitHub's push payload carries `size` = true number of commits in the
+      // push even when the commits array is capped/truncated by GitHub itself.
+      const commitCount = typeof payload?.size === 'number' ? payload.size : commits.length;
+      data.push = {
+        ref: payload?.ref || '',
+        before: payload?.before || '',
+        after: payload?.after || '',
+        commits: commits.slice(0, PUSH_COMMIT_CAP).map((c: any) => ({
+          id: c?.id || '',
+          message: c?.message || '',
+          author: { name: c?.author?.name || '', email: c?.author?.email || '' },
+          url: c?.url || '',
+        })),
+        commitCount,
+        headCommitMessage: payload?.head_commit?.message || '',
+        branch: String(payload?.ref || '').replace(/^refs\/heads\//, ''),
       };
-
-    case 'release':
-      return {
-        ...baseData,
-        action: payload.action || '',
-        release: {
-          tag_name: payload.release?.tag_name || '',
-          name: payload.release?.name || '',
-          body: payload.release?.body || '',
-          url: payload.release?.html_url || '',
-          prerelease: payload.release?.prerelease || false,
-        },
+      // legacy aliases (old payload shape)
+      data.ref = payload?.ref || '';
+      data.branch = data.push.branch;
+      data.commits = commits.length;
+      data.head_commit = {
+        message: payload?.head_commit?.message || '',
+        author: payload?.head_commit?.author?.name || '',
+        url: payload?.head_commit?.url || '',
       };
-
+      data.pusher = {
+        name: payload?.pusher?.name || '',
+        email: payload?.pusher?.email || '',
+      };
+      break;
+    }
+    case 'release': {
+      // beyond-spec legacy event (E4 backlog) — kept working as-is
+      data.release = {
+        tag_name: payload?.release?.tag_name || '',
+        name: payload?.release?.name || '',
+        body: payload?.release?.body || '',
+        url: payload?.release?.html_url || '',
+        prerelease: Boolean(payload?.release?.prerelease),
+      };
+      break;
+    }
     default:
-      return baseData;
+      break;
   }
+
+  return data;
 }
 
 // Handle GitHub webhook
@@ -123,7 +210,10 @@ router.post('/webhook/:zapId', async (req: Request, res: Response): Promise<any>
     const event: string = Array.isArray(eventHeader) ? (eventHeader[0] ?? '') : (eventHeader ?? '');
     const sigHeader = req.headers['x-hub-signature-256'];
     const signature: string | undefined = Array.isArray(sigHeader) ? sigHeader[0] : sigHeader;
-    const secret = process.env.GITHUB_WEBHOOK_SECRET;
+    const deliveryHeader = req.headers['x-github-delivery'];
+    const deliveryId =
+      (Array.isArray(deliveryHeader) ? deliveryHeader[0] : deliveryHeader) || '';
+    const envSecret = process.env.GITHUB_WEBHOOK_SECRET;
 
     console.log(`📦 GitHub webhook received: ${event} for zap ${zapId}`);
 
@@ -134,15 +224,15 @@ router.post('/webhook/:zapId', async (req: Request, res: Response): Promise<any>
       return res.status(200).json({ message: 'Event type not supported', event });
     }
 
-    // When a secret is configured, authentication is mandatory: a delivery
-    // without the signature header must not bypass verification.
-    if (secret) {
+    const rawBody = (req as any).rawBody?.toString('utf8') ?? JSON.stringify(req.body);
+
+    // Fail-closed envelope verification when a global secret is configured.
+    if (envSecret) {
       if (!signature) {
         console.log(`❌ Missing GitHub signature for zap ${zapId}`);
         return res.status(401).json({ error: 'Missing signature' });
       }
-      const rawBody = (req as any).rawBody?.toString('utf8') ?? JSON.stringify(req.body);
-      if (!verifyGitHubSignature(rawBody, signature, secret)) {
+      if (!verifyGitHubSignature(rawBody, signature, envSecret)) {
         console.log(`❌ Invalid GitHub signature for zap ${zapId}`);
         return res.status(401).json({ error: 'Invalid signature' });
       }
@@ -162,6 +252,20 @@ router.post('/webhook/:zapId', async (req: Request, res: Response): Promise<any>
       where: { zapId: zap.id },
     });
 
+    const triggerMetadata = (trigger as any)?.metadata || {};
+
+    // Per-zap secret saved by the config UI (no env secret path).
+    if (!envSecret && triggerMetadata.webhookSecret) {
+      if (!signature) {
+        console.log(`❌ Missing GitHub signature for zap ${zapId} (per-zap secret)`);
+        return res.status(401).json({ error: 'Missing signature' });
+      }
+      if (!verifyGitHubSignature(rawBody, signature, String(triggerMetadata.webhookSecret))) {
+        console.log(`❌ Invalid GitHub signature for zap ${zapId} (per-zap secret)`);
+        return res.status(401).json({ error: 'Invalid signature' });
+      }
+    }
+
     let zapTriggerType: string | null = null;
     if (trigger) {
       const availableTrigger = await client.availableTriggers.findUnique({
@@ -180,15 +284,35 @@ router.post('/webhook/:zapId', async (req: Request, res: Response): Promise<any>
       });
     }
 
-    // Extract payload data
-    const payloadData = extractPayloadData(event || '', req.body);
+    // Optional branch/tag filter (Q-GH-05): absent = no restriction.
+    if (event === 'push' && !matchesRefFilter(String(req.body?.ref || ''), triggerMetadata)) {
+      console.log(`🚫 Push filtered by ref filter: ${req.body?.ref}`);
+      return res.status(200).json({
+        message: 'Push filtered by branch/tag filter',
+        ref: req.body?.ref,
+      });
+    }
 
-    // Create ZapRun
+    // Spec §4 payload: trimmed slices + raw + deliveryId
+    const payloadData = buildGithubRunPayload(event, req.body, deliveryId);
+
+    // Dedupe §5: X-GitHub-Delivery keyed; fall back to a payload digest when
+    // a sender omits the header (redelivery of the same body still dedupes).
+    const deliveryKey =
+      deliveryId ||
+      `sha1:${crypto.createHash('sha1').update(rawBody).digest('hex')}`;
+
     const result = await enqueueRun({
       zapId: zap.id,
       metadata: payloadData,
       source: 'server.github',
+      dedup: { scope: 'github', key: `${zap.id}:${deliveryKey}` },
     });
+
+    if (result.status === 'duplicate') {
+      console.log(`🔁 Duplicate GitHub delivery skipped (${deliveryKey})`);
+      return res.status(200).json({ message: 'Duplicate delivery skipped', event: triggerType });
+    }
 
     if (result.status !== 'queued') {
       // The run-intake module owns the active-Zap check.
