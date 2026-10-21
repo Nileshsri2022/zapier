@@ -57,7 +57,7 @@ export default function Page() {
   const [historyZap, setHistoryZap] = useState<TZap | null>(null);
 
   const fetchData = async () => {
-    if (!session) return;
+    if (!session.isLoggedIn) return;
     setLoading(true);
     try {
       const response = await axios.get(`${API_URL}/api/zaps`, {
@@ -68,10 +68,17 @@ export default function Page() {
       });
 
       setData({ zaps: response?.data?.data?.zaps, total: response?.data?.data?.total });
-    } catch {
+    } catch (error) {
+      const status = (error as { response?: { status?: number } }).response?.status;
+      if (status === 401 || status === 403) {
+        localStorage.removeItem('user');
+        router.replace('/login');
+        return;
+      }
       toast.error("Couldn't fetch the data");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleCreateClick = () => {
@@ -88,7 +95,7 @@ export default function Page() {
   };
 
   const handleRenameBlur = async (e: React.FocusEvent<HTMLInputElement>, zap: TZap) => {
-    if (!session) return;
+    if (!session.isLoggedIn) return;
     setLoading(true);
     try {
       if (e.target.value !== zap.name) {
@@ -108,7 +115,7 @@ export default function Page() {
   };
 
   const toggleZapExecution = async (e: React.ChangeEvent<HTMLInputElement>, zap: TZap) => {
-    if (!session) return;
+    if (!session.isLoggedIn) return;
     try {
       await axios.patch(
         `${API_URL}/api/zaps/${zap.id}/enable`,
@@ -122,7 +129,7 @@ export default function Page() {
   };
 
   const handleZapDelete = async (zap: TZap) => {
-    if (!session) return;
+    if (!session.isLoggedIn) return;
     try {
       await axios.delete(`${API_URL}/api/zaps/${zap.id}`, {
         withCredentials: true,
@@ -136,8 +143,8 @@ export default function Page() {
 
   useEffect(() => {
     const currentSession = getSessionDetails();
-    if (!currentSession) {
-      router.push('/');
+    if (!currentSession.isLoggedIn) {
+      router.replace('/login');
       return;
     }
     fetchData();
