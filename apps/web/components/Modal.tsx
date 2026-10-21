@@ -7,6 +7,7 @@ import { redirectToOAuth, savePendingSelection } from '@/lib/oauth';
 
 // Import types and constants from modal/
 import { App, AvailableItem } from './modal/types';
+import { needsMetadataStep } from './modal/step3';
 import { APPS } from './modal/constants';
 import type { TSelectedAction } from '@repo/types';
 
@@ -62,6 +63,10 @@ const Modal = ({
   const [showBotForm, setShowBotForm] = useState(false);
   const [botToken, setBotToken] = useState('');
   const [botName, setBotName] = useState('');
+  // WhatsApp only: Meta identifies the sender by phone number id, and
+  // WhatsAppTrigger rows are matched on it downstream. Posting `''` made the
+  // column's unique index single-tenant platform-wide (#41).
+  const [phoneNumberId, setPhoneNumberId] = useState('');
   const [connectingBot, setConnectingBot] = useState(false);
 
   const handleSaveMetaData = (data: any) => {
@@ -82,6 +87,7 @@ const Modal = ({
     setShowBotForm(false);
     setBotToken('');
     setBotName('');
+    setPhoneNumberId('');
   };
 
   const fetchAvailableTriggers = async () => {
@@ -131,7 +137,11 @@ const Modal = ({
         withCredentials: true, // Use httpOnly cookie for auth
       });
 
-      const servers = response?.data?.servers || response?.data?.bots || [];
+      // Each provider names its list differently: Gmail answers
+      // `{ gmailServers }`, Telegram `{ bots }`, the OAuth apps `{ servers }`.
+      // Missing the Gmail key left the account picker permanently empty.
+      const servers =
+        response?.data?.servers || response?.data?.gmailServers || response?.data?.bots || [];
       setConnectedServers(servers);
       if (servers.length > 0) {
         setSelectedServerId(servers[0].id);
@@ -214,17 +224,9 @@ const Modal = ({
       };
     }
 
-    // Check if needs metadata form
-    const needsMetadata =
-      selectedItem.type.includes('Google Sheets') ||
-      selectedItem.type.includes('Google Calendar') ||
-      selectedItem.type.includes('Gmail') ||
-      selectedItem.type === 'Email' ||
-      selectedItem.type === 'Solana' ||
-      selectedItem.type === 'AI Transform' ||
-      selectedItem.type === 'Discord Send Message' ||
-      selectedItem.type.startsWith('Schedule') ||
-      selectedItem.type.startsWith('Telegram'); // T7: chat-type filter
+    // Check if needs metadata form. The rule lives in components/modal/step3.ts
+    // so it can be tested without rendering the modal (see #42 / #43).
+    const needsMetadata = needsMetadataStep(selectedItem.type, isVisible);
 
     if (needsMetadata) {
       // Preserve metadata threaded in the account step (botId for Telegram)
@@ -300,6 +302,10 @@ const Modal = ({
       toast.error('Please enter bot name and token');
       return;
     }
+    if (selectedApp.id === 'whatsapp' && !phoneNumberId.trim()) {
+      toast.error('Please enter the Phone Number ID from Meta');
+      return;
+    }
 
     setConnectingBot(true);
     try {
@@ -311,7 +317,7 @@ const Modal = ({
           : {
               displayName: botName.trim(),
               accessToken: botToken.trim(),
-              phoneNumberId: '',
+              phoneNumberId: phoneNumberId.trim(),
               businessId: '',
               phoneNumber: '',
             };
@@ -324,6 +330,7 @@ const Modal = ({
       setShowBotForm(false);
       setBotToken('');
       setBotName('');
+      setPhoneNumberId('');
       // Refresh the list
       fetchConnectedAccounts(selectedApp);
     } catch (error: any) {
@@ -496,6 +503,16 @@ const Modal = ({
                       onChange={(e) => setBotToken(e.target.value)}
                       className="modal-input"
                     />
+                    {selectedApp.id === 'whatsapp' && (
+                      <input
+                        type="text"
+                        placeholder="Phone Number ID from Meta (e.g. 123456789012345)"
+                        value={phoneNumberId}
+                        onChange={(e) => setPhoneNumberId(e.target.value)}
+                        className="modal-input"
+                        name="phoneNumberId"
+                      />
+                    )}
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button
                         type="button"
@@ -518,7 +535,7 @@ const Modal = ({
                     <p className="modal-help-text">
                       {selectedApp.id === 'telegram'
                         ? 'Get your token from @BotFather in Telegram. The webhook will be configured automatically.'
-                        : 'Get your token from Meta Developer Portal.'}
+                        : 'Get the access token and Phone Number ID from Meta Developer Portal → WhatsApp → API Setup.'}
                     </p>
                   </>
                 ) : null}
@@ -667,6 +684,9 @@ const Modal = ({
             />
           ) : selectedItem?.type === 'Discord Send Message' ? (
             <DiscordMetaData handleClick={handleSaveMetaData} />
+          ) : selectedItem?.type === 'Webhook' ? (
+            // A4: outbound HTTP action — URL, method, headers, body.
+            <WebhookActionMetaData handleClick={handleSaveMetaData} />
           ) : (
             <div className="modal-notice">No configuration needed</div>
           )}

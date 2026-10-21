@@ -5,6 +5,17 @@ import client from '@repo/db';
 import { sendEmail } from '@repo/email';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
+import redis from '@repo/redis';
+
+/**
+ * Session lifetime. The cookie below uses the same value, so the token and the
+ * cookie no longer disagree about when a session ends (#44).
+ */
+export const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+
+/** Redis key holding revoked token ids until they would have expired anyway. */
+export const tokenDenylistKey = (jti: string) => `auth:denylist:${jti}`;
 
 export const signup = async (req: Request, res: Response): Promise<any> => {
   const body = req.body;
@@ -53,7 +64,11 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
   const emailSubject = 'Welcome to ZapMate! Let’s Get Automating!';
   try {
-    await sendEmail(validation?.data?.email, emailSubject, 'signup-confirmation.html');
+    // Scoped to the new user: one account signing up ten times must not spend
+    // the budget every other signup needs (#57).
+    await sendEmail(validation?.data?.email, emailSubject, 'signup-confirmation.html', undefined, {
+      userId: newUser.id,
+    });
   } catch (emailError) {
     console.error('Failed to send welcome email:', emailError);
     // Continue anyway - user is already created
@@ -99,12 +114,12 @@ export const signin = async (req: Request, res: Response): Promise<any> => {
     });
   }
 
-  const token = jwt.sign(
-    {
-      id: user?.id,
-    },
-    process.env.JWT_SECRET as string
-  );
+  // A `jti` makes the token individually revocable at logout; `expiresIn` caps
+  // its lifetime even if it is copied out of the cookie (#44).
+  const token = jwt.sign({ id: user?.id }, process.env.JWT_SECRET as string, {
+    expiresIn: JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
+    jwtid: randomUUID(),
+  });
 
   // Set httpOnly cookie for secure authentication
   // Dev: sameSite: 'lax', secure: false (HTTP localhost)
@@ -114,17 +129,18 @@ export const signin = async (req: Request, res: Response): Promise<any> => {
     httpOnly: true,
     secure: isProduction, // true for HTTPS in production, false for HTTP in dev
     sameSite: isProduction ? 'none' : 'lax', // 'none' for cross-origin in prod, 'lax' for same-origin in dev
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days — keep in step with JWT_EXPIRES_IN
     path: '/',
   });
 
   return res.status(200).json({
     message: 'Signin successful',
+    // The bearer token is *only* in the httpOnly cookie. Returning it in the
+    // body handed every XSS a credential that outlived logout (#44).
     data: {
       id: user?.id,
       name: user?.name,
       email: user?.email,
-      token, // Still include for backward compatibility
     },
   });
 };
@@ -196,6 +212,28 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<any> 
 };
 
 export const logout = async (req: Request, res: Response): Promise<any> => {
+  // Revoke the presented token before clearing the cookie. Clearing the cookie
+  // alone left any copy of the token valid for its whole lifetime (#44).
+  const presented: string | undefined =
+    // @ts-ignore - cookies are added by cookie-parser
+    req.cookies?.auth_token ||
+    (req.headers.authorization?.startsWith('Bearer ')
+      ? req.headers.authorization.substring(7)
+      : req.headers.authorization);
+
+  if (presented) {
+    try {
+      const payload = jwt.verify(presented, process.env.JWT_SECRET as string) as jwt.JwtPayload;
+      if (payload.jti) {
+        const remaining = payload.exp ? payload.exp - Math.floor(Date.now() / 1000) : 0;
+        // Only needs to live as long as the token itself would.
+        await redis.set(tokenDenylistKey(payload.jti), '1', { ex: Math.max(1, remaining) });
+      }
+    } catch {
+      // Expired or malformed: nothing to revoke.
+    }
+  }
+
   // Clear the auth cookie (must match signin cookie settings)
   const isProduction = process.env.NODE_ENV === 'production';
   res.cookie('auth_token', '', {

@@ -174,6 +174,11 @@ export class GoogleSheetsService {
         await redis.hset(redisKey, { [rowKey]: newHash });
       }
 
+      // Mark the trigger as baselined (#46). The processor reads this field to
+      // tell "first poll ever" apart from "a row is new", so a trigger seeded
+      // here must carry it or it would be baselined twice.
+      await redis.hset(redisKey, { __meta__: '1' });
+
       // Set TTL (30 days) - auto-cleanup for orphaned triggers
       await redis.expire(redisKey, 60 * 60 * 24 * 30);
 
@@ -222,75 +227,6 @@ export class GoogleSheetsService {
       console.error('❌ Cannot access spreadsheet:', error);
       return false;
     }
-  }
-
-  /**
-   * Static method to poll all active triggers
-   * Called by the processor service
-   */
-  static async pollAllTriggers(): Promise<void> {
-    console.log('📊 Starting Google Sheets trigger polling...');
-
-    // Get all active triggers
-    const triggers = await client.googleSheetsTrigger.findMany({
-      where: {
-        isActive: true,
-        zap: { isActive: true },
-      },
-      include: {
-        server: true,
-        zap: true,
-      },
-    });
-
-    console.log(`📊 Found ${triggers.length} active Google Sheets triggers`);
-
-    for (const trigger of triggers) {
-      try {
-        // Create service instance for this trigger's server
-        const service = new GoogleSheetsService(
-          {
-            refreshToken: trigger.server.refreshToken,
-            accessToken: trigger.server.accessToken,
-            tokenExpiry: trigger.server.tokenExpiry || undefined,
-          },
-          trigger.server.id
-        );
-
-        // Poll for updates
-        const updatedRows = await service.pollForUpdates(
-          trigger.id,
-          trigger.spreadsheetId,
-          trigger.sheetName
-        );
-
-        // Hand every changed row to the shared run-intake module.
-        for (const row of updatedRows) {
-          const result = await enqueueRun({
-            zapId: trigger.zapId,
-            metadata: row,
-            source: 'server.sheets-poll',
-          });
-
-          if (result.status === 'queued') {
-            console.log(`✅ Queued ZapRun ${result.zapRunId} for row ${row.row_number}`);
-          } else {
-            console.log(`ℹ️ Row ${row.row_number} not queued (${result.status})`);
-          }
-        }
-
-        // Update last polled timestamp
-        await client.googleSheetsTrigger.update({
-          where: { id: trigger.id },
-          data: { lastPolledAt: new Date() },
-        });
-      } catch (error) {
-        console.error(`❌ Error processing trigger ${trigger.id}:`, error);
-        // Continue with next trigger
-      }
-    }
-
-    console.log('📊 Google Sheets trigger polling complete');
   }
 }
 

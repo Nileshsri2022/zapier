@@ -44,7 +44,8 @@ describe('Authentication - Integration Tests', () => {
         .expect(200);
 
       expect(signinResponse.body).toHaveProperty('message', 'Signin successful');
-      expect(signinResponse.body.data).toHaveProperty('token');
+      // #44: no token in the body — the httpOnly cookie carries it.
+      expect(signinResponse.body.data).not.toHaveProperty('token');
       expect(signinResponse.body.data).toHaveProperty('id', 1);
       expect(signinResponse.body.data).toHaveProperty('name', testUser.name);
       expect(signinResponse.body.data).toHaveProperty('email', testUser.email);

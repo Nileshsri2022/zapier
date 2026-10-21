@@ -1,8 +1,12 @@
 require('dotenv').config();
 import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import redis from '@repo/redis';
 
-export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+/** Kept in one place so logout and the middleware cannot drift apart. */
+const denylistKey = (jti: string) => `auth:denylist:${jti}`;
+
+export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization as string | undefined;
 
   // Handle both "Bearer <token>" and plain "<token>" formats from header
@@ -23,7 +27,22 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
   }
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET as string);
+    // Throws on an expired token: `expiresIn` is what bounds a session.
+    const payload = jwt.verify(token, process.env.JWT_SECRET as string) as jwt.JwtPayload;
+
+    // Revoked at logout. Fail open on a Redis error: a cache outage must not
+    // log every user out (the token still carries its own expiry).
+    if (payload.jti) {
+      try {
+        if (await redis.get(denylistKey(payload.jti))) {
+          res.status(403).json({ message: 'You are not logged in' });
+          return;
+        }
+      } catch (error) {
+        console.error('Token denylist check failed:', error);
+      }
+    }
+
     // @ts-ignore
     req.id = payload.id;
     next();
