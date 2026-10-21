@@ -168,6 +168,29 @@ Gate status: ⛔ **no implementation approved** — docs only.
 | Q-TG-T-04 | Media handling? | ✅ **Media metadata** (`file_id`/`uniqueId`/caption; download later) |
 | Q-TG-T-05 | Dedupe + failure semantics? | ✅ **`update_id` dedupe + at-least-once** (offset advances on success; retry-then-halt) |
 
+### Implementation notes (continued)
+
+- **T8 — Schedule:** custom 5-field cron shipped end-to-end (seeded
+  `Schedule Custom Cron`, setup-time validation → 411/400 with the field
+  error, `@daily`-style alias normalization, new nullable
+  `ScheduledTrigger.cronExpression` column with hand-written migration
+  `20261021120000_schedule_cron_expression`, day-scan cron computer with
+  Vixie dom/dow OR semantics). DST wall-clock `toUtc` rewritten to an
+  offset-probe: spring-forward nonexistent times shift FORWARD (02:30 →
+  03:30), fall-back repeated hour fires the FIRST occurrence only (both
+  pinned by fixtures; note: on US fall-back days the repeated window is
+  01:00–01:59, 02:30 fires once naturally). Sweep now emits the §4
+  contract (`firedAt/firedAtIso/date.*/occurrenceKey/cron/mode`) with
+  `enqueueRun` dedup keyed `<zapId>:<mode>|<localISO>` (two schedulers →
+  one effective run) and **skip-missed grace of 5 minutes**
+  (Q-SCHED-04: rows behind by more resume at the next future slot, no
+  catch-up; duplicate outcomes also advance the row so replayed sweeps
+  can't spin). `POST /api/schedule/preview` powers the editor's
+  next-5-fires preview; the config form defaults timezone to the browser
+  zone (Q-SCHED-02). **Consciously deferred (non-critical):** the
+  optional jitter setting and the start-date field (first run computes
+  from save time).
+
 ## T8 — Schedule trigger ✅ **grilled** (round 10)
 
 | ID | Question | Answer |
