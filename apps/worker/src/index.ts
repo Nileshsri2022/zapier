@@ -133,24 +133,19 @@ export async function executeActionWithRetry(
       }
 
       if (actionType.startsWith('Telegram')) {
-        const { chatId, message, botToken } = metadata;
-        const resolvedChatId = replaceKeys(chatId, zapRunMetadata);
-        const resolvedMessage = replaceKeys(message, zapRunMetadata);
-
-        // Dynamic imports for sendTelegram
-        const { sendTelegramMessage } = await import('./sendTelegram.js');
-
-        const result = await sendTelegramMessage(botToken, resolvedChatId, resolvedMessage);
-
-        if (!result.success) {
-          throw new Error(`Telegram send failed: ${result.error}`);
-        }
-
-        console.log(`✅ Telegram message sent to ${resolvedChatId}`);
+        // A6: bot token comes from the shared TelegramBot connection; supports
+        // text, photo/document, parse modes and the full option set.
+        const { sendTelegramAction } = await import('./sendTelegram.js');
+        const output = await sendTelegramAction(
+          metadata,
+          { ...zapRunMetadata, userId: zapRunMetadata?.userId ?? context?.userId },
+          {}
+        );
+        console.log(`✅ Telegram message sent to chat ${output.chat.id}`);
         return {
           success: true,
-          message: `Telegram sent to chat ${resolvedChatId}`,
-          output: { chatId: resolvedChatId, sentAt: new Date().toISOString() },
+          message: `Telegram sent to chat ${output.chat.id}`,
+          output,
         };
       }
 

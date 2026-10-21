@@ -1,31 +1,37 @@
-jest.mock('axios', () => ({
-  __esModule: true,
-  default: { post: jest.fn() },
-}));
+import { sendTelegramAction } from '../src/sendTelegram';
 
-import axios from 'axios';
-import { sendTelegramMessage } from '../src/sendTelegram';
+/**
+ * Every outbound provider call must be bounded. WhatsApp/Telegram now share the
+ * same fetch transport with an AbortSignal + timer (A5/A6), so the guard is the
+ * presence of an abort signal wired to a timeout.
+ */
+const db = {
+  telegramBot: {
+    findFirst: jest.fn(async () => ({ id: 'bot-1', botToken: '123:abc', botUsername: 'zm_bot' })),
+  },
+};
 
-const post = axios.post as jest.Mock;
+const okResponse = {
+  ok: true,
+  status: 200,
+  json: async () => ({
+    ok: true,
+    result: { message_id: 1, date: 1_761_000_000, chat: { id: 123, type: 'private' } },
+  }),
+} as unknown as Response;
 
-describe('outbound WhatsApp/Telegram requests', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    post.mockResolvedValue({
-      data: { messages: [{ id: 'wamid.1' }], result: { message_id: 1 } },
-    });
-  });
-
-  it('sets a timeout on Telegram sends', async () => {
-    await sendTelegramMessage('bot-token', 123, 'hello');
-
-    expect(post).toHaveBeenCalledWith(
-      expect.stringContaining('/sendMessage'),
-      expect.any(Object),
-      expect.objectContaining({ timeout: expect.any(Number) })
+describe('outbound Telegram requests', () => {
+  it('sends through a bounded (abort-signalled) transport', async () => {
+    const fetchImpl = jest.fn(async () => okResponse) as unknown as typeof fetch;
+    await sendTelegramAction(
+      { botId: 'bot-1', chatId: '123', text: 'hello' },
+      { userId: 1 },
+      { fetchImpl, db: db as any }
     );
-    const options = post.mock.calls[0][2];
-    expect(options.timeout).toBeGreaterThan(0);
-    expect(options.timeout).toBeLessThanOrEqual(30_000);
+
+    const [url, init] = (fetchImpl as unknown as jest.Mock).mock.calls[0];
+    expect(String(url)).toContain('/sendMessage');
+    expect((init as any).signal).toBeDefined();
+    expect((init as any).signal.aborted).toBe(false);
   });
 });

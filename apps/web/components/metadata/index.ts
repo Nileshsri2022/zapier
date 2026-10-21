@@ -10,5 +10,6 @@ export { default as ScheduleMetaData } from './ScheduleMetaData';
 export { GitHubMetaData } from './GitHubMetaData';
 export { default as TelegramMetaData } from './TelegramMetaData';
 export { default as WhatsAppMetaData } from './WhatsAppMetaData';
+export { default as TelegramActionMetaData } from './TelegramActionMetaData';
 export { default as AiMetaData } from './AiMetaData';
 export { default as DiscordMetaData } from './DiscordMetaData';

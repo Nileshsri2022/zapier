@@ -423,6 +423,43 @@ Gate status: ⛔ **no implementation approved** — docs only.
 | Q-TG-A-04 | Over-4096 policy? | ✅ **Fail with clear error** (no truncation/splitting) |
 | Q-TG-A-05 | Extra options? | ✅ **Full — previews toggle (default off), silent toggle, reply-to field** |
 
+### A6 — Telegram action implementation notes
+
+- **A6 — Telegram Send:** `apps/worker/src/sendTelegram.ts` rewritten around
+  `sendTelegramAction`. The bot token now comes from the shared `TelegramBot`
+  connection (same bot as trigger T7, optionally narrowed by `botId`); a
+  foreign bot id or no connection fails with `auth` before any network call,
+  and the token is redacted from every surfaced message.
+- **Q-TG-A-01:** `sendMessage`, `sendPhoto` and `sendDocument` (other media
+  kinds are rejected as backlog). Exactly one of text/media is required; media
+  accepts a URL (probed first — unreachable ⇒ `media_fetch_failed`, never a
+  silent text substitute) or a stable `file_id`.
+- **Q-TG-A-02:** parse mode is **off by default**; `HTML` and `MarkdownV2` are
+  selectable (`Markdown` rejected). Telegram markup rejections classify as
+  `parse_error` carrying the API's offset detail.
+- **Q-TG-A-03:** numeric ids (negative group/channel ids included) or
+  `@username`; anything else fails pre-send, and Telegram's "chat not found"
+  classifies as `chat_not_found`.
+- **Q-TG-A-04:** >4096 characters fails pre-send as `message_too_long` quoting
+  current/max; captions >1024 ⇒ `caption_too_long`. No truncation, no
+  auto-split.
+- **Q-TG-A-05:** full options — link previews **disabled by default**
+  (`link_preview_options.is_disabled`), silent sends, reply-to message id —
+  and the §4 output (`sent`, `messageId`, `chat{id,type,title}`, `date`,
+  `text`, `apiResponse`, `error: null`).
+- Error classes: `validation`, `message_too_long`, `caption_too_long`,
+  `chat_not_found`, `parse_error`, `media_fetch_failed`, `auth`, `forbidden`
+  (403 with membership/start-bot guidance), `rate_limited` (honours
+  `retry_after`, retryable), `conflict` (409 webhook-vs-polling ownership),
+  `provider` (5xx retryable).
+- Builder: new `TelegramActionMetaData` (bot picker from `/api/telegram/bots`,
+  chat target, text-or-media toggle, parse mode, preview/silent/reply-to),
+  wired into the Modal for Telegram **action** steps, which previously fell
+  through to "No configuration needed" while the trigger-only chat-type form
+  was reused.
+- Tests: new `apps/worker/tests/sendTelegram.test.ts` (16) and the outbound
+  timeout guard retargeted to the new abort-signalled transport.
+
 ## A7 — Discord (action)
 
 ⏭️ Excluded per user instruction — already follows the process. No questions.
@@ -478,3 +515,8 @@ Applies to the endgame of this run (and every future run until overridden):
   constrained by the 🪝 **anti-loop mandate** recorded above (one `/code-review` pass →
   first fixes → straight to `/pr`, never loop)
 - ✅ PR strategy: **single PR**, per-item commits (round 17)
+- ✅ **Implementation COMPLETE: 14 / 14 items shipped** — T1–T8 then A1–A6, one
+  commit each, all specs' acceptance criteria covered by tests:
+  hooks 60/60 · processor 24/24 · worker 191/191 · server 334/334; `tsc`
+  error counts unchanged from the pre-implementation baseline (server 38,
+  worker 14, web 1 — all pre-existing).

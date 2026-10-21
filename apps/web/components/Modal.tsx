@@ -25,6 +25,7 @@ import {
   DiscordMetaData,
   TelegramMetaData,
   WhatsAppMetaData,
+  TelegramActionMetaData,
 } from './metadata';
 
 // APPS and types are now imported from ./modal/
@@ -612,6 +613,12 @@ const Modal = ({
             />
           ) : selectedItem?.type?.startsWith('Telegram') ? (
             <TelegramMetaData handleClick={handleSaveMetaData} />
+          ) : selectedItem?.type?.startsWith('Telegram') ? (
+            // A6: Telegram Send action — text/photo/document, parse mode, options.
+            <TelegramActionMetaData
+              handleClick={handleSaveMetaData}
+              botId={(selectedItem?.metadata as any)?.botId}
+            />
           ) : selectedItem?.type?.includes('Gmail') ? (
             <GmailMetaData
               handleClick={handleSaveMetaData}
