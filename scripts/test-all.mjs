@@ -11,16 +11,26 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const APPS = ['server', 'worker', 'hooks', 'processor', 'web'];
+const SUITES = [
+  ['apps', 'server'],
+  ['apps', 'worker'],
+  ['apps', 'hooks'],
+  ['apps', 'processor'],
+  ['apps', 'web'],
+  // Shared modules carry suites too — @repo/ingress owns every ingress
+  // verification decision, so its adversarial table must not be skipped.
+  ['packages', 'ingress'],
+];
 
 const results = [];
-for (const app of APPS) {
-  process.stdout.write(`\n── ${app} ${'─'.repeat(Math.max(0, 50 - app.length))}\n`);
+for (const [group, name] of SUITES) {
+  const label = group === 'apps' ? name : `${name} (packages)`;
+  process.stdout.write(`\n── ${label} ${'─'.repeat(Math.max(0, 50 - label.length))}\n`);
   try {
-    execSync('npm test --silent', { cwd: join(ROOT, 'apps', app), stdio: 'inherit' });
-    results.push([app, 'pass']);
+    execSync('npm test --silent', { cwd: join(ROOT, group, name), stdio: 'inherit' });
+    results.push([label, 'pass']);
   } catch {
-    results.push([app, 'FAIL']);
+    results.push([label, 'FAIL']);
   }
 }
 

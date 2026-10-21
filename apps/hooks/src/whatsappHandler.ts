@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import crypto from 'crypto';
 import client from '@repo/db';
 import { enqueueRun } from '@repo/runs';
+import { verifyWhatsapp } from '@repo/ingress';
 
 /**
  * WhatsApp Cloud API webhook — T6 spec (docs/ask-matt/triggers/whatsapp.md,
@@ -61,31 +61,22 @@ export async function verifyWhatsAppWebhook(req: Request, res: Response): Promis
   return res.status(403).json({ error: 'Verification failed' });
 }
 
-/** Mandatory X-Hub-Signature-256 check (Q-WA-T-04), fail closed. */
+/** Mandatory X-Hub-Signature-256 check (Q-WA-T-04), fail closed via @repo/ingress. */
 export function verifyWhatsAppSignature(
   headers: Record<string, string | string[] | undefined>,
   rawBody: string
 ): { ok: boolean; reason?: string } {
-  const appSecret = process.env.WHATSAPP_APP_SECRET?.trim();
-  if (!appSecret) {
-    return { ok: false, reason: 'WHATSAPP_APP_SECRET not configured — signature cannot be verified' };
-  }
-  const header = headers['x-hub-signature-256'];
-  const signature = (Array.isArray(header) ? header[0] : header) || '';
-  if (!signature) {
-    return { ok: false, reason: 'Missing X-Hub-Signature-256 header' };
-  }
-  const expected = `sha256=${crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex')}`;
-  try {
-    const a = Buffer.from(signature);
-    const b = Buffer.from(expected);
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-      return { ok: false, reason: 'Invalid signature' };
-    }
-  } catch {
-    return { ok: false, reason: 'Invalid signature' };
-  }
-  return { ok: true };
+  const verdict = verifyWhatsapp({ headers, rawBody }, process.env.WHATSAPP_APP_SECRET);
+  if (verdict.ok) return { ok: true };
+  // Keep the operator-facing diagnostic the WhatsApp runbook documents, while
+  // the decision itself stays in the engine.
+  return {
+    ok: false,
+    reason:
+      verdict.code === 'SECRET_NOT_CONFIGURED'
+        ? 'WHATSAPP_APP_SECRET not configured — signature cannot be verified'
+        : verdict.message,
+  };
 }
 
 /** §4 type enum — unrecognized API types normalize to 'unknown'. */

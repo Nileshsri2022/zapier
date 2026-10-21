@@ -10,15 +10,17 @@ jest.mock('@repo/runs', () => ({
 }));
 
 import CronRouter from '../../src/routes/CronRoutes';
+import { handleGmailWebhook } from '../../src/controllers/GmailWebhookController';
+import { handleWebhook } from '../../src/controllers/TriggerController';
+// Every ingress decision comes from one deep module; these tests exercise the
+// named entry points the call sites use, not a shared private helper.
 import {
-  handleGmailWebhook,
-  verifyGmailWebhookSignature,
-} from '../../src/controllers/GmailWebhookController';
-import { handleWebhook, verifyWebhookSignature } from '../../src/controllers/TriggerController';
-import {
-  verifyWebhookRequest,
-  verifyWebhookSignature as verifyHooksSignature,
-} from '../../../hooks/src/webhookAuth';
+  resolveAuthMode,
+  resolveWebhookSecret,
+  verifyCatchHook,
+  verifyGmailPush,
+  verifyLegacyWebhook,
+} from '@repo/ingress';
 
 /**
  * Regression tests for the fail-open security findings in
@@ -55,15 +57,20 @@ afterEach(() => {
 
 describe('Security - Gmail webhook signature', () => {
   const body = { message: { data: 'x', messageId: '1', publishTime: 'now' } };
+  const rawBody = JSON.stringify(body);
+  const sign = (secret: string, payload = rawBody) =>
+    crypto.createHmac('sha256', secret).update(payload).digest('hex');
 
   it('rejects the notification when GMAIL_WEBHOOK_SECRET is not configured', async () => {
     delete process.env.GMAIL_WEBHOOK_SECRET;
 
-    expect(verifyGmailWebhookSignature({ 'x-goog-signature': 'anything' }, body)).toBe(false);
+    expect(
+      verifyGmailPush({ headers: { 'x-goog-signature': 'anything' }, rawBody }, undefined).ok
+    ).toBe(false);
 
     const { res, status } = buildRes();
     await handleGmailWebhook(
-      { body, headers: { 'x-goog-signature': 'anything' } } as unknown as Request,
+      { body, rawBody: Buffer.from(rawBody), headers: { 'x-goog-signature': 'anything' } } as unknown as Request,
       res
     );
 
@@ -71,31 +78,66 @@ describe('Security - Gmail webhook signature', () => {
   });
 
   it('rejects a request with no signature header', () => {
-    process.env.GMAIL_WEBHOOK_SECRET = 'gmail-secret';
-    expect(verifyGmailWebhookSignature({}, body)).toBe(false);
+    expect(verifyGmailPush({ headers: {}, rawBody }, 'gmail-secret').ok).toBe(false);
   });
 
   it('accepts a correctly signed notification', () => {
-    process.env.GMAIL_WEBHOOK_SECRET = 'gmail-secret';
-    const signature = crypto
-      .createHmac('sha256', 'gmail-secret')
-      .update(JSON.stringify(body))
-      .digest('hex');
+    const signature = sign('gmail-secret');
 
-    expect(verifyGmailWebhookSignature({ 'x-goog-signature': signature }, body)).toBe(true);
+    expect(
+      verifyGmailPush(
+        { headers: { 'x-goog-signature': signature }, rawBody },
+        'gmail-secret'
+      ).ok
+    ).toBe(true);
   });
 
   it('rejects a tampered payload', () => {
-    process.env.GMAIL_WEBHOOK_SECRET = 'gmail-secret';
-    const signatureForOriginal = crypto
-      .createHmac('sha256', 'gmail-secret')
-      .update(JSON.stringify(body))
-      .digest('hex');
+    const signatureForOriginal = sign('gmail-secret');
+    const tamperedRaw = JSON.stringify({ ...body, message: { ...body.message, messageId: '2' } });
 
-    const tampered = { ...body, message: { ...body.message, messageId: '2' } };
     expect(
-      verifyGmailWebhookSignature({ 'x-goog-signature': signatureForOriginal }, tampered)
+      verifyGmailPush(
+        { headers: { 'x-goog-signature': signatureForOriginal }, rawBody: tamperedRaw },
+        'gmail-secret'
+      ).ok
     ).toBe(false);
+  });
+
+  it('signs the raw bytes, not a re-serialized body (Q8/Q11)', () => {
+    // Same JSON value, different bytes: only the bytes the sender signed count.
+    const spaced = '{ "message": { "data": "x", "messageId": "1", "publishTime": "now" } }';
+    const signatureOverSpaced = sign('gmail-secret', spaced);
+    const signatureOverReserialized = sign('gmail-secret', JSON.stringify(JSON.parse(spaced)));
+
+    expect(
+      verifyGmailPush(
+        { headers: { 'x-goog-signature': signatureOverSpaced }, rawBody: spaced },
+        'gmail-secret'
+      ).ok
+    ).toBe(true);
+    // The old JSON.stringify(body) digest would have matched the second one.
+    expect(
+      verifyGmailPush(
+        { headers: { 'x-goog-signature': signatureOverReserialized }, rawBody: spaced },
+        'gmail-secret'
+      ).ok
+    ).toBe(false);
+  });
+
+  it('verifies through the controller over the captured raw bytes', async () => {
+    process.env.GMAIL_WEBHOOK_SECRET = 'gmail-secret';
+    const raw = '{ "message": { "data": "x" } }';
+    const { res, status } = buildRes();
+    const req = {
+      body: JSON.parse(raw),
+      rawBody: Buffer.from(raw),
+      headers: { 'x-goog-signature': sign('gmail-secret', raw) },
+    } as unknown as Request;
+
+    await handleGmailWebhook(req, res);
+
+    expect(status).not.toHaveBeenCalledWith(401);
   });
 });
 
@@ -153,7 +195,9 @@ describe('Security - TriggerController webhook signature', () => {
       .update(JSON.stringify(payload))
       .digest('hex')}`;
 
-    expect(verifyWebhookSignature(JSON.stringify(payload), forgedForDefaultSecret)).toBe(false);
+    expect(
+      verifyLegacyWebhook(JSON.stringify(payload), forgedForDefaultSecret, undefined).ok
+    ).toBe(false);
   });
 
   it('still accepts unsigned webhooks when no secret is configured (capability-URL model)', async () => {
@@ -242,81 +286,99 @@ describe('Security - Cron endpoints fail closed', () => {
 
 describe('Security - Hooks generic webhook authentication (F5)', () => {
   const payload = { event_id: 'evt-1', amount: 42 };
+  const rawBody = JSON.stringify(payload);
+
+  /** Exactly what `catchHook` does: resolve the hook's policy, ask the engine. */
+  const check = (
+    headers: Record<string, string | string[] | undefined>,
+    triggerMeta?: unknown
+  ) =>
+    verifyCatchHook(
+      { headers, body: payload, rawBody },
+      { authMode: resolveAuthMode(triggerMeta), secret: resolveWebhookSecret(triggerMeta) }
+    );
 
   it('requires a signature or secret when WEBHOOK_SECRET is configured', () => {
     process.env.WEBHOOK_SECRET = 'hooks-secret';
 
-    const result = verifyWebhookRequest({}, payload);
-
-    expect(result).toEqual({
-      authorized: false,
+    expect(check({})).toEqual({
+      ok: false,
+      code: 'MISSING_CREDENTIAL',
       status: 401,
-      message: 'Webhook signature required',
+      message: expect.any(String),
     });
   });
 
   it('rejects an invalid HMAC signature or wrong shared secret', () => {
     process.env.WEBHOOK_SECRET = 'hooks-secret';
 
-    expect(verifyWebhookRequest({ 'x-webhook-signature': 'sha256=bad' }, payload)).toEqual({
-      authorized: false,
+    expect(check({ 'x-webhook-signature': 'sha256=bad' })).toMatchObject({
+      ok: false,
+      code: 'INVALID_CREDENTIAL',
       status: 401,
-      message: 'Invalid webhook signature',
     });
-
-    expect(verifyWebhookRequest({ 'x-webhook-secret': 'wrong-secret' }, payload)).toEqual({
-      authorized: false,
+    expect(check({ 'x-webhook-secret': 'wrong-secret' })).toMatchObject({
+      ok: false,
+      code: 'INVALID_CREDENTIAL',
       status: 401,
-      message: 'Invalid webhook signature',
     });
   });
 
   it('accepts a valid HMAC-SHA256 x-webhook-signature header', () => {
     process.env.WEBHOOK_SECRET = 'hooks-secret';
-    const sig = `sha256=${crypto
-      .createHmac('sha256', 'hooks-secret')
-      .update(JSON.stringify(payload))
-      .digest('hex')}`;
+    const sig = `sha256=${crypto.createHmac('sha256', 'hooks-secret').update(rawBody).digest('hex')}`;
 
-    expect(verifyWebhookRequest({ 'x-webhook-signature': sig }, payload)).toEqual({
-      authorized: true,
-    });
+    expect(check({ 'x-webhook-signature': sig })).toEqual({ ok: true });
   });
 
   it('accepts a valid x-webhook-secret or Bearer token', () => {
     process.env.WEBHOOK_SECRET = 'hooks-secret';
 
-    expect(verifyWebhookRequest({ 'x-webhook-secret': 'hooks-secret' }, payload)).toEqual({
-      authorized: true,
-    });
-    expect(verifyWebhookRequest({ authorization: 'Bearer hooks-secret' }, payload)).toEqual({
-      authorized: true,
-    });
+    expect(check({ 'x-webhook-secret': 'hooks-secret' })).toEqual({ ok: true });
+    expect(check({ authorization: 'Bearer hooks-secret' })).toEqual({ ok: true });
   });
 
   it('honors per-trigger metadata.secret over WEBHOOK_SECRET', () => {
     process.env.WEBHOOK_SECRET = 'global-secret';
     const triggerMeta = { secret: 'per-zap-secret' };
 
-    expect(
-      verifyWebhookRequest({ 'x-webhook-secret': 'global-secret' }, payload, triggerMeta)
-    ).toEqual({
-      authorized: false,
+    expect(check({ 'x-webhook-secret': 'global-secret' }, triggerMeta)).toMatchObject({
+      ok: false,
+      code: 'INVALID_CREDENTIAL',
       status: 401,
-      message: 'Invalid webhook signature',
     });
-
-    expect(
-      verifyWebhookRequest({ 'x-webhook-secret': 'per-zap-secret' }, payload, triggerMeta)
-    ).toEqual({
-      authorized: true,
-    });
+    expect(check({ 'x-webhook-secret': 'per-zap-secret' }, triggerMeta)).toEqual({ ok: true });
   });
 
   it('allows capability-URL requests when neither trigger nor env secret is set, without using a default key', () => {
     delete process.env.WEBHOOK_SECRET;
 
-    expect(verifyWebhookRequest({}, payload)).toEqual({ authorized: true });
-    expect(verifyHooksSignature(JSON.stringify(payload), 'sha256=anything')).toBe(false);
+    // The legacy implicit policy is one of the three audited open doors
+    // (OPEN_WHEN_UNCONFIGURED in @repo/ingress); it keeps its behaviour here.
+    expect(check({})).toEqual({ ok: true });
+    expect(
+      verifyLegacyWebhook(rawBody, 'sha256=anything', undefined)
+    ).toMatchObject({ ok: false, code: 'SECRET_NOT_CONFIGURED' });
+  });
+
+  it('refuses an explicitly-selected auth mode that has no secret', () => {
+    delete process.env.WEBHOOK_SECRET;
+
+    expect(check({ 'x-webhook-secret': 'anything' }, { authMode: 'static' })).toMatchObject({
+      ok: false,
+      code: 'SECRET_NOT_CONFIGURED',
+      status: 401,
+    });
+    expect(check({ 'x-webhook-signature': 'sha256=anything' }, { authMode: 'hmac' })).toMatchObject({
+      ok: false,
+      code: 'SECRET_NOT_CONFIGURED',
+      status: 403,
+    });
+  });
+
+  it('opens an authMode none hook by design', () => {
+    delete process.env.WEBHOOK_SECRET;
+
+    expect(check({}, { authMode: 'none' })).toEqual({ ok: true });
   });
 });

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import client from '@repo/db';
 import { enqueueRun } from '@repo/runs';
+import { verifyGithub } from '@repo/ingress';
 
 /**
  * GitHub webhook ingress — T4 spec (docs/ask-matt/triggers/github.md, round 6).
@@ -29,25 +30,6 @@ const router = Router();
 
 /** Spec §5: commits[] bundled per push, list capped at 20. */
 export const PUSH_COMMIT_CAP = 20;
-
-// Verify GitHub webhook signature (HMAC-SHA256 over the raw body)
-function verifyGitHubSignature(
-  payload: string,
-  signature: string | undefined,
-  secret: string
-): boolean {
-  if (!signature) return false;
-  const expectedSignature = `sha256=${crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('hex')}`;
-
-  try {
-    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
-  } catch {
-    return false;
-  }
-}
 
 // Parse GitHub event type to trigger type
 function getGitHubTriggerType(event: string): string | null {
@@ -226,16 +208,16 @@ router.post('/webhook/:zapId', async (req: Request, res: Response): Promise<any>
 
     const rawBody = (req as any).rawBody?.toString('utf8') ?? JSON.stringify(req.body);
 
-    // Fail-closed envelope verification when a global secret is configured.
-    if (envSecret) {
-      if (!signature) {
-        console.log(`❌ Missing GitHub signature for zap ${zapId}`);
-        return res.status(401).json({ error: 'Missing signature' });
-      }
-      if (!verifyGitHubSignature(rawBody, signature, envSecret)) {
-        console.log(`❌ Invalid GitHub signature for zap ${zapId}`);
-        return res.status(401).json({ error: 'Invalid signature' });
-      }
+    // Signature policy is owned by @repo/ingress: fail-closed once either the
+    // env or per-Zap secret is configured. (GitHub's spec is the one audited
+    // `allowOpenWhenUnconfigured` entry on the server side — see ADR-0002.)
+    const signatureVerdict = verifyGithub(
+      { headers: { 'x-hub-signature-256': signature }, rawBody },
+      envSecret
+    );
+    if (!signatureVerdict.ok) {
+      console.log(`❌ GitHub ${signatureVerdict.code} for zap ${zapId}`);
+      return res.status(signatureVerdict.status).json({ error: signatureVerdict.message });
     }
 
     // Find the zap
@@ -254,15 +236,15 @@ router.post('/webhook/:zapId', async (req: Request, res: Response): Promise<any>
 
     const triggerMetadata = (trigger as any)?.metadata || {};
 
-    // Per-zap secret saved by the config UI (no env secret path).
+    // Per-zap secret saved by the config UI (env secret wins when both exist).
     if (!envSecret && triggerMetadata.webhookSecret) {
-      if (!signature) {
-        console.log(`❌ Missing GitHub signature for zap ${zapId} (per-zap secret)`);
-        return res.status(401).json({ error: 'Missing signature' });
-      }
-      if (!verifyGitHubSignature(rawBody, signature, String(triggerMetadata.webhookSecret))) {
-        console.log(`❌ Invalid GitHub signature for zap ${zapId} (per-zap secret)`);
-        return res.status(401).json({ error: 'Invalid signature' });
+      const perZapVerdict = verifyGithub(
+        { headers: { 'x-hub-signature-256': signature }, rawBody },
+        String(triggerMetadata.webhookSecret)
+      );
+      if (!perZapVerdict.ok) {
+        console.log(`❌ GitHub ${perZapVerdict.code} for zap ${zapId} (per-zap secret)`);
+        return res.status(perZapVerdict.status).json({ error: perZapVerdict.message });
       }
     }
 

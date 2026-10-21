@@ -1,7 +1,7 @@
 import client from '@repo/db';
 import type { Request, Response } from 'express';
-import crypto from 'crypto';
 import { enqueueRun } from '@repo/runs';
+import { verifyLegacyWebhook } from '@repo/ingress';
 
 export const fetchAvailableTriggers = async (req: Request, res: Response): Promise<any> => {
   const avialableTriggers = await client.availableTriggers.findMany();
@@ -36,14 +36,20 @@ export const handleWebhook = async (req: Request, res: Response): Promise<any> =
 
     // When WEBHOOK_SECRET is configured, signatures are mandatory:
     // an absent signature must not silently bypass verification.
+    // Legacy policy preserved verbatim (Q1): this endpoint is signature-checked
+    // only when WEBHOOK_SECRET is configured. The check itself belongs to the
+    // engine — the status and message mapping stays here so the wire contract
+    // is unchanged.
     if (process.env.WEBHOOK_SECRET) {
-      if (!signature) {
-        return res.status(401).json({ message: 'Webhook signature required' });
-      }
       const rawBody = (req as any).rawBody?.toString('utf8') ?? JSON.stringify(payload);
-      const isValidSignature = verifyWebhookSignature(rawBody, signature);
-      if (!isValidSignature) {
-        return res.status(401).json({ message: 'Invalid webhook signature' });
+      const verdict = verifyLegacyWebhook(rawBody, signature, process.env.WEBHOOK_SECRET);
+      if (!verdict.ok) {
+        return res.status(verdict.status).json({
+          message:
+            verdict.code === 'MISSING_CREDENTIAL'
+              ? 'Webhook signature required'
+              : 'Invalid webhook signature',
+        });
       }
     }
 
@@ -98,23 +104,3 @@ export const handleWebhook = async (req: Request, res: Response): Promise<any> =
 // exported but attached to no route, and called the second function named
 // processGmailTrigger). Removed in gmail-worker-routing-spec P2 — Gmail
 // events enter via GmailRoutes' /webhook and GmailTriggersController.
-
-export const verifyWebhookSignature = (payload: string, signature: string): boolean => {
-  try {
-    // In a real implementation, you'd use a proper webhook secret
-    // For now, we'll do a basic verification
-    const secret = process.env.WEBHOOK_SECRET;
-    if (!secret) {
-      // No secret configured: nothing to verify against. Callers are
-      // authenticated by the unguessable zapId in the URL (capability URL).
-      return false;
-    }
-
-    const expectedSignature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
-
-    return signature === `sha256=${expectedSignature}`;
-  } catch (error) {
-    console.error('Signature verification error:', error);
-    return false;
-  }
-};

@@ -9,7 +9,8 @@
  *   immediately (410, no grace period).
  * - V3 fixed 200 + empty body for every successful ack (queued, duplicate,
  *   inactive).
- * - V4 per-hook auth: none / static key / HMAC (webhookAuth.authMode).
+ * - V4 per-hook auth: none / static key / HMAC (trigger.metadata.authMode), verified
+ *   by @repo/ingress — see docs/adr/0002-ingress-verification-architecture.md.
  * - V5 JSON + x-www-form-urlencoded parsed, GET-style exposes query, all
  *   other content types (multipart, XML, …) → body null + bodyRaw. Body cap
  *   MAX_WEBHOOK_BYTES → 413, no run.
@@ -22,7 +23,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import client from '@repo/db';
 import { enqueueRun } from '@repo/runs';
-import { verifyWebhookRequest } from './webhookAuth';
+import { resolveAuthMode, resolveWebhookSecret, verifyCatchHook } from '@repo/ingress';
 
 export const MAX_WEBHOOK_BYTES = 1_000_000; // 413 beyond this
 export const HOOK_SAMPLE_CAP = 10;
@@ -142,13 +143,24 @@ async function handleCatchHook(req: Request, res: Response, mode: HookMode): Pro
     }
 
     // ---- Auth (V4) ----
-    const auth = verifyWebhookRequest(
-      req.headers,
-      rawBody && rawBody.length ? rawBody.toString('utf8') : (req.body ?? {}),
-      meta
+    // One engine, one verdict: the hook's authMode selects the spec, and a
+    // missing credential or unconfigured secret refuses with a coded status.
+    const auth = verifyCatchHook(
+      {
+        headers: req.headers,
+        // Raw bytes are authoritative (the hooks app captures them in
+        // express.json's verify hook). The serializer fallback only serves
+        // callers that never captured bytes.
+        rawBody:
+          rawBody && rawBody.length
+            ? rawBody.toString('utf8')
+            : JSON.stringify(req.body ?? {}),
+        body: req.body ?? {},
+      },
+      { authMode: resolveAuthMode(meta), secret: resolveWebhookSecret(meta) }
     );
-    if (!auth.authorized) {
-      return void res.status(auth.status ?? 401).json({ message: auth.message ?? 'Unauthorized' });
+    if (!auth.ok) {
+      return void res.status(auth.status).json({ message: auth.message, code: auth.code });
     }
 
     // ---- Method restriction (§3; default = all five) ----
