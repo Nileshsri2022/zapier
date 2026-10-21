@@ -10,6 +10,11 @@ export interface GmailConfig {
   refreshToken: string;
   accessToken?: string;
   tokenExpiry?: Date;
+  /**
+   * The `GmailServer` row these credentials belong to. Refreshed tokens are
+   * written back to this row only — see `ensureValidToken` (#38).
+   */
+  serverId?: string;
 }
 
 export interface EmailFilter {
@@ -58,8 +63,10 @@ export class GmailService {
   private gmail: gmail_v1.Gmail;
   private rateLimiter: GmailRateLimiter;
   private errorHandler: GmailErrorHandler;
+  private serverId?: string;
 
   constructor(config: GmailConfig) {
+    this.serverId = config.serverId;
     // @ts-ignore - OAuth2Client version conflict between googleapis and google-auth-library
     this.oauth2Client = new google.auth.OAuth2(config.clientId, config.clientSecret);
 
@@ -90,15 +97,28 @@ export class GmailService {
       const { credentials } = await this.oauth2Client.refreshAccessToken();
       this.oauth2Client.setCredentials(credentials);
 
-      // Update database with new token
+      // Update database with the new token — scoped to *this* mailbox.
+      //
+      // `clientId` is the OAuth app's client id and is identical for every
+      // user, so scoping the write by it rewrote every tenant's access token
+      // with this user's refreshed one (#38): the next request by any other
+      // mailbox then authenticated as the wrong account. Without a server id
+      // there is no safe scope, so the in-memory token is used and the row is
+      // left alone until the caller supplies one.
       if (credentials.access_token && credentials.expiry_date) {
-        await client.gmailServer.updateMany({
-          where: { clientId: this.oauth2Client._clientId! },
-          data: {
-            accessToken: credentials.access_token,
-            tokenExpiry: new Date(credentials.expiry_date),
-          },
-        });
+        if (this.serverId) {
+          await client.gmailServer.updateMany({
+            where: { id: this.serverId },
+            data: {
+              accessToken: credentials.access_token,
+              tokenExpiry: new Date(credentials.expiry_date),
+            },
+          });
+        } else {
+          console.warn(
+            'GmailService: token refreshed without a serverId; skipping the database write'
+          );
+        }
       }
     }
   }

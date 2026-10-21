@@ -53,7 +53,11 @@ export const signup = async (req: Request, res: Response): Promise<any> => {
 
   const emailSubject = 'Welcome to ZapMate! Let’s Get Automating!';
   try {
-    await sendEmail(validation?.data?.email, emailSubject, 'signup-confirmation.html');
+    // Scoped to the new user: one account signing up ten times must not spend
+    // the budget every other signup needs (#57).
+    await sendEmail(validation?.data?.email, emailSubject, 'signup-confirmation.html', undefined, {
+      userId: newUser.id,
+    });
   } catch (emailError) {
     console.error('Failed to send welcome email:', emailError);
     // Continue anyway - user is already created
