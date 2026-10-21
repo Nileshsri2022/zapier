@@ -9,10 +9,11 @@ import { ConnectWhatsAppSchema } from '@repo/types';
  *
  * These tests pin the validation layer that used to let it through.
  */
-describe('ConnectWhatsAppSchema phoneNumberId', () => {
+describe('ConnectWhatsAppSchema WhatsApp identifiers', () => {
   const valid = {
     displayName: 'Acme Support',
     accessToken: 'EAAB-token',
+    businessId: '123456789012345',
   };
 
   it('rejects an empty phone number id', () => {
@@ -33,7 +34,26 @@ describe('ConnectWhatsAppSchema phoneNumberId', () => {
     expect(ConnectWhatsAppSchema.safeParse({ ...valid, phoneNumberId: '   ' }).success).toBe(false);
   });
 
-  it('accepts a real phone number id', () => {
+  it('requires a WhatsApp Business Account ID (WABA ID)', () => {
+    const missing = ConnectWhatsAppSchema.safeParse({
+      displayName: valid.displayName,
+      accessToken: valid.accessToken,
+      phoneNumberId: '123456789012345',
+    });
+    const blank = ConnectWhatsAppSchema.safeParse({
+      ...valid,
+      phoneNumberId: '123456789012345',
+      businessId: '   ',
+    });
+
+    expect(missing.success).toBe(false);
+    expect(blank.success).toBe(false);
+    if (!blank.success) {
+      expect(blank.error.issues[0].path).toEqual(['businessId']);
+    }
+  });
+
+  it('accepts real phone number and WABA ids', () => {
     const parsed = ConnectWhatsAppSchema.safeParse({
       ...valid,
       phoneNumberId: '123456789012345',
@@ -41,6 +61,7 @@ describe('ConnectWhatsAppSchema phoneNumberId', () => {
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       expect(parsed.data.phoneNumberId).toBe('123456789012345');
+      expect(parsed.data.businessId).toBe('123456789012345');
     }
   });
 });

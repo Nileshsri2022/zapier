@@ -140,4 +140,64 @@ describe('GET /api/whatsapp/templates', () => {
     expect(rejected.status).toBe(502);
     expect(JSON.stringify(rejected.body)).not.toContain('EAAG-SECRET-TOKEN');
   });
+
+  it('explains how to repair a legacy connection that has no WABA ID', async () => {
+    (client.whatsAppServer.findFirst as jest.Mock).mockResolvedValue({
+      ...server,
+      businessId: '   ',
+    });
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const res = await request(app)
+      .get('/api/whatsapp/templates')
+      .set('Authorization', 'Bearer user-1-token');
+
+    expect(res.status).toBe(422);
+    expect(res.body).toMatchObject({
+      code: 'WHATSAPP_BUSINESS_ID_REQUIRED',
+      message: expect.stringContaining('WhatsApp Business Account ID'),
+      remediation: expect.stringContaining('save the connection'),
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('PUT /api/whatsapp/servers/:id', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (client.whatsAppServer.findFirst as jest.Mock).mockResolvedValue({
+      ...server,
+      businessId: '',
+    });
+  });
+
+  it('lets the owner repair a missing WABA ID without replacing the connection', async () => {
+    (client.whatsAppServer.update as jest.Mock).mockResolvedValue({
+      ...server,
+      businessId: 'waba-123',
+    });
+
+    const res = await request(app)
+      .put('/api/whatsapp/servers/server-1')
+      .set('Authorization', 'Bearer user-1-token')
+      .send({ businessId: '  waba-123  ' });
+
+    expect(res.status).toBe(200);
+    expect(client.whatsAppServer.update).toHaveBeenCalledWith({
+      where: { id: 'server-1' },
+      data: { businessId: 'waba-123' },
+    });
+  });
+
+  it('does not allow a repair to save a blank WABA ID', async () => {
+    const res = await request(app)
+      .put('/api/whatsapp/servers/server-1')
+      .set('Authorization', 'Bearer user-1-token')
+      .send({ businessId: '   ' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('WhatsApp Business Account ID is required');
+    expect(client.whatsAppServer.update).not.toHaveBeenCalled();
+  });
 });
