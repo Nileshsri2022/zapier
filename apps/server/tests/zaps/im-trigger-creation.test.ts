@@ -1,63 +1,52 @@
-import { Request, Response } from 'express';
 import client from '@repo/db';
-import * as ZapController from '../../src/controllers/ZapController';
+import { composeZap } from '../../src/services/zapComposition';
 
 /**
- * Publishing a Zap with a WhatsApp/Telegram trigger must create the
- * provider-specific trigger row so inbound messages can find the Zap.
+ * WhatsApp/Telegram composition: the provider-specific trigger row is what
+ * makes an inbound message find the Zap, and the connection must belong to the
+ * caller. Asserted at the module's seam — the HTTP status mapping for these
+ * failures lives in tests/zaps/zap-crud.test.ts.
  */
 
-const makeRes = () => {
-  const json = jest.fn();
-  const status = jest.fn().mockReturnValue({ json });
-  return { res: { status, json } as unknown as Response, status, json };
+const buildTx = () => ({
+  zap: {
+    create: jest.fn().mockResolvedValue({ id: 'zap-1' }),
+    update: jest.fn().mockResolvedValue({}),
+  },
+  trigger: { create: jest.fn().mockResolvedValue({ id: 'trigger-1' }) },
+  whatsAppTrigger: { create: jest.fn().mockResolvedValue({ id: 'wtrigger-1' }) },
+  telegramTrigger: { create: jest.fn().mockResolvedValue({ id: 'ttrigger-1' }) },
+});
+
+const arrange = (triggerType: string, tx: ReturnType<typeof buildTx>) => {
+  (client.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(tx));
+  (client.availableTriggers.findUnique as jest.Mock).mockResolvedValue({
+    id: `trigger-${triggerType}`,
+    type: triggerType,
+  });
+  (client.availableActions.findUnique as jest.Mock).mockResolvedValue({ type: 'Webhook' });
 };
 
-const request = (triggerType: string, triggerMetaData: any) =>
-  ({
-    body: {
-      availableTriggerId: `trigger-${triggerType}`,
-      triggerMetaData,
-      actions: [],
-    },
-    // @ts-ignore
-    id: '1',
-  }) as unknown as Request;
+const send = (triggerType: string, triggerMetadata: any) =>
+  composeZap(
+    { triggerId: `trigger-${triggerType}`, triggerMetadata, steps: [] },
+    { userId: 1 }
+  );
 
-const buildTx = (triggerType: string) => {
-  const tx: any = {
-    availableTriggers: { findUnique: jest.fn().mockResolvedValue({ type: triggerType }) },
-    zap: {
-      create: jest.fn().mockResolvedValue({ id: 'zap-1' }),
-      update: jest.fn().mockResolvedValue({}),
-    },
-    trigger: { create: jest.fn().mockResolvedValue({ id: 'trigger-1' }) },
-    googleSheetsTrigger: { create: jest.fn() },
-    googleCalendarTrigger: { create: jest.fn() },
-    scheduledTrigger: { create: jest.fn() },
-    whatsAppServer: { findFirst: jest.fn().mockResolvedValue({ id: 'wserver-1', userId: 1 }) },
-    whatsAppTrigger: { create: jest.fn().mockResolvedValue({ id: 'wtrigger-1' }) },
-    telegramBot: { findFirst: jest.fn().mockResolvedValue({ id: 'bot-1', userId: 1 }) },
-    telegramTrigger: { create: jest.fn().mockResolvedValue({ id: 'ttrigger-1' }) },
-  };
-  return tx;
-};
-
-describe('createZap — WhatsApp/Telegram trigger rows', () => {
+describe('composeZap — WhatsApp/Telegram trigger rows', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('creates a WhatsApp trigger owned by the caller', async () => {
-    const tx = buildTx('WhatsApp Message Received');
-    (client.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(tx));
+    const tx = buildTx();
+    arrange('WhatsApp Message Received', tx);
+    (client.whatsAppServer.findFirst as jest.Mock).mockResolvedValue({
+      id: 'wserver-1',
+      userId: 1,
+    });
 
-    const { res, status } = makeRes();
-    await ZapController.createZap(
-      request('WhatsApp Message Received', { serverId: 'wserver-1' }),
-      res
-    );
+    await send('WhatsApp Message Received', { serverId: 'wserver-1' });
 
-    expect(status).toHaveBeenCalledWith(201);
-    expect(tx.whatsAppServer.findFirst).toHaveBeenCalledWith({
+    expect(client.whatsAppServer.findFirst).toHaveBeenCalledWith({
       where: { id: 'wserver-1', userId: 1 },
     });
     expect(tx.whatsAppTrigger.create).toHaveBeenCalledWith({
@@ -70,14 +59,16 @@ describe('createZap — WhatsApp/Telegram trigger rows', () => {
   });
 
   it('creates a Telegram trigger owned by the caller', async () => {
-    const tx = buildTx('Telegram New Message');
-    (client.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(tx));
+    const tx = buildTx();
+    arrange('Telegram New Message', tx);
+    (client.telegramBot.findFirst as jest.Mock).mockResolvedValue({
+      id: 'bot-1',
+      userId: 1,
+    });
 
-    const { res, status } = makeRes();
-    await ZapController.createZap(request('Telegram New Message', { botId: 'bot-1' }), res);
+    await send('Telegram New Message', { botId: 'bot-1' });
 
-    expect(status).toHaveBeenCalledWith(201);
-    expect(tx.telegramBot.findFirst).toHaveBeenCalledWith({
+    expect(client.telegramBot.findFirst).toHaveBeenCalledWith({
       where: { id: 'bot-1', userId: 1 },
     });
     expect(tx.telegramTrigger.create).toHaveBeenCalledWith({
@@ -89,18 +80,26 @@ describe('createZap — WhatsApp/Telegram trigger rows', () => {
     });
   });
 
-  it("rejects another user's WhatsApp server", async () => {
-    const tx = buildTx('WhatsApp Message Received');
-    tx.whatsAppServer.findFirst.mockResolvedValue(null);
-    (client.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(tx));
+  it("refuses another user's WhatsApp server without writing anything", async () => {
+    const tx = buildTx();
+    arrange('WhatsApp Message Received', tx);
+    (client.whatsAppServer.findFirst as jest.Mock).mockResolvedValue(null);
 
-    const { res, status } = makeRes();
-    await ZapController.createZap(
-      request('WhatsApp Message Received', { serverId: 'someone-elses' }),
-      res
+    await expect(send('WhatsApp Message Received', { serverId: 'someone-elses' })).rejects.toMatchObject(
+      { code: 'CONNECTION_NOT_OWNED' }
     );
 
-    expect(status).toHaveBeenCalledWith(400);
     expect(tx.whatsAppTrigger.create).not.toHaveBeenCalled();
+    expect(client.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('requires a connection id at all', async () => {
+    const tx = buildTx();
+    arrange('Telegram New Message', tx);
+
+    await expect(send('Telegram New Message', {})).rejects.toMatchObject({
+      code: 'MISSING_CONNECTION',
+    });
+    expect(client.$transaction).not.toHaveBeenCalled();
   });
 });

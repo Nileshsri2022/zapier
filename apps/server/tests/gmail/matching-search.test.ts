@@ -1,7 +1,7 @@
 import {
   buildGmailRunPayload,
   shouldTrigger,
-} from '../../src/services/GmailDispatch';
+} from '../../src/services/gmailIntake';
 
 /**
  * Gmail Matching Search trigger + grilled payload contract additions

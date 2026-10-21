@@ -8,6 +8,8 @@
  * Q-WHA-06 non-2xx is an error by default with a per-step override.
  */
 
+import { PlaceholderError, resolvePlaceholders } from '@repo/placeholders';
+
 export type WebhookErrorCode =
   | 'validation'
   | 'blocked_target'
@@ -60,35 +62,6 @@ export interface WebhookDeps {
 }
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
-function templateValue(value: unknown, run: Record<string, unknown>): unknown {
-  if (typeof value === 'string') {
-    const normalized = value.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, '{$1}');
-    return normalized.replace(/{(.*?)}/g, (match, key: string) => {
-      const keys = key.split('.');
-      let current: any = run;
-      for (const part of keys) {
-        if (current && typeof current === 'object' && part in current) current = current[part];
-        else return match;
-      }
-      return current !== undefined && current !== null ? String(current) : match;
-    });
-  }
-  if (Array.isArray(value)) return value.map((entry) => templateValue(entry, run));
-  if (value && typeof value === 'object')
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
-        key,
-        templateValue(entry, run),
-      ])
-    );
-  return value;
-}
-
-/** Recursively template a value against run metadata (both {{a.b}} and {a.b}). */
-export function templateDeep(value: unknown, run: Record<string, unknown>): any {
-  return templateValue(value, run);
-}
 
 /** SSRF guard (spec §5): block loopback, link-local/metadata and private ranges. */
 export function assertAllowedTarget(rawUrl: string, allowPrivateNetwork = false): URL {
@@ -228,7 +201,8 @@ export function buildRequest(rawMetadata: unknown, run: Record<string, unknown>)
   if (!rawMetadata || typeof rawMetadata !== 'object' || Array.isArray(rawMetadata))
     throw new WebhookActionError('Webhook action metadata must be an object', 'validation');
 
-  const metadata = templateDeep(rawMetadata, run) as Record<string, any>;
+  // Text mode walks the whole metadata graph (url, headers, auth, form/raw body).
+  const metadata = resolvePlaceholders(rawMetadata, run) as Record<string, any>;
   const method = String(metadata.method ?? 'GET').toUpperCase() as WebhookMethod;
   if (!(FIVE_VERBS as readonly string[]).includes(method))
     throw new WebhookActionError(
@@ -261,11 +235,26 @@ export function buildRequest(rawMetadata: unknown, run: Record<string, unknown>)
     if (method === 'GET')
       throw new WebhookActionError('GET requests cannot carry a body', 'validation');
     if (bodyMode === 'json') {
-      const payload = metadata.body;
-      body =
+      // JSON mode: serialise (if needed) -> parse -> resolve -> stringify, so a
+      // substituted quote/backslash/newline can never break the body (#53).
+      // `rawMetadata.body` is used deliberately: the text pass above would have
+      // already flattened typed leaves.
+      const payload = (rawMetadata as Record<string, any> | undefined)?.body;
+      const serialized =
         typeof payload === 'string'
           ? payload
           : JSON.stringify(payload === undefined ? {} : payload);
+      try {
+        body = resolvePlaceholders(serialized, run, { mode: 'json' });
+      } catch (error) {
+        if (error instanceof PlaceholderError) {
+          throw new WebhookActionError(
+            `Body is not valid JSON — ${error.message} (send it as "raw" if it is not JSON)`,
+            'validation'
+          );
+        }
+        throw error;
+      }
       if (!headers['Content-Type'] && !headers['content-type'])
         headers['Content-Type'] = 'application/json';
     } else if (bodyMode === 'form') {

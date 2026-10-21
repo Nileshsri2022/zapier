@@ -11,6 +11,8 @@
  * for the trigger) and is never logged or echoed.
  */
 
+import { resolvePlaceholders } from '@repo/placeholders';
+
 const TELEGRAM_API = 'https://api.telegram.org/bot';
 const REQUEST_TIMEOUT_MS = 10_000;
 export const TEXT_LIMIT = 4096;
@@ -73,19 +75,8 @@ function parseMetadata(raw: unknown): Record<string, any> {
 }
 
 function template(value: unknown, run: Record<string, unknown>): string {
-  if (typeof value !== 'string') return value === undefined || value === null ? '' : String(value);
-  return value.replace(
-    /\{\{\s*([^{}]+?)\s*\}\}|\{([^{}]+?)\}/g,
-    (match: string, doubleKey?: string, singleKey?: string) => {
-      const key = String(doubleKey ?? singleKey ?? '').trim();
-      let current: any = run;
-      for (const part of key.split('.')) {
-        if (current && typeof current === 'object' && part in current) current = current[part];
-        else return match;
-      }
-      return current !== undefined && current !== null ? String(current) : match;
-    }
-  );
+  if (value === undefined || value === null) return '';
+  return String(resolvePlaceholders(value, run));
 }
 
 /** Q-TG-A-03: numeric chat/user id (groups/channels may be negative) or @username. */

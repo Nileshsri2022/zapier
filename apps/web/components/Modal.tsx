@@ -162,8 +162,8 @@ const Modal = ({
   // Get events for a specific app
   const getEventsForApp = (app: App): AvailableItem[] => {
     return availableItems.filter((item) => {
-      if (app.exact) {
-        return item.type === app.exact;
+      if (app.types) {
+        return app.types.includes(item.type);
       }
       if (app.prefix) {
         return item.type.startsWith(app.prefix);
@@ -613,12 +613,6 @@ const Modal = ({
             />
           ) : selectedItem?.type?.startsWith('Telegram') ? (
             <TelegramMetaData handleClick={handleSaveMetaData} />
-          ) : selectedItem?.type?.startsWith('Telegram') ? (
-            // A6: Telegram Send action — text/photo/document, parse mode, options.
-            <TelegramActionMetaData
-              handleClick={handleSaveMetaData}
-              botId={(selectedItem?.metadata as any)?.botId}
-            />
           ) : selectedItem?.type?.includes('Gmail') ? (
             <GmailMetaData
               handleClick={handleSaveMetaData}
@@ -664,6 +658,12 @@ const Modal = ({
           ) : selectedItem?.type?.startsWith('WhatsApp') ? (
             // A5: WhatsApp Send action — sender picker, template/freeform.
             <WhatsAppMetaData handleClick={handleSaveMetaData} />
+          ) : selectedItem?.type?.startsWith('Telegram') ? (
+            // A6: Telegram Send action — text/photo/document, parse mode, options.
+            <TelegramActionMetaData
+              handleClick={handleSaveMetaData}
+              botId={(selectedItem?.metadata as any)?.botId}
+            />
           ) : selectedItem?.type === 'Discord Send Message' ? (
             <DiscordMetaData handleClick={handleSaveMetaData} />
           ) : (

@@ -3,16 +3,12 @@ import kafka from '@repo/kafka';
 import client from '@repo/db';
 import dotenv from 'dotenv';
 import { sendZapFailureNotification } from '@repo/email';
-import { withRetry, RetryResult, actionShouldRetry } from './utils/retry';
-import { sendDiscordMessage, resolveDiscordPlaceholders } from './sendDiscord';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
-import { isKnownActionType } from './utils/actionTypes';
+import { executeActionWithRetry } from './actionRegistry';
 import { prepareRunMetadata } from './utils/runMetadata';
 import { advanceSkippedStage } from './utils/skipStage';
-import { replaceKeys } from './utils/replaceKeys';
 import { readAiPolicy } from '@repo/ai';
 import { validateAiConnectionEnvironment } from '@repo/ai-connections';
-import type { AiActionContext } from './executeAiAction';
 
 dotenv.config();
 
@@ -42,156 +38,10 @@ async function initKafka() {
   }
 }
 
-// Execute action with retry - returns output data for chaining
-export async function executeActionWithRetry(
-  actionType: string,
-  metadata: any,
-  zapRunMetadata: any,
-  previousOutputs?: Record<number, any>, // Outputs from previous steps
-  context?: AiActionContext
-): Promise<RetryResult<{ success: boolean; message: string; output?: any }>> {
-  if (actionType === 'AI Transform') {
-    const { executeAiAction } = await import('./executeAiAction.js');
-    return executeAiAction(metadata, zapRunMetadata, previousOutputs, context);
-  }
-  // A2: Email sends via the Gmail API (shared Google connection). Validation,
-  // auth, quota and attachment failures never retry — only transient provider
-  // errors do (at-least-once; a duplicate is possible after an accepted timeout).
-  if (actionType === 'Webhook') {
-    // A4: idempotent-only retries are implemented inside runWebhookAction, so the
-    // generic wrapper runs it exactly once (no 3x duplicate side effects).
-    const { runWebhookAction } = await import('./sendWebhook.js');
-    return withRetry(async () => {
-      const output = await runWebhookAction(metadata, zapRunMetadata);
-      return { success: true, message: `Webhook ${output.status} from ${output.url}`, output };
-    }, { shouldRetry: () => false });
-  }
-  if (actionType === 'Email') {
-    const { sendEmailAction, EmailActionError } = await import('./sendEmail.js');
-    return withRetry(
-      async () => {
-        const output = await sendEmailAction(
-          metadata,
-          { ...zapRunMetadata, userId: zapRunMetadata?.userId ?? context?.userId },
-          {}
-        );
-        return {
-          success: true,
-          message: `Email sent to ${output.to}`,
-          output,
-        };
-      },
-      { shouldRetry: (error) => (error instanceof EmailActionError ? error.retryable : false) }
-    );
-  }
-  return withRetry(
-    async () => {
-      // Fail loudly for actions the worker cannot execute. Previously an unknown
-      // type fell through to a fake `success: true` no-op and the run was marked
-      // completed (gap D2 in reports/workflow-execution-gaps.md).
-      if (!isKnownActionType(actionType)) {
-        throw new Error(
-          `Unknown action type: "${actionType}". The worker does not implement this action; ` +
-            `check the Zap's steps against the available action catalog.`
-        );
-      }
-
-      if (actionType === 'Solana') {
-        // A3: read-only v1 — no keys, no signing, no transfers (send ops are
-        // backlog behind an external-signer security review).
-        const { runSolanaAction } = await import('./solanaRead.js');
-        const resolved = {
-          ...metadata,
-          address: metadata?.address ? replaceKeys(String(metadata.address), zapRunMetadata) : undefined,
-          owner: metadata?.owner ? replaceKeys(String(metadata.owner), zapRunMetadata) : undefined,
-          mint: metadata?.mint ? replaceKeys(String(metadata.mint), zapRunMetadata) : undefined,
-        };
-        const output = await runSolanaAction(resolved);
-        console.log(`✅ Solana ${output.operation} on ${output.network}`);
-        return {
-          success: true,
-          message: `Solana ${output.operation} on ${output.network}`,
-          output,
-        };
-      }
-
-      if (actionType.startsWith('WhatsApp')) {
-        // A5: shared Meta connection, template/freeform kinds, strict phone
-        // validation. Credentials never come from step metadata.
-        const { sendWhatsAppAction } = await import('./sendWhatsApp.js');
-        const output = await sendWhatsAppAction(
-          metadata,
-          { ...zapRunMetadata, userId: zapRunMetadata?.userId ?? context?.userId },
-          {}
-        );
-        console.log(`✅ WhatsApp ${output.kind} message sent to ${output.to}`);
-        return {
-          success: true,
-          message: `WhatsApp sent to ${output.to}`,
-          output,
-        };
-      }
-
-      if (actionType.startsWith('Telegram')) {
-        // A6: bot token comes from the shared TelegramBot connection; supports
-        // text, photo/document, parse modes and the full option set.
-        const { sendTelegramAction } = await import('./sendTelegram.js');
-        const output = await sendTelegramAction(
-          metadata,
-          { ...zapRunMetadata, userId: zapRunMetadata?.userId ?? context?.userId },
-          {}
-        );
-        console.log(`✅ Telegram message sent to chat ${output.chat.id}`);
-        return {
-          success: true,
-          message: `Telegram sent to chat ${output.chat.id}`,
-          output,
-        };
-      }
-
-      if (actionType === 'Discord Send Message') {
-        const { webhookUrl, content, username, avatarUrl, embed } = metadata;
-
-        const resolvedOptions = resolveDiscordPlaceholders(
-          {
-            content: content || undefined,
-            username: username || undefined,
-            avatarUrl: avatarUrl || undefined,
-            embed,
-          },
-          zapRunMetadata
-        );
-
-        const result = await sendDiscordMessage(webhookUrl || '', resolvedOptions);
-
-        if (!result.success) {
-          const err = new Error(`Discord send failed: ${result.error}`);
-          (err as any).isFatal = result.isFatal;
-          throw err;
-        }
-
-        console.log(`✅ Discord message sent via webhook`);
-        return {
-          success: true,
-          message: `Discord message delivered`,
-          output: {
-            messageId: result.messageId,
-            timestamp: result.timestamp || new Date().toISOString(),
-          },
-        };
-      }
-
-      // Safety net — unreachable while the guard above uses the same registry,
-      // but never report success for an unimplemented action.
-      throw new Error(`Unknown action: ${actionType}`);
-    },
-    {
-      maxRetries: 3,
-      initialDelayMs: 1000,
-      shouldRetry: actionShouldRetry,
-    }
-  );
-}
+// Execution lives in actionRegistry.ts. Imported (for this file's run loop) and
+// re-exported (so tests and callers keep one import site).
+export { executeActionWithRetry } from './actionRegistry';
+export type { ActionOutput } from './actionRegistry';
 
 /**
  * Best-effort failure transition for a run that cannot be processed.

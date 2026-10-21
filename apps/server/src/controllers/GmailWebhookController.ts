@@ -1,8 +1,14 @@
 import { Request, Response } from 'express';
-import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
-import { processGmailTrigger } from './GmailTriggersController';
-import { processHistoryDelta, resolveGmailServersByEmail } from '../services/GmailDispatch';
+import { verifyGmailPush } from '@repo/ingress';
+import { intakeGmailDelivery, type GmailDelivery } from '../services/gmailIntake';
+
+/**
+ * Gmail push ingress. Its whole job is the wire contract: authenticate the
+ * delivery, decode the Pub/Sub envelope, and hand intake one typed
+ * `GmailDelivery`. Routing, hydration, matching and dedup live in
+ * `services/gmailIntake.ts` — nothing here touches Gmail or the run tables.
+ */
 
 export interface GmailNotification {
   message: {
@@ -15,7 +21,7 @@ export interface GmailNotification {
 
 export interface GmailNotificationData {
   emailAddress: string;
-  historyId: string;
+  historyId?: string;
   // Legacy custom-relay fields. Real Gmail watch notifications contain
   // ONLY emailAddress + historyId (spec audit B2) — eventType/messageId
   // are present only when an enriching relay produced them.
@@ -23,9 +29,8 @@ export interface GmailNotificationData {
   messageId?: string;
   threadId?: string;
   labelIds?: string[];
+  starred?: boolean;
 }
-
-import { verifyGmailPush } from '@repo/ingress';
 
 const oidcClient = new OAuth2Client();
 
@@ -73,13 +78,54 @@ export async function verifyGmailPushAuth(req: Request): Promise<boolean> {
 }
 
 /**
+ * Decode the notification payload into intake's union.
+ *
+ * Returns null for a body that names no mailbox, or one that claims to be a
+ * watch notification without a cursor. Both are acknowledged without
+ * routing: a redelivery would carry the same unusable body, so failing the
+ * request would only loop.
+ */
+function toDelivery(data: GmailNotificationData): GmailDelivery | null {
+  if (!data?.emailAddress) {
+    console.warn('Gmail notification carries no emailAddress');
+    return null;
+  }
+
+  // Legacy relay shape: an eventType means the relay already identified the
+  // message, so there is no history delta to read (ADR-0005).
+  if (data.eventType) {
+    return {
+      source: 'legacy',
+      emailAddress: data.emailAddress,
+      event: {
+        eventType: data.eventType,
+        messageId: data.messageId,
+        threadId: data.threadId,
+        labelIds: data.labelIds,
+        starred: data.starred,
+      },
+    };
+  }
+
+  if (!data.historyId) {
+    console.warn('Gmail history notification missing historyId', {
+      emailAddress: data.emailAddress,
+    });
+    return null;
+  }
+
+  return {
+    source: 'pubsub',
+    emailAddress: data.emailAddress,
+    historyId: String(data.historyId),
+  };
+}
+
+/**
  * Handle Gmail push notifications.
  *
- * Two payload shapes converge on the same dispatch:
- * - Real Gmail watch: { emailAddress, historyId } — the changed
- *   messages are discovered via history.list (processHistoryDelta).
- * - Legacy custom relay: enriched eventType/messageId fields — handled
- *   by the per-event handlers below, unchanged.
+ * Errors propagate (→ HTTP 500 → Pub/Sub redelivers; the dedup claims inside
+ * intake make the retry safe).
  */
 export const handleGmailWebhook = async (req: Request, res: Response): Promise<any> => {
   try {
@@ -104,41 +150,13 @@ export const handleGmailWebhook = async (req: Request, res: Response): Promise<a
       return res.status(400).json({ message: 'Undecodable notification data' });
     }
 
-    console.log('Received Gmail notification:', {
-      eventType: notificationData.eventType,
-      messageId: notificationData.messageId,
-      threadId: notificationData.threadId,
-      historyId: notificationData.historyId,
-    });
-
-    // Real Gmail watch shape: no eventType — resolve the delta first.
-    if (!notificationData.eventType) {
-      await handleHistoryNotification(notificationData);
-      return res.status(200).json({ message: 'OK' });
-    }
-
-    // Process the notification based on event type
-    switch (notificationData.eventType) {
-      case 'new_email':
-        await handleNewEmailNotification(notificationData);
-        break;
-      case 'label_added':
-        await handleLabelNotification(notificationData, 'added');
-        break;
-      case 'label_removed':
-        await handleLabelNotification(notificationData, 'removed');
-        break;
-      case 'starred':
-        await handleStarNotification(notificationData, true);
-        break;
-      case 'unstarred':
-        await handleStarNotification(notificationData, false);
-        break;
-      case 'moved':
-        await handleMoveNotification(notificationData);
-        break;
-      default:
-        console.log('Unhandled Gmail notification type:', notificationData.eventType);
+    const delivery = toDelivery(notificationData);
+    if (delivery) {
+      const { runsEnqueued } = await intakeGmailDelivery(delivery);
+      console.log('Gmail notification processed', {
+        source: delivery.source,
+        runsEnqueued,
+      });
     }
 
     return res.status(200).json({ message: 'OK' });
@@ -148,124 +166,6 @@ export const handleGmailWebhook = async (req: Request, res: Response): Promise<a
       message: 'Error processing Gmail notification',
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-  }
-};
-
-/**
- * Real Gmail watch notifications: identify changed messages through the
- * history delta for each server connected to the notified mailbox.
- * Errors propagate (→ HTTP 500 → Pub/Sub redelivers; dedup makes the
- * retry safe).
- */
-const handleHistoryNotification = async (data: GmailNotificationData): Promise<void> => {
-  if (!data.emailAddress || !data.historyId) {
-    console.warn('Gmail history notification missing emailAddress/historyId');
-    return;
-  }
-
-  const servers = await resolveGmailServersByEmail(data.emailAddress);
-  if (servers.length === 0) {
-    // Mailbox not connected (or email not backfilled yet) — ack so the
-    // provider does not retry a notification we can never route.
-    console.log(`📬 No connected GmailServer for ${data.emailAddress}; notification dropped`);
-    return;
-  }
-
-  for (const server of servers) {
-    await processHistoryDelta(server, String(data.historyId));
-  }
-};
-
-/**
- * Handle new email notifications
- */
-const handleNewEmailNotification = async (data: GmailNotificationData): Promise<void> => {
-  if (!data.messageId) {
-    console.warn('New email notification missing messageId');
-    return;
-  }
-
-  try {
-    // Process Gmail triggers for this server
-    await processGmailTrigger(data.emailAddress, {
-      id: data.messageId,
-      threadId: data.threadId,
-      eventType: 'new_email',
-      timestamp: new Date(),
-    });
-  } catch (error) {
-    console.error('Error processing new email trigger:', error);
-  }
-};
-
-/**
- * Handle label notifications
- */
-const handleLabelNotification = async (
-  data: GmailNotificationData,
-  action: 'added' | 'removed'
-): Promise<void> => {
-  if (!data.messageId || !data.labelIds) {
-    console.warn('Label notification missing required data');
-    return;
-  }
-
-  try {
-    await processGmailTrigger(data.emailAddress, {
-      id: data.messageId,
-      threadId: data.threadId,
-      eventType: action === 'added' ? 'label_added' : 'label_removed',
-      labelIds: data.labelIds,
-      timestamp: new Date(),
-    });
-  } catch (error) {
-    console.error('Error processing label trigger:', error);
-  }
-};
-
-/**
- * Handle star notifications
- */
-const handleStarNotification = async (
-  data: GmailNotificationData,
-  starred: boolean
-): Promise<void> => {
-  if (!data.messageId) {
-    console.warn('Star notification missing messageId');
-    return;
-  }
-
-  try {
-    await processGmailTrigger(data.emailAddress, {
-      id: data.messageId,
-      threadId: data.threadId,
-      eventType: starred ? 'starred' : 'unstarred',
-      starred,
-      timestamp: new Date(),
-    });
-  } catch (error) {
-    console.error('Error processing star trigger:', error);
-  }
-};
-
-/**
- * Handle move notifications
- */
-const handleMoveNotification = async (data: GmailNotificationData): Promise<void> => {
-  if (!data.messageId) {
-    console.warn('Move notification missing messageId');
-    return;
-  }
-
-  try {
-    await processGmailTrigger(data.emailAddress, {
-      id: data.messageId,
-      threadId: data.threadId,
-      eventType: 'moved',
-      timestamp: new Date(),
-    });
-  } catch (error) {
-    console.error('Error processing move trigger:', error);
   }
 };
 
@@ -292,6 +192,6 @@ export const verifyGmailWebhookSignature = (req: Request): boolean => {
   return verdict.ok;
 };
 
-// Watch renewal used to be a TODO stub here. It is implemented as
-// renewExpiringGmailWatches() in services/GmailDispatch and exposed via
-// GET /api/cron/renew-gmail-watches (reports/gmail-worker-routing-spec.md §4.4).
+// Watch renewal and polling live in services/gmailWatch.ts, exposed via
+// GET /api/cron/renew-gmail-watches and GET /api/cron/poll-gmail
+// (reports/gmail-worker-routing-spec.md §4.4).

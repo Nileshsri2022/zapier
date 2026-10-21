@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import client from '@repo/db';
 import * as ActionsController from '../../src/controllers/ActionsController';
+import { ACTION_CATALOG, findAction, offeredActionTypes } from '@repo/actions';
 import { seedDatabase, SEEDED_ACTION_TYPES, UNIMPLEMENTED_GMAIL_ACTIONS } from '../../src/seed';
 
 beforeEach(() => {
@@ -100,17 +101,26 @@ describe('ActionsController - Fetch Available Actions', () => {
 
 // The inline executeAction suite was removed in gmail-worker-routing P5:
 // ActionsController now only serves the catalog; execution lives in apps/worker
-// (guarded by worker tests/actionTypes.test.ts).
+// (guarded by worker tests/actionRegistry.test.ts).
 
 describe('Seed Catalog - F4 / Gap D2 alignment', () => {
-  it('seeds only worker-executable action types, including AI Transform', () => {
-    const { isKnownActionType } = require('../../../worker/src/utils/actionTypes');
+  it('seeds exactly the offered catalog, including AI Transform', () => {
     expect(SEEDED_ACTION_TYPES).toHaveLength(7);
-    expect(SEEDED_ACTION_TYPES.every(isKnownActionType)).toBe(true);
+    expect(SEEDED_ACTION_TYPES).toEqual(offeredActionTypes());
   });
-  it('excludes unimplemented Gmail actions from SEEDED_ACTION_TYPES', () => {
+
+  it('never seeds an alias — one action is one card in the picker', () => {
+    for (const entry of ACTION_CATALOG.filter((candidate) => candidate.aliasOf)) {
+      expect(SEEDED_ACTION_TYPES).not.toContain(entry.type);
+    }
+  });
+
+  it('excludes unimplemented Gmail actions from both the catalog and the seed', () => {
     for (const gmailAction of UNIMPLEMENTED_GMAIL_ACTIONS) {
       expect(SEEDED_ACTION_TYPES).not.toContain(gmailAction);
+      // The removal list and the action catalog must stay disjoint: a catalog
+      // entry listed here would be seeded and then immediately pruned.
+      expect(findAction(gmailAction)).toBeUndefined();
     }
     expect(SEEDED_ACTION_TYPES).toEqual([
       'AI Transform',

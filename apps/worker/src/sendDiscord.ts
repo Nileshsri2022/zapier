@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { replaceKeys } from './utils/replaceKeys';
+import { resolvePlaceholders } from '@repo/placeholders';
 
 // Canonical Discord incoming webhook URL pattern (anchored, canonical domains only)
 const DISCORD_WEBHOOK_REGEX = /^https:\/\/(?:discord\.com|discordapp\.com)\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+$/;
@@ -62,6 +62,10 @@ export function normalizeDiscordColor(color?: string | number): number | undefin
 
 /**
  * Recursively interpolate dynamic placeholders in Discord message options.
+ *
+ * The rule lives in @repo/placeholders; what stays here is Discord's own
+ * contract — empty embeds are dropped and field text is capped (256/1024,
+ * 25 fields).
  */
 export function resolveDiscordPlaceholders(
   options: DiscordMessageOptions,
@@ -69,24 +73,15 @@ export function resolveDiscordPlaceholders(
 ): DiscordMessageOptions {
   if (!metadata || typeof metadata !== 'object') return options;
 
-  const resolved: DiscordMessageOptions = {
-    ...options,
-    content: options.content ? replaceKeys(options.content, metadata) : undefined,
-    username: options.username ? replaceKeys(options.username, metadata) : undefined,
-    avatarUrl: options.avatarUrl ? replaceKeys(options.avatarUrl, metadata) : undefined,
-  };
+  const resolved = resolvePlaceholders(options, metadata) as DiscordMessageOptions;
 
-  if (options.embed) {
+  if (resolved.embed) {
     resolved.embed = {
-      ...options.embed,
-      title: options.embed.title ? replaceKeys(options.embed.title, metadata) : undefined,
-      description: options.embed.description ? replaceKeys(options.embed.description, metadata) : undefined,
-      url: options.embed.url ? replaceKeys(options.embed.url, metadata) : undefined,
-      timestamp: options.embed.timestamp ? replaceKeys(options.embed.timestamp, metadata) : undefined,
-      fields: options.embed.fields
+      ...resolved.embed,
+      fields: resolved.embed.fields
         ?.map((field) => ({
-          name: replaceKeys(String(field.name || ''), metadata).trim().slice(0, 256),
-          value: replaceKeys(String(field.value || ''), metadata).trim().slice(0, 1024),
+          name: String(field.name ?? '').trim().slice(0, 256),
+          value: String(field.value ?? '').trim().slice(0, 1024),
           inline: field.inline,
         }))
         .filter((field) => field.name.length > 0 && field.value.length > 0)

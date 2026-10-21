@@ -1,3 +1,4 @@
+import { resolvePlaceholders } from '@repo/placeholders';
 import { Request, Response } from 'express';
 import client from '@repo/db';
 import { GmailService } from '../services/GmailService';
@@ -193,13 +194,7 @@ const getGmailService = async (serverId: string): Promise<GmailService | null> =
   }
 };
 
-// Helper function to replace placeholders in text
-const replacePlaceholders = (template: string, data: any): string => {
-  if (!template || typeof template !== 'string') {
-    return template;
-  }
-
-  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-    return data[key] !== undefined ? String(data[key]) : match;
-  });
-};
+// Placeholder resolution belongs to @repo/placeholders: both notations, dotted
+// paths, one pass. Non-strings pass through untouched.
+const replacePlaceholders = (template: string, data: any): string =>
+  typeof template === 'string' ? String(resolvePlaceholders(template, data ?? {})) : template;

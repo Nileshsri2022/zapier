@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import client from '@repo/db';
 import { enqueueRun } from '@repo/runs';
-import { renewExpiringGmailWatches, pollActiveGmailServers } from '../services/GmailDispatch';
+import { renewExpiringGmailWatches, pollActiveGmailServers } from '../services/gmailWatch';
 import { computeNextRun, buildScheduleRunPayload } from '../services/schedule';
 
 const router = Router();

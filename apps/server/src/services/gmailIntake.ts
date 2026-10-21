@@ -1,22 +1,22 @@
 import client from '@repo/db';
 import { enqueueRun } from '@repo/runs';
-import { GmailService, EmailMetadata, EmailAttachment } from './GmailService';
+import { GmailService, EmailAttachment, EmailMetadata } from './GmailService';
 import { matchesGmailQuery } from './gmailSearchQuery';
 
 /**
- * Gmail trigger dispatch — the routing core of
- * reports/gmail-worker-routing-spec.md (phase P2).
+ * Gmail trigger intake — the one place a Gmail delivery becomes ZapRuns.
  *
- * Historically, Gmail events were executed inline in this API server
- * (ZapController.executeZapActions). This module instead turns a Gmail
- * event into the same ZapRun + ZapRunOutbox pair every other trigger
- * produces, so apps/worker executes the Zap with chaining, retries, and
- * step conditions.
+ * Historically this knowledge lived in `GmailDispatch` (a grab-bag of eight
+ * exports), the webhook controller, and `GmailTriggersController`, which each
+ * held a slice of the same pipeline. Now ingress decodes the wire envelope and
+ * hands this module a `GmailDelivery`; everything after that — resolving the
+ * mailbox's servers, reading the history delta or the relayed message,
+ * hydrating it, matching triggers, deduping, and writing the
+ * ZapRun + ZapRunOutbox pair the worker executes — happens here.
  *
- * The dispatch is ingress-agnostic: callers supply a resolved GmailServer
- * row, a message id, and an event type. As of spec phase P5 the legacy
- * inline executor and its GMAIL_EXECUTION_PATH switch are deleted — this
- * outbox dispatch is the only Gmail execution path.
+ * Deliveries are a discriminated union, so an invalid combination (a Pub/Sub
+ * notification with no cursor, a legacy event with no message) cannot be
+ * constructed by typed callers instead of being rejected after the fact.
  */
 
 export type GmailEventType = 'new_email' | 'labeled' | 'starred' | 'moved';
@@ -32,7 +32,55 @@ export interface GmailServerLike {
   lastHistoryId?: string | null;
 }
 
-function createGmailService(server: GmailServerLike): GmailService {
+/** A real Gmail watch notification: the mailbox and the cursor it names. */
+export interface PubsubGmailDelivery {
+  source: 'pubsub';
+  emailAddress: string;
+  historyId: string;
+}
+
+/**
+ * A legacy custom-relay delivery: an enriching relay used to name the changed
+ * message itself. Real Gmail notifications contain only emailAddress +
+ * historyId (spec audit B2); this branch survives until a usage probe shows
+ * nothing depends on it (ADR-0005).
+ */
+export interface LegacyGmailDelivery {
+  source: 'legacy';
+  emailAddress: string;
+  event: {
+    eventType?: string;
+    messageId?: string;
+    threadId?: string;
+    labelIds?: string[];
+    starred?: boolean;
+  };
+}
+
+export type GmailDelivery = PubsubGmailDelivery | LegacyGmailDelivery;
+
+export interface GmailIntakeDeps {
+  /** Hydration adapter. Tests pass a fake; production builds a live client. */
+  createService?: (server: GmailServerLike) => GmailService;
+}
+
+export interface GmailIntakeResult {
+  runsEnqueued: number;
+}
+
+interface GmailEventCounts {
+  created: number;
+  skipped: number;
+  failed: number;
+}
+
+export interface GmailHistoryDeltaResult extends GmailEventCounts {
+  /** True when there was no usable cursor and one was (re)initialized
+   * without processing — first connect or a too-old cursor. */
+  cursorReset: boolean;
+}
+
+export function createGmailService(server: GmailServerLike): GmailService {
   return new GmailService({
     clientId: server.clientId,
     clientSecret: server.clientSecret,
@@ -42,17 +90,25 @@ function createGmailService(server: GmailServerLike): GmailService {
   });
 }
 
-export interface GmailDispatchResult {
-  created: number;
-  skipped: number;
-  failed: number;
+/**
+ * Resolve connected Gmail servers for a mailbox address (spec D3/B3).
+ * Push notifications carry only the address; two users may connect the
+ * same mailbox, so every active match fans out independently. Deliberately
+ * unbounded — a single server is not an assumption this query may bake in.
+ */
+async function resolveGmailServersByEmail(email: string): Promise<GmailServerLike[]> {
+  if (!email) return [];
+  const servers = await client.gmailServer.findMany({
+    where: { email, isActive: true },
+  });
+  return servers || [];
 }
 
 /**
- * Map the ingress event vocabulary (GmailWebhookController's synthetic
- * event types) onto the stored GmailTrigger.triggerType vocabulary.
- * Unknown values fall back to 'new_email' — shouldTrigger still decides
- * per-Zap whether anything fires.
+ * Map the ingress event vocabulary (the legacy relay's synthetic event types)
+ * onto the stored GmailTrigger.triggerType vocabulary. Unknown values fall
+ * back to 'new_email' — shouldTrigger still decides per-Zap whether anything
+ * fires.
  */
 export function mapGmailEventType(rawEventType: string | undefined): GmailEventType {
   switch (rawEventType) {
@@ -88,6 +144,8 @@ function toIsoString(value: unknown): string {
  *
  * `bodyPlain`/`bodyHtml` (Q-GMAIL-03) and `attachments` (Q-GMAIL-04) are the
  * grilled additions; `body`/`bodyTruncated` remain for backward compatibility.
+ *
+ * Exported for the payload contract test only; no other module imports it.
  */
 export function buildGmailRunPayload(
   metadata: EmailMetadata,
@@ -128,21 +186,23 @@ export function buildGmailRunPayload(
 }
 
 /**
- * Hydrate one Gmail message and enqueue a ZapRun for every matching,
- * active GmailTrigger on the given server.
+ * Hydrate one Gmail message and enqueue a ZapRun for every matching, active
+ * GmailTrigger on the given server. Module-private: deliveries enter through
+ * `intakeGmailDelivery`.
  *
  * Throws only when hydration itself fails (no rows are written in that
  * case, so a provider redelivery is safe). Per-Zap failures are caught,
  * logged, and counted — one bad Zap never blocks its siblings.
  */
-export async function dispatchGmailEvent(
+async function dispatchGmailEvent(
   server: GmailServerLike,
   messageId: string,
   eventType: GmailEventType,
-  rawEventType?: string,
+  rawEventType: string | undefined,
+  deps: GmailIntakeDeps,
   existingService?: GmailService
-): Promise<GmailDispatchResult> {
-  const gmailService = existingService || createGmailService(server);
+): Promise<GmailEventCounts> {
+  const gmailService = existingService || (deps.createService ?? createGmailService)(server);
 
   // Hydrate once per message (not per Zap). Filters and downstream steps
   // need from/subject/labels/body — the bare notification ids the ingress
@@ -177,7 +237,7 @@ export async function dispatchGmailEvent(
     include: { zap: true },
   });
 
-  const result: GmailDispatchResult = { created: 0, skipped: 0, failed: 0 };
+  const result: GmailEventCounts = { created: 0, skipped: 0, failed: 0 };
 
   for (const gmailTrigger of gmailTriggers) {
     const zap = (gmailTrigger as any).zap;
@@ -202,6 +262,9 @@ export async function dispatchGmailEvent(
         source: 'server.gmail',
         dedup: {
           scope: 'gmail',
+          // zapId alone would suffice — a Zap has exactly one trigger, so the
+          // trigger row and its server are implied. Message + event kind keep
+          // a redelivery idempotent while letting a later star still fire.
           key: `${zap.id}:${messageId}:${eventType}`,
         },
       });
@@ -221,19 +284,6 @@ export async function dispatchGmailEvent(
   }
 
   return result;
-}
-
-/**
- * Resolve connected Gmail servers for a mailbox address (spec D3/B3).
- * Push notifications carry only the address; two users may connect the
- * same mailbox, so every active match fans out independently.
- */
-export async function resolveGmailServersByEmail(email: string): Promise<GmailServerLike[]> {
-  if (!email) return [];
-  const servers = await client.gmailServer.findMany({
-    where: { email, isActive: true },
-  });
-  return servers || [];
 }
 
 export interface GmailHistoryEvent {
@@ -283,12 +333,6 @@ export function mapHistoryRecords(records: any[]): GmailHistoryEvent[] {
   return events;
 }
 
-export interface GmailHistoryDeltaResult extends GmailDispatchResult {
-  /** True when there was no usable cursor and one was (re)initialized
-   * without processing — first connect or a too-old cursor. */
-  cursorReset: boolean;
-}
-
 /**
  * Process one real Gmail watch notification for a server: list the
  * history delta since the stored cursor, dispatch each changed message,
@@ -299,10 +343,11 @@ export interface GmailHistoryDeltaResult extends GmailDispatchResult {
  */
 export async function processHistoryDelta(
   server: GmailServerLike,
-  notificationHistoryId: string
+  notificationHistoryId: string,
+  deps: GmailIntakeDeps = {}
 ): Promise<GmailHistoryDeltaResult> {
   const empty: GmailHistoryDeltaResult = { created: 0, skipped: 0, failed: 0, cursorReset: false };
-  const gmailService = createGmailService(server);
+  const gmailService = (deps.createService ?? createGmailService)(server);
 
   // First notification ever for this server: start from "now". Listing
   // from the dawn of the mailbox would fire Zaps for ancient mail.
@@ -333,13 +378,14 @@ export async function processHistoryDelta(
     return { ...empty, cursorReset: true };
   }
 
-  const totals: GmailDispatchResult = { created: 0, skipped: 0, failed: 0 };
+  const totals: GmailEventCounts = { created: 0, skipped: 0, failed: 0 };
   for (const event of mapHistoryRecords(records)) {
     const result = await dispatchGmailEvent(
       server,
       event.messageId,
       event.eventType,
       event.rawEventType,
+      deps,
       gmailService
     );
     totals.created += result.created;
@@ -356,113 +402,67 @@ export async function processHistoryDelta(
 }
 
 /**
- * Renew Gmail watches expiring within 24 hours (spec §4.4). Gmail
- * watches die after 7 days; without renewal push silently stops.
- * Renewal does NOT touch lastHistoryId (history.list from the existing
- * cursor stays valid across renewals; resetting it would skip the
- * unprocessed delta) — it only initializes the cursor when unset.
- */
-export async function renewExpiringGmailWatches(
-  now: Date = new Date()
-): Promise<{ renewed: number; failed: number; checked: number }> {
-  const horizon = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const servers = (await client.gmailServer.findMany({
-    where: { isActive: true },
-    include: { watchHistory: { orderBy: { createdAt: 'desc' }, take: 1 } },
-  })) as any[];
-
-  let renewed = 0;
-  let failed = 0;
-
-  for (const server of servers) {
-    const latestWatch = server.watchHistory?.[0];
-    const needsRenewal =
-      !latestWatch || !latestWatch.isActive || new Date(latestWatch.expiry) <= horizon;
-    if (!needsRenewal) continue;
-
-    try {
-      const gmailService = createGmailService(server);
-      const watchResult = await gmailService.watchEmails(['INBOX']);
-
-      await client.gmailWatch.create({
-        data: {
-          serverId: server.id,
-          watchId: watchResult.watchId,
-          expiry: watchResult.expiry,
-          isActive: true,
-        },
-      });
-
-      if (!server.lastHistoryId && watchResult.watchId) {
-        await client.gmailServer.update({
-          where: { id: server.id },
-          data: { lastHistoryId: watchResult.watchId },
-        });
-      }
-
-      console.log(`📬 Gmail watch renewed for server ${server.id} (expiry ${watchResult.expiry})`);
-      renewed++;
-    } catch (error) {
-      failed++;
-      console.error(`Failed to renew Gmail watch for server ${server.id}:`, error);
-    }
-  }
-
-  return { renewed, failed, checked: servers.length };
-}
-
-/**
- * Polling fallback (grilled Q-GMAIL-02: push primary + polling fallback).
- * For every active server with a cursor, list the profile's current
- * historyId and process the delta if it advanced — the same safe path push
- * uses, so missed notifications (GCP outage, expired watch, lost push)
- * are caught up without duplicate fires (dedup claims inside
- * dispatchGmailEvent absorb overlap with push deliveries).
+ * Turn one delivery into ZapRuns. Ingress calls this and nothing else.
  *
- * Invoked by GET /api/cron/poll-gmail on the shared cron secret.
+ * Every server matching the delivery's mailbox is handled independently, so
+ * two users connected to the same mailbox each get their own runs. An
+ * unknown mailbox is acknowledged rather than retried: no server exists now
+ * and none will exist on redelivery, so a retry would only poison-loop.
  */
-export async function pollActiveGmailServers(): Promise<{
-  created: number;
-  skipped: number;
-  failed: number;
-  polled: number;
-  failedServers: number;
-  cursorReset: number;
-}> {
-  const totals = { created: 0, skipped: 0, failed: 0, polled: 0, failedServers: 0, cursorReset: 0 };
+export async function intakeGmailDelivery(
+  delivery: GmailDelivery,
+  deps: GmailIntakeDeps = {}
+): Promise<GmailIntakeResult> {
+  // Runtime backstop for untyped callers; typed callers cannot express these.
+  if (delivery.source !== 'pubsub' && delivery.source !== 'legacy') {
+    throw new Error(`Gmail delivery has unknown source: ${String((delivery as any).source)}`);
+  }
 
-  const servers = (await client.gmailServer.findMany({
-    where: { isActive: true },
-  })) as GmailServerLike[];
+  const servers = await resolveGmailServersByEmail(delivery.emailAddress);
+  if (servers.length === 0) {
+    console.warn('gmail intake: no active server', {
+      emailAddress: delivery.emailAddress,
+      reason: 'no_active_server',
+    });
+    return { runsEnqueued: 0 };
+  }
 
-  for (const server of servers) {
-    try {
-      const gmailService = createGmailService(server);
-      const profile = await gmailService.getProfileEmail();
-      const currentHistoryId = profile?.historyId;
-      if (!currentHistoryId) continue;
+  let runsEnqueued = 0;
 
-      if (server.lastHistoryId && currentHistoryId !== server.lastHistoryId) {
-        const result = await processHistoryDelta(server, currentHistoryId);
-        totals.created += result.created;
-        totals.skipped += result.skipped;
-        totals.failed += result.failed;
-        if (result.cursorReset) totals.cursorReset++;
-        totals.polled++;
-      }
-    } catch (error) {
-      totals.failedServers++;
-      console.error(`Gmail poll fallback failed for server ${server.id}:`, error);
+  if (delivery.source === 'pubsub') {
+    for (const server of servers) {
+      const delta = await processHistoryDelta(server, delivery.historyId, deps);
+      runsEnqueued += delta.created;
+    }
+  } else {
+    const { messageId, eventType } = delivery.event;
+    if (!messageId) {
+      console.warn('gmail intake: legacy delivery carries no message id', {
+        emailAddress: delivery.emailAddress,
+      });
+      return { runsEnqueued: 0 };
+    }
+
+    for (const server of servers) {
+      const dispatched = await dispatchGmailEvent(
+        server,
+        messageId,
+        mapGmailEventType(eventType),
+        eventType,
+        deps
+      );
+      runsEnqueued += dispatched.created;
     }
   }
 
-  return totals;
+  console.log('gmail intake', { emailAddress: delivery.emailAddress, runsEnqueued });
+  return { runsEnqueued };
 }
 
 // ---------------------------------------------------------------------------
-// Trigger filtering. Moved verbatim from GmailTriggersController — semantics
-// are unchanged; the fix (spec audit B4) is that these now run against a
-// hydrated payload that actually carries from/subject/labels.
+// Trigger filtering. Semantics are unchanged from the controller-era code; the
+// fix (spec audit B4) is that they now run against a hydrated payload that
+// actually carries from/subject/labels.
 // ---------------------------------------------------------------------------
 
 export const shouldTrigger = async (gmailTrigger: any, emailData: any): Promise<boolean> => {

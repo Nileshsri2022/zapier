@@ -1,13 +1,13 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
-import client from '@repo/db';
 
 /**
- * Gmail webhook ingress (reports/gmail-worker-routing-spec.md P3):
- * - real Pub/Sub shape {emailAddress, historyId} behind OIDC auth,
- * - legacy custom-relay shape {eventType, messageId} behind HMAC,
- * - fail-closed everywhere else.
- * GmailService and google-auth-library are mocked — no Google calls.
+ * Gmail push ingress (controllers/GmailWebhookController.ts).
+ *
+ * This suite covers the wire contract only: authenticate, decode the Pub/Sub
+ * envelope into a typed delivery, hand it to intake, answer 200/401/400/500.
+ * Routing and hydration are covered in gmail/intake.test.ts — intake is mocked
+ * here so a failure in it cannot be mistaken for an ingress bug.
  */
 
 const mockVerifyIdToken = jest.fn();
@@ -17,25 +17,15 @@ jest.mock('google-auth-library', () => ({
   })),
 }));
 
-const mockGetEmailMetadata = jest.fn();
-const mockGetEmailContent = jest.fn();
-const mockListHistory = jest.fn();
-jest.mock('../../src/services/GmailService', () => ({
-  GmailService: jest.fn().mockImplementation(() => ({
-    getEmailMetadata: mockGetEmailMetadata,
-    getEmailContent: mockGetEmailContent,
-    listHistory: mockListHistory,
-  })),
-}));
-
-const mockEnqueueRun = jest.fn();
-jest.mock('@repo/runs', () => ({
-  enqueueRun: (input: any) => mockEnqueueRun(input),
+const mockIntakeGmailDelivery = jest.fn();
+jest.mock('../../src/services/gmailIntake', () => ({
+  intakeGmailDelivery: (delivery: any) => mockIntakeGmailDelivery(delivery),
 }));
 
 import { handleGmailWebhook } from '../../src/controllers/GmailWebhookController';
 
 const PUSH_ACCOUNT = 'gmail-push@test-project.iam.gserviceaccount.com';
+const SECRET = 'test-gmail-webhook-secret';
 
 const encode = (data: any) => Buffer.from(JSON.stringify(data)).toString('base64');
 const envelope = (data: any) => ({
@@ -54,97 +44,40 @@ const reqRes = (body: any, headers: Record<string, string> = {}) => {
   };
 };
 
-const serverRow = {
-  id: 'server-1',
-  clientId: 'c',
-  clientSecret: 's',
-  refreshToken: 'r',
-  accessToken: 'a',
-  tokenExpiry: null,
-  isActive: true,
-  email: 'owner@gmail.com',
-  lastHistoryId: '100',
-};
-
-describe('handleGmailWebhook — Pub/Sub OIDC + history shape', () => {
-  beforeEach(() => {
-    mockEnqueueRun.mockReset();
-    mockEnqueueRun.mockResolvedValue({ status: 'queued', zapRunId: 'run-1', dispatched: true });
-    process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT = PUSH_ACCOUNT;
-    delete process.env.GMAIL_PUBSUB_AUDIENCE;
-
-    mockVerifyIdToken.mockResolvedValue({
-      getPayload: () => ({ email: PUSH_ACCOUNT, email_verified: true }),
-    });
-    mockGetEmailMetadata.mockResolvedValue({
-      id: 'msg-1',
-      threadId: 't1',
-      snippet: 's',
-      from: 'A <a@example.com>',
-      to: ['owner@gmail.com'],
-      subject: 'Hello',
-      date: new Date('2026-10-19T10:00:00.000Z'),
-      labels: ['INBOX'],
-      hasAttachments: false,
-      isRead: false,
-    });
-    mockGetEmailContent.mockResolvedValue({ body: 'hello body', truncated: false });
-    mockListHistory.mockResolvedValue([{ messagesAdded: [{ message: { id: 'msg-1' } }] }]);
-
-    (client.gmailServer.findMany as jest.Mock).mockResolvedValue([serverRow]);
-    (client.gmailServer.update as jest.Mock).mockResolvedValue({});
-    (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([
-      {
-        triggerType: 'new_email',
-        watchedLabels: [],
-        senderFilter: null,
-        subjectFilter: null,
-        metadata: {},
-        zap: { id: 'zap-1', isActive: true },
-      },
-    ]);
+const historyReq = () =>
+  reqRes(envelope({ emailAddress: 'owner@gmail.com', historyId: '150' }), {
+    authorization: 'Bearer fake-jwt',
   });
 
-  afterEach(() => {
-    delete process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT;
-    delete process.env.GMAIL_WEBHOOK_SECRET;
+beforeEach(() => {
+  jest.spyOn(console, 'log').mockImplementation(() => {});
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+
+  mockIntakeGmailDelivery.mockReset().mockResolvedValue({ runsEnqueued: 1 });
+  process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT = PUSH_ACCOUNT;
+  delete process.env.GMAIL_PUBSUB_AUDIENCE;
+  mockVerifyIdToken.mockResolvedValue({
+    getPayload: () => ({ email: PUSH_ACCOUNT, email_verified: true }),
   });
+});
 
-  const historyReq = () =>
-    reqRes(envelope({ emailAddress: 'owner@gmail.com', historyId: '150' }), {
-      authorization: 'Bearer fake-jwt',
-    });
+afterEach(() => {
+  jest.restoreAllMocks();
+  delete process.env.GMAIL_PUBSUB_SERVICE_ACCOUNT;
+  delete process.env.GMAIL_PUBSUB_AUDIENCE;
+  delete process.env.GMAIL_WEBHOOK_SECRET;
+});
 
-  it('processes a real watch notification end to end (resolve by email → delta → outbox → cursor)', async () => {
-    const { req, res, status } = historyReq();
-    await handleGmailWebhook(req, res);
-
-    expect(status).toHaveBeenCalledWith(200);
-    expect(client.gmailServer.findMany).toHaveBeenCalledWith({
-      where: { email: 'owner@gmail.com', isActive: true },
-    });
-    expect(mockListHistory).toHaveBeenCalledWith('100');
-    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
-    expect(mockEnqueueRun.mock.calls[0][0]).toEqual(
-      expect.objectContaining({
-        zapId: 'zap-1',
-        source: 'server.gmail',
-        dedup: { scope: 'gmail', key: 'zap-1:msg-1:new_email' },
-      })
-    );
-    expect(client.gmailServer.update).toHaveBeenCalledWith({
-      where: { id: 'server-1' },
-      data: { lastHistoryId: '150' },
-    });
-  });
-
+describe('verify contract', () => {
   it('rejects when OIDC verification fails', async () => {
     mockVerifyIdToken.mockRejectedValue(new Error('bad token'));
     const { req, res, status } = historyReq();
+
     await handleGmailWebhook(req, res);
 
     expect(status).toHaveBeenCalledWith(401);
-    expect(mockEnqueueRun).not.toHaveBeenCalled();
+    expect(mockIntakeGmailDelivery).not.toHaveBeenCalled();
   });
 
   it('rejects a verified token from the wrong service account', async () => {
@@ -152,6 +85,7 @@ describe('handleGmailWebhook — Pub/Sub OIDC + history shape', () => {
       getPayload: () => ({ email: 'attacker@evil.example', email_verified: true }),
     });
     const { req, res, status } = historyReq();
+
     await handleGmailWebhook(req, res);
 
     expect(status).toHaveBeenCalledWith(401);
@@ -161,55 +95,94 @@ describe('handleGmailWebhook — Pub/Sub OIDC + history shape', () => {
     const { req, res, status } = reqRes(
       envelope({ emailAddress: 'owner@gmail.com', historyId: '150' })
     );
+
     await handleGmailWebhook(req, res);
+
     expect(status).toHaveBeenCalledWith(401);
+    expect(mockIntakeGmailDelivery).not.toHaveBeenCalled();
   });
 
-  it('acks 200 for a mailbox with no connected server (nothing to route to)', async () => {
-    (client.gmailServer.findMany as jest.Mock).mockResolvedValue([]);
+  it('rejects a legacy payload with a bad HMAC', async () => {
+    process.env.GMAIL_WEBHOOK_SECRET = SECRET;
+    const body = envelope({
+      emailAddress: 'owner@gmail.com',
+      historyId: '150',
+      eventType: 'new_email',
+      messageId: 'msg-1',
+    });
+    const { req, res, status } = reqRes(body, { 'x-goog-signature': 'deadbeef' });
+
+    await handleGmailWebhook(req, res);
+
+    expect(status).toHaveBeenCalledWith(401);
+  });
+});
+
+describe('Pub/Sub delivery decoding', () => {
+  it('hands intake a pubsub delivery and acks 200', async () => {
     const { req, res, status } = historyReq();
+
     await handleGmailWebhook(req, res);
 
     expect(status).toHaveBeenCalledWith(200);
-    expect(mockEnqueueRun).not.toHaveBeenCalled();
+    expect(mockIntakeGmailDelivery).toHaveBeenCalledWith({
+      source: 'pubsub',
+      emailAddress: 'owner@gmail.com',
+      historyId: '150',
+    });
   });
 
   it('returns 400 for a malformed envelope instead of 500-looping', async () => {
     const { req, res, status } = reqRes({ nope: true }, { authorization: 'Bearer fake-jwt' });
+
     await handleGmailWebhook(req, res);
+
     expect(status).toHaveBeenCalledWith(400);
+    expect(mockIntakeGmailDelivery).not.toHaveBeenCalled();
   });
 
-  it('surfaces hydration failure as 500 so Pub/Sub redelivers (dedup makes it safe)', async () => {
-    mockGetEmailMetadata.mockResolvedValue(null);
+  it('returns 400 for undecodable notification data', async () => {
+    const body = {
+      message: { data: 'not-json', messageId: 'p', publishTime: '2026-10-19T00:00:00Z' },
+      subscription: 's',
+    };
+    const { req, res, status } = reqRes(body, { authorization: 'Bearer fake-jwt' });
+
+    await handleGmailWebhook(req, res);
+
+    expect(status).toHaveBeenCalledWith(400);
+    expect(mockIntakeGmailDelivery).not.toHaveBeenCalled();
+  });
+
+  it('acks 200 without routing a watch notification that carries no cursor', async () => {
+    const { req, res, status } = reqRes(envelope({ emailAddress: 'owner@gmail.com' }), {
+      authorization: 'Bearer fake-jwt',
+    });
+
+    await handleGmailWebhook(req, res);
+
+    expect(status).toHaveBeenCalledWith(200);
+    expect(mockIntakeGmailDelivery).not.toHaveBeenCalled();
+  });
+
+  it('surfaces an intake failure as 500 so Pub/Sub redelivers (dedup makes it safe)', async () => {
+    mockIntakeGmailDelivery.mockRejectedValue(new Error('Failed to hydrate Gmail message msg-1'));
     const { req, res, status } = historyReq();
+
     await handleGmailWebhook(req, res);
 
     expect(status).toHaveBeenCalledWith(500);
-    expect(client.gmailServer.update).not.toHaveBeenCalled();
   });
 });
 
-describe('handleGmailWebhook — legacy custom-relay shape (HMAC)', () => {
-  const SECRET = 'test-gmail-webhook-secret';
-
-  beforeEach(() => {
-    mockEnqueueRun.mockReset();
-    mockEnqueueRun.mockResolvedValue({ status: 'queued', zapRunId: 'run-1', dispatched: true });
-    process.env.GMAIL_WEBHOOK_SECRET = SECRET;
-    (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([]);
-  });
-
-  afterEach(() => {
-    delete process.env.GMAIL_WEBHOOK_SECRET;
-  });
-
+describe('legacy custom-relay decoding (HMAC)', () => {
   const legacyReq = () => {
     const body = envelope({
       emailAddress: 'owner@gmail.com',
       historyId: '150',
       eventType: 'new_email',
       messageId: 'msg-1',
+      threadId: 'thread-1',
     });
     // Q8/Q11: the relay signs the bytes it sends, and express hands those exact
     // bytes to the controller as `rawBody`. Signing a re-serialized body would
@@ -221,54 +194,24 @@ describe('handleGmailWebhook — legacy custom-relay shape (HMAC)', () => {
     return prepared;
   };
 
-  it('accepts a correctly HMAC-signed legacy payload and dispatches via outbox (P5)', async () => {
-    // Post-P5 the legacy shape takes the same single path as real Pub/Sub:
-    // resolve server by email -> hydrate -> ZapRun + ZapRunOutbox.
-    (client.gmailServer.findUnique as jest.Mock).mockResolvedValue(null);
-    (client.gmailServer.findMany as jest.Mock).mockResolvedValue([serverRow]);
-    (client.gmailTrigger.findMany as jest.Mock).mockResolvedValue([
-      {
-        triggerType: 'new_email',
-        watchedLabels: [],
-        senderFilter: null,
-        subjectFilter: null,
-        metadata: {},
-        zap: { id: 'zap-1', isActive: true },
-      },
-    ]);
-    mockGetEmailMetadata.mockResolvedValue({
-      id: 'msg-1',
-      threadId: 't1',
-      snippet: 's',
-      from: 'A <a@example.com>',
-      to: ['owner@gmail.com'],
-      subject: 'Hello',
-      date: new Date('2026-10-19T10:00:00.000Z'),
-      labels: ['INBOX'],
-      hasAttachments: false,
-      isRead: false,
-    });
-    mockGetEmailContent.mockResolvedValue({ body: 'hello body', truncated: false });
+  beforeEach(() => {
+    process.env.GMAIL_WEBHOOK_SECRET = SECRET;
+  });
 
+  it('accepts a correctly HMAC-signed payload and hands intake a legacy delivery', async () => {
     const { req, res, status } = legacyReq();
+
     await handleGmailWebhook(req, res);
 
     expect(status).toHaveBeenCalledWith(200);
-    expect(client.gmailServer.findMany).toHaveBeenCalledWith({
-      where: { email: 'owner@gmail.com', isActive: true },
-    });
-    expect(mockEnqueueRun).toHaveBeenCalledTimes(1);
-  });
-
-  it('rejects a legacy payload with a bad HMAC', async () => {
-    const body = envelope({
+    expect(mockIntakeGmailDelivery).toHaveBeenCalledWith({
+      source: 'legacy',
       emailAddress: 'owner@gmail.com',
-      historyId: '150',
-      eventType: 'new_email',
-      messageId: 'msg-1',
+      event: {
+        eventType: 'new_email',
+        messageId: 'msg-1',
+        threadId: 'thread-1',
+      },
     });
-    const { req, res, status } = reqRes(body, { 'x-goog-signature': 'deadbeef' });
-    await handleGmailWebhook(req, res);
-    expect(status).toHaveBeenCalledWith(401);
   });
 });
