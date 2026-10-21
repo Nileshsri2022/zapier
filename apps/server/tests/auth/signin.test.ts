@@ -36,7 +36,9 @@ describe('Authentication - Signin', () => {
         expect(response.body.data).toHaveProperty('id', mockUser.id);
         expect(response.body.data).toHaveProperty('name', mockUser.name);
         expect(response.body.data).toHaveProperty('email', mockUser.email);
-        expect(response.body.data).toHaveProperty('token', 'mock-jwt-token');
+        // #44: the bearer token lives only in the httpOnly cookie.
+        expect(response.body.data).not.toHaveProperty('token');
+        expect(response.headers['set-cookie']?.join(';')).toContain('auth_token=mock-jwt-token');
       });
 
       it('should generate JWT token with correct payload', async () => {
