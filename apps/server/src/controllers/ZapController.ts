@@ -118,8 +118,11 @@ export const createZap = async (req: Request, res: Response): Promise<any> => {
         }
       }
 
-      // If this is a Google Sheets trigger, also create GoogleSheetsTrigger entry
-      if (availableTrigger?.type === 'Google Sheets Updated Row') {
+      // If this is a Google Sheets trigger, also create GoogleSheetsTrigger
+      // entry (both 'Google Sheets New Row' and legacy 'Updated Row' share
+      // the row; the poller reads the availableTrigger type for event
+      // semantics — docs/ask-matt/triggers/google-sheets.md).
+      if (availableTrigger?.type?.startsWith('Google Sheets')) {
         const triggerMeta = validation?.data?.triggerMetaData as any;
 
         if (triggerMeta?.serverId && triggerMeta?.spreadsheetId && triggerMeta?.sheetName) {

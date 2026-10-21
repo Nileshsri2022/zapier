@@ -103,6 +103,10 @@ export async function seedDatabase() {
           image: '/apps/sheets.svg',
         },
         {
+          type: 'Google Sheets New Row',
+          image: '/apps/sheets.svg',
+        },
+        {
           type: 'WhatsApp Message Received',
           image: '/apps/whatsapp.svg',
         },

@@ -51,6 +51,16 @@ Gate status: ⛔ **no implementation approved** — docs only.
 | Q-SHEETS-04 | Header-less sheets supported? | ✅ **Yes** — fallback to `rowArray` + `col_1..col_n` keys |
 | Q-SHEETS-05 | Large sheets: row cap / performance expectations? | ✅ **Soft warning at 10k rows** — still works beyond, UI warns about cadence |
 
+### Implementation notes (phase `/implement`, listed order)
+
+- **T2 — Google Sheets:** implemented New Row event (seed + createZap + poller
+  event-typing via the Zap's availableTrigger type), headerless `col_N` fallback,
+  full contract (rowNumber/rowData/rowArray/event/spreadsheetName + legacy
+  `row_number`/`row_data` aliases), empty-row skip, crash-safe dedup keys.
+  **Consciously deferred (non-critical per 🪝 mandate):** the Q-SHEETS-05 *soft
+  10k-row warning* at setup — it needs an extra sheet-read API call purely for an
+  advisory; no correctness impact. Everything else in the T2 spec shipped.
+
 ## T3 — Google Calendar (trigger) ✅ **grilled** (round 5)
 
 | ID | Question | Answer |
