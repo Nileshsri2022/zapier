@@ -79,6 +79,10 @@ export async function seedDatabase() {
           image: '/apps/email.svg',
         },
         {
+          type: 'Gmail Matching Search',
+          image: '/apps/email.svg',
+        },
+        {
           type: 'GitHub Push',
           image: '/apps/github.svg',
         },
@@ -96,6 +100,10 @@ export async function seedDatabase() {
         },
         {
           type: 'Google Sheets Updated Row',
+          image: '/apps/sheets.svg',
+        },
+        {
+          type: 'Google Sheets New Row',
           image: '/apps/sheets.svg',
         },
         {
@@ -124,6 +132,10 @@ export async function seedDatabase() {
         },
         {
           type: 'Schedule Every Month',
+          image: '/apps/schedule.svg',
+        },
+        {
+          type: 'Schedule Custom Cron',
           image: '/apps/schedule.svg',
         },
         // Google Calendar Triggers

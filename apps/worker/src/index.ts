@@ -2,9 +2,8 @@ import express, { Request, Response } from 'express';
 import kafka from '@repo/kafka';
 import client from '@repo/db';
 import dotenv from 'dotenv';
-import { sendEmailWithTextBody, sendZapFailureNotification } from '@repo/email';
-import { withRetry, RetryResult } from './utils/retry';
-import { sendSol, getSolanaPrivateKey } from './sendSolana';
+import { sendZapFailureNotification } from '@repo/email';
+import { withRetry, RetryResult, actionShouldRetry } from './utils/retry';
 import { sendDiscordMessage, resolveDiscordPlaceholders } from './sendDiscord';
 import { evaluateFilters, FilterCondition } from './evaluateFilters';
 import { isKnownActionType } from './utils/actionTypes';
@@ -27,11 +26,6 @@ const TOPIC_NAME = 'zap-events';
 
 let consumer: any = null;
 let producer: any = null;
-
-const validateEmail = (email: string) => {
-  const regex = /^\S+@\S+\.\S+$/;
-  return regex.test(email);
-};
 
 // Initialize Kafka
 async function initKafka() {
@@ -60,6 +54,36 @@ export async function executeActionWithRetry(
     const { executeAiAction } = await import('./executeAiAction.js');
     return executeAiAction(metadata, zapRunMetadata, previousOutputs, context);
   }
+  // A2: Email sends via the Gmail API (shared Google connection). Validation,
+  // auth, quota and attachment failures never retry — only transient provider
+  // errors do (at-least-once; a duplicate is possible after an accepted timeout).
+  if (actionType === 'Webhook') {
+    // A4: idempotent-only retries are implemented inside runWebhookAction, so the
+    // generic wrapper runs it exactly once (no 3x duplicate side effects).
+    const { runWebhookAction } = await import('./sendWebhook.js');
+    return withRetry(async () => {
+      const output = await runWebhookAction(metadata, zapRunMetadata);
+      return { success: true, message: `Webhook ${output.status} from ${output.url}`, output };
+    }, { shouldRetry: () => false });
+  }
+  if (actionType === 'Email') {
+    const { sendEmailAction, EmailActionError } = await import('./sendEmail.js');
+    return withRetry(
+      async () => {
+        const output = await sendEmailAction(
+          metadata,
+          { ...zapRunMetadata, userId: zapRunMetadata?.userId ?? context?.userId },
+          {}
+        );
+        return {
+          success: true,
+          message: `Email sent to ${output.to}`,
+          output,
+        };
+      },
+      { shouldRetry: (error) => (error instanceof EmailActionError ? error.retryable : false) }
+    );
+  }
   return withRetry(
     async () => {
       // Fail loudly for actions the worker cannot execute. Previously an unknown
@@ -72,125 +96,56 @@ export async function executeActionWithRetry(
         );
       }
 
-      if (actionType === 'Email') {
-        const { to, subject, body } = metadata;
-        let emailReceiver: string;
-
-        console.log('📧 [Worker] Processing Email action:');
-        console.log('  - Raw "to" from metadata:', to);
-        console.log('  - Subject:', subject);
-        console.log('  - Body (first 100 chars):', body?.substring(0, 100));
-
-        if (validateEmail(to)) {
-          emailReceiver = to;
-        } else {
-          const searchKey = JSON.stringify(zapRunMetadata);
-          emailReceiver = searchKey.slice(
-            searchKey.indexOf('email') + 8,
-            searchKey.indexOf('.com') + 4
-          );
-          console.log('  - Extracted email from metadata:', emailReceiver);
-        }
-
-        console.log('📧 [Worker] Sending email to:', emailReceiver);
-        const emailBody = replaceKeys(body, zapRunMetadata);
-        // Template the subject like the body. It previously went out raw, so
-        // "{previousOutput.…}" in a subject was delivered literally (the
-        // server-side inline Email executor templated all three fields —
-        // see reports/gmail-worker-routing-spec.md D8).
-        const emailSubject = subject ? replaceKeys(String(subject), zapRunMetadata) : subject;
-        console.log('  - Processed body (first 100 chars):', emailBody?.substring(0, 100));
-
-        const result = await sendEmailWithTextBody(emailReceiver, emailSubject, emailBody);
-        console.log('📧 [Worker] Email send result:', JSON.stringify(result));
-
-        // @ts-ignore - Handle both success and error response types
-        if (result && result.error) {
-          // @ts-ignore
-          throw new Error(`Email send failed: ${result.error}`);
-        }
-
-        return {
-          success: true,
-          message: `Email sent to ${emailReceiver}`,
-          output: { to: emailReceiver, subject: emailSubject, sentAt: new Date().toISOString() },
-        };
-      }
-
       if (actionType === 'Solana') {
-        const { address, amount } = metadata;
-        const resolvedAddress = replaceKeys(address, zapRunMetadata);
-        const resolvedAmount = replaceKeys(amount, zapRunMetadata);
-
-        // Check if a Solana key is configured (documented name, then legacy).
-        // Fail the run loudly instead of silently skipping a configured transfer.
-        if (!getSolanaPrivateKey()) {
-          throw new Error(
-            'Solana action configured but SOLANA_PRIVATE_KEY is not set. ' +
-              'Configure the key or remove the Solana step from the Zap.'
-          );
-        }
-
-        console.log(`Sending ${resolvedAmount} SOL to ${resolvedAddress}...`);
-        await sendSol(resolvedAddress, resolvedAmount);
-        console.log(`✅ SOL sent successfully to ${resolvedAddress}`);
+        // A3: read-only v1 — no keys, no signing, no transfers (send ops are
+        // backlog behind an external-signer security review).
+        const { runSolanaAction } = await import('./solanaRead.js');
+        const resolved = {
+          ...metadata,
+          address: metadata?.address ? replaceKeys(String(metadata.address), zapRunMetadata) : undefined,
+          owner: metadata?.owner ? replaceKeys(String(metadata.owner), zapRunMetadata) : undefined,
+          mint: metadata?.mint ? replaceKeys(String(metadata.mint), zapRunMetadata) : undefined,
+        };
+        const output = await runSolanaAction(resolved);
+        console.log(`✅ Solana ${output.operation} on ${output.network}`);
         return {
           success: true,
-          message: `${resolvedAmount} SOL sent to ${resolvedAddress}`,
-          output: {
-            address: resolvedAddress,
-            amount: resolvedAmount,
-            sentAt: new Date().toISOString(),
-          },
+          message: `Solana ${output.operation} on ${output.network}`,
+          output,
         };
       }
 
       if (actionType.startsWith('WhatsApp')) {
-        const { to, message, phoneNumberId, accessToken } = metadata;
-        const resolvedTo = replaceKeys(to, zapRunMetadata);
-        const resolvedMessage = replaceKeys(message, zapRunMetadata);
-
-        // Dynamic imports for sendWhatsApp
-        const { sendWhatsAppMessage } = await import('./sendWhatsApp.js');
-
-        const result = await sendWhatsAppMessage(
-          phoneNumberId,
-          accessToken,
-          resolvedTo,
-          resolvedMessage
+        // A5: shared Meta connection, template/freeform kinds, strict phone
+        // validation. Credentials never come from step metadata.
+        const { sendWhatsAppAction } = await import('./sendWhatsApp.js');
+        const output = await sendWhatsAppAction(
+          metadata,
+          { ...zapRunMetadata, userId: zapRunMetadata?.userId ?? context?.userId },
+          {}
         );
-
-        if (!result.success) {
-          throw new Error(`WhatsApp send failed: ${result.error}`);
-        }
-
-        console.log(`✅ WhatsApp message sent to ${resolvedTo}`);
+        console.log(`✅ WhatsApp ${output.kind} message sent to ${output.to}`);
         return {
           success: true,
-          message: `WhatsApp sent to ${resolvedTo}`,
-          output: { to: resolvedTo, sentAt: new Date().toISOString() },
+          message: `WhatsApp sent to ${output.to}`,
+          output,
         };
       }
 
       if (actionType.startsWith('Telegram')) {
-        const { chatId, message, botToken } = metadata;
-        const resolvedChatId = replaceKeys(chatId, zapRunMetadata);
-        const resolvedMessage = replaceKeys(message, zapRunMetadata);
-
-        // Dynamic imports for sendTelegram
-        const { sendTelegramMessage } = await import('./sendTelegram.js');
-
-        const result = await sendTelegramMessage(botToken, resolvedChatId, resolvedMessage);
-
-        if (!result.success) {
-          throw new Error(`Telegram send failed: ${result.error}`);
-        }
-
-        console.log(`✅ Telegram message sent to ${resolvedChatId}`);
+        // A6: bot token comes from the shared TelegramBot connection; supports
+        // text, photo/document, parse modes and the full option set.
+        const { sendTelegramAction } = await import('./sendTelegram.js');
+        const output = await sendTelegramAction(
+          metadata,
+          { ...zapRunMetadata, userId: zapRunMetadata?.userId ?? context?.userId },
+          {}
+        );
+        console.log(`✅ Telegram message sent to chat ${output.chat.id}`);
         return {
           success: true,
-          message: `Telegram sent to chat ${resolvedChatId}`,
-          output: { chatId: resolvedChatId, sentAt: new Date().toISOString() },
+          message: `Telegram sent to chat ${output.chat.id}`,
+          output,
         };
       }
 
@@ -226,33 +181,6 @@ export async function executeActionWithRetry(
         };
       }
 
-      if (actionType === 'Webhook') {
-        const { url, method = 'POST', headers = {}, body } = metadata;
-        const resolvedUrl = replaceKeys(url, zapRunMetadata);
-        const resolvedBody = body ? replaceKeys(JSON.stringify(body), zapRunMetadata) : null;
-
-        // Dynamic import for sendWebhook
-        const { sendWebhook } = await import('./sendWebhook.js');
-
-        const result = await sendWebhook({
-          url: resolvedUrl,
-          method: method.toUpperCase() as any,
-          headers,
-          body: resolvedBody ? JSON.parse(resolvedBody) : undefined,
-        });
-
-        if (!result.success) {
-          throw new Error(`Webhook failed: ${result.error}`);
-        }
-
-        console.log(`✅ Webhook sent to ${resolvedUrl} (${result.statusCode})`);
-        return {
-          success: true,
-          message: `Webhook sent to ${resolvedUrl}`,
-          output: { url: resolvedUrl, statusCode: result.statusCode, response: result.response },
-        };
-      }
-
       // Safety net — unreachable while the guard above uses the same registry,
       // but never report success for an unimplemented action.
       throw new Error(`Unknown action: ${actionType}`);
@@ -260,7 +188,7 @@ export async function executeActionWithRetry(
     {
       maxRetries: 3,
       initialDelayMs: 1000,
-      shouldRetry: (error: Error) => !(error as any).isFatal,
+      shouldRetry: actionShouldRetry,
     }
   );
 }

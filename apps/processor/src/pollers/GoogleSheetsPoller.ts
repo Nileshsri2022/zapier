@@ -1,6 +1,17 @@
 /**
  * Google Sheets Poller
- * Polls Google Sheets for row updates using hash comparison
+ * Polls Google Sheets for row events using hash comparison.
+ *
+ * Spec: docs/ask-matt/triggers/google-sheets.md (grilled round 4)
+ * - Event typing comes from the Zap's availableTrigger type:
+ *     'Google Sheets New Row'  -> fires ONLY on appended rows (event 'created')
+ *     'Google Sheets Updated Row' / anything legacy -> new + changed rows
+ * - Contract: rowData (header-keyed OR col_N for headerless sheets) +
+ *   rowArray + rowNumber + event + sheetName/spreadsheetId/spreadsheetName
+ *   (+ legacy row_data/row_number aliases so existing zaps keep mapping)
+ * - Headerless detection: first row has no non-numeric, non-empty cell ->
+ *   it is DATA, keys fall back to col_1..col_n (Q-SHEETS-04)
+ * - Fully-empty rows never fire (Q-SHEETS spec §5)
  */
 
 import { google } from 'googleapis';
@@ -15,9 +26,25 @@ function quoteSheetName(sheetName: string): string {
   return `'${sheetName.replace(/'/g, "''")}'`;
 }
 
-interface UpdatedRow {
+interface SheetsRowEvent {
   row_number: number;
   row_data: Record<string, any>;
+  row_array: any[];
+  event: 'created' | 'updated';
+  rowHash: string;
+}
+
+/**
+ * Is `firstRow` a header row? Headers contain at least one cell that is
+ * neither empty nor a plain number. All-numeric / all-empty first rows are
+ * treated as data (headerless sheets, Q-SHEETS-04).
+ */
+export function looksLikeHeaderRow(firstRow: any[]): boolean {
+  return firstRow.some((cell) => {
+    const s = (cell ?? '').toString().trim();
+    if (s === '') return false;
+    return Number.isNaN(Number(s));
+  });
 }
 
 export class GoogleSheetsPoller extends BasePoller {
@@ -40,7 +67,7 @@ export class GoogleSheetsPoller extends BasePoller {
   }
 
   /**
-   * Main poll method - checks all active Google Sheets triggers for updates
+   * Main poll method - checks all active Google Sheets triggers for events
    */
   async poll(): Promise<PollResult> {
     const startTime = Date.now();
@@ -50,7 +77,9 @@ export class GoogleSheetsPoller extends BasePoller {
     this.logStart();
 
     try {
-      // Get all active triggers with their servers
+      // Get all active triggers with their servers, plus the Zap's
+      // availableTrigger type so event semantics (New Row vs Updated Row)
+      // can be applied per Zap (docs/ask-matt T2).
       const triggers = await client.googleSheetsTrigger.findMany({
         where: {
           isActive: true,
@@ -58,7 +87,15 @@ export class GoogleSheetsPoller extends BasePoller {
         },
         include: {
           server: true,
-          zap: true,
+          zap: {
+            include: {
+              trigger: {
+                include: {
+                  trigger: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -85,7 +122,7 @@ export class GoogleSheetsPoller extends BasePoller {
   }
 
   /**
-   * Poll a single trigger for updates
+   * Poll a single trigger for row events
    */
   private async pollTrigger(trigger: any): Promise<number> {
     // Initialize OAuth2 client
@@ -100,6 +137,11 @@ export class GoogleSheetsPoller extends BasePoller {
     // Initialize Sheets API
     const sheets = google.sheets({ version: 'v4', auth: oauth2Client });
 
+    // Event mode: New Row fires only on appends; everything else (including
+    // legacy zaps without a recognized type) keeps new+updated behavior.
+    const availableType: string | undefined = trigger?.zap?.trigger?.trigger?.type;
+    const newRowOnly = availableType === 'Google Sheets New Row';
+
     // Fetch spreadsheet data
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: trigger.spreadsheetId,
@@ -112,39 +154,63 @@ export class GoogleSheetsPoller extends BasePoller {
       return 0;
     }
 
-    // First row is headers
-    const headers = (allRows[0] || []).map((h: any) => (h ?? '').toString());
-    const dataRows = allRows.slice(1).map((values, idx) => ({
-      index: idx + 2,
+    // Header handling: real headers -> keys from row 1, data from row 2;
+    // headerless (all-numeric/empty first row) -> data includes row 1 with
+    // col_1..col_n keys (Q-SHEETS-04).
+    const headerless = !looksLikeHeaderRow(allRows[0] || []);
+    const headers = headerless
+      ? []
+      : (allRows[0] || []).map((h: any) => (h ?? '').toString());
+    const dataRows = (headerless ? allRows : allRows.slice(1)).map((values, idx) => ({
+      index: (headerless ? 1 : 2) + idx,
       values: values || [],
     }));
 
     const redisKey = this.getRedisKey(trigger.id);
-    const updatedRows: UpdatedRow[] = [];
+    const fireRows: SheetsRowEvent[] = [];
 
     for (const row of dataRows) {
+      // Fully-empty rows are skipped entirely — never fire, never hash
+      // (spec §5: sparse/empty rows are not events).
+      if (row.values.every((v: any) => (v ?? '').toString().trim() === '')) {
+        continue;
+      }
+
       const rowKey = row.index.toString();
       const newHash = this.hashRow(row.values);
 
       // Get stored hash from Redis
       const oldHash = (await redis.hget(redisKey, rowKey)) as string | null;
 
-      // Trigger on NEW rows (no oldHash) OR CHANGED rows (hash differs)
       const isNewRow = !oldHash;
-      const isChangedRow = oldHash && oldHash !== newHash;
+      const isChangedRow = Boolean(oldHash) && oldHash !== newHash;
 
-      if (isNewRow || isChangedRow) {
+      // New Row mode drops in-place edits (they only refresh the hash).
+      const shouldFire = isNewRow || (!newRowOnly && isChangedRow);
+
+      if (shouldFire) {
         const rowData: Record<string, any> = {};
-        headers.forEach((header: string, idx: number) => {
-          rowData[header] = row.values[idx] ?? '';
-        });
+        if (headerless) {
+          row.values.forEach((_v: any, idx: number) => {
+            rowData[`col_${idx + 1}`] = row.values[idx] ?? '';
+          });
+        } else {
+          headers.forEach((header: string, idx: number) => {
+            rowData[header] = row.values[idx] ?? '';
+          });
+        }
 
-        updatedRows.push({
+        fireRows.push({
           row_number: row.index,
           row_data: rowData,
+          row_array: [...row.values],
+          event: isNewRow ? 'created' : 'updated',
+          rowHash: newHash,
         });
 
-        console.log(`📊 ${isNewRow ? 'New' : 'Updated'} row ${row.index} in trigger ${trigger.id}`);
+        console.log(
+          `${this.emoji} ${isNewRow ? 'New' : 'Updated'} row ${row.index} in trigger ${trigger.id}`
+        );
       }
 
       // Update hash in Redis
@@ -154,9 +220,47 @@ export class GoogleSheetsPoller extends BasePoller {
     // Set TTL (30 days)
     await redis.expire(redisKey, 60 * 60 * 24 * 30);
 
-    // Create ZapRun for each updated row
-    for (const row of updatedRows) {
-      await this.createZapRun(trigger.zapId, row);
+    if (fireRows.length === 0) {
+      await client.googleSheetsTrigger.update({
+        where: { id: trigger.id },
+        data: { lastPolledAt: new Date() },
+      });
+      return 0;
+    }
+
+    // Contract field: spreadsheet display name — one metadata call per
+    // poll-with-events (not per row); failure degrades to null, never blocks.
+    let spreadsheetName: string | null = null;
+    try {
+      const meta = await sheets.spreadsheets.get({
+        spreadsheetId: trigger.spreadsheetId,
+        fields: 'properties.title',
+      });
+      spreadsheetName = meta.data.properties?.title || null;
+    } catch {
+      spreadsheetName = null;
+    }
+
+    // Create ZapRun for each fired row
+    for (const row of fireRows) {
+      const metadata = {
+        // Contract fields (spec §4)
+        spreadsheetId: trigger.spreadsheetId,
+        spreadsheetName,
+        sheetName: trigger.sheetName,
+        rowNumber: row.row_number,
+        rowData: row.row_data,
+        rowArray: row.row_array,
+        event: row.event,
+        timestamp: new Date().toISOString(),
+        // Legacy aliases — existing zaps template against these
+        row_number: row.row_number,
+        row_data: row.row_data,
+      };
+      await this.createZapRun(trigger.zapId, metadata, {
+        scope: 'sheets',
+        key: `${trigger.zapId}:sheets:${row.row_number}:${row.event}:${row.rowHash}`,
+      });
     }
 
     // Update last polled timestamp
@@ -165,6 +269,6 @@ export class GoogleSheetsPoller extends BasePoller {
       data: { lastPolledAt: new Date() },
     });
 
-    return updatedRows.length;
+    return fireRows.length;
   }
 }

@@ -34,7 +34,7 @@ const base = z.object({
   provider: z.enum(['openai', 'anthropic', 'puter', 'openai_compatible']),
   connectionId: z.string().uuid().optional(),
   model: z.string().trim().max(200).optional(),
-  mode: z.enum(['summarize', 'classify', 'extract', 'custom']),
+  mode: z.enum(['summarize', 'classify', 'extract', 'generate', 'translate', 'custom']),
   input: z
     .string()
     .min(1)
@@ -84,7 +84,8 @@ export const AiTestSchema = base
     input: z
       .string()
       .min(1)
-      .max(20000)
+      // Q-AI-04: sample input follows the same 50k limit as run input.
+      .max(50000)
       .refine((s) => Boolean(s.trim()), 'Sample input is required'),
   })
   .superRefine(coherent)

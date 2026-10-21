@@ -1,11 +1,21 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { API_URL } from '@/lib/config';
 import Button from '../Button';
 
 interface ScheduleMetaDataProps {
   handleClick: (data: any) => void;
   scheduleType?: string;
 }
+
+/** Q-SCHED-02: timezone defaults to the user's browser timezone. */
+const browserTimezone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+};
 
 const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaDataProps) => {
   const [formData, setFormData] = useState<{
@@ -15,14 +25,65 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
     dayOfWeek?: number;
     dayOfMonth?: number;
     timezone: string;
+    cron?: string;
   }>({
     scheduleType: scheduleType,
     hour: 9,
     minute: 0,
     dayOfWeek: 1, // Monday
     dayOfMonth: 1,
-    timezone: 'UTC',
+    timezone: browserTimezone(),
+    cron: '',
   });
+  const [previewFires, setPreviewFires] = useState<string[]>([]);
+  const [cronError, setCronError] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const isCron = scheduleType === 'customcron';
+
+  // M5 — next-fires preview before save (validated server-side).
+  useEffect(() => {
+    if (!isCron) return;
+    const expr = (formData.cron || '').trim();
+    if (!expr) {
+      setPreviewFires([]);
+      setCronError(null);
+      return;
+    }
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        setPreviewLoading(true);
+        const res = await fetch(`${API_URL}/api/schedule/preview`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scheduleType: 'cron',
+            cron: expr,
+            timezone: formData.timezone,
+            count: 5,
+          }),
+          signal: controller.signal,
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setCronError(data.error || 'Invalid cron expression');
+          setPreviewFires([]);
+        } else {
+          setCronError(null);
+          setPreviewFires((data.fires || []).map((f: any) => f.local));
+        }
+      } catch (e) {
+        if ((e as any)?.name !== 'AbortError') setCronError('Preview failed — check the expression');
+      } finally {
+        setPreviewLoading(false);
+      }
+    }, 350);
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
+  }, [isCron, formData.cron, formData.timezone]);
 
   const daysOfWeek = [
     { value: 0, label: 'Sunday' },
@@ -46,10 +107,10 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
   };
 
   const getScheduleDescription = () => {
-    const { hour, minute, dayOfWeek, dayOfMonth, scheduleType } = formData;
+    const { hour, minute, dayOfWeek, dayOfMonth, scheduleType: t, cron } = formData;
     const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
 
-    switch (scheduleType) {
+    switch (t) {
       case 'everyminute':
         return 'Runs every minute';
       case 'everyhour':
@@ -60,6 +121,8 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
         return `Runs every ${daysOfWeek.find((d) => d.value === dayOfWeek)?.label} at ${timeStr}`;
       case 'everymonth':
         return `Runs on day ${dayOfMonth} of each month at ${timeStr}`;
+      case 'customcron':
+        return cron ? `Custom cron: ${cron}` : 'Enter a 5-field cron expression';
       default:
         return 'Schedule configured';
     }
@@ -69,13 +132,41 @@ const ScheduleMetaData = ({ handleClick, scheduleType = 'daily' }: ScheduleMetaD
     <div className="meta-form">
       <div className="meta-form__summary">
         <p className="meta-form__summary-title">
-          <span>📅</span> Schedule: {scheduleType.replace('every', 'Every ')}
+          <span>📅</span>{' '}
+          Schedule: {isCron ? 'Custom Cron' : scheduleType.replace('every', 'Every ')}
         </p>
         <p className="meta-form__summary-note">{getScheduleDescription()}</p>
       </div>
 
-      {/* Time Picker (for daily, weekly, monthly - NOT for everyminute or everyhour) */}
-      {scheduleType !== 'everyhour' && scheduleType !== 'everyminute' && (
+      {/* M5 — custom 5-field cron */}
+      {isCron && (
+        <div>
+          <label className="meta-form__label">Cron expression (5 fields: min hour dom month dow)</label>
+          <input
+            type="text"
+            name="cron"
+            value={formData.cron || ''}
+            onChange={handleChange}
+            placeholder="e.g. */15 9-17 * * 1-5"
+            className="meta-form__input"
+          />
+          {cronError && <p className="meta-form__hint-warning">{cronError}</p>}
+          {previewFires.length > 0 && (
+            <div className="meta-form__panel">
+              <h4 className="meta-form__panel-title">Next fires ({formData.timezone})</h4>
+              <ol style={{ margin: 0, paddingLeft: '1.2rem' }}>
+                {previewFires.map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {previewLoading && <p className="meta-form__hint">Computing preview…</p>}
+        </div>
+      )}
+
+      {/* Time Picker (for daily, weekly, monthly - NOT for everyminute/everyhour/cron) */}
+      {!isCron && scheduleType !== 'everyhour' && scheduleType !== 'everyminute' && (
         <div className="meta-form__grid">
           <div>
             <label className="meta-form__label">Hour</label>

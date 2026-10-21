@@ -90,8 +90,15 @@ async function boundedJsonFetch(
     }
   } catch (error) {
     if (error instanceof AiStepError) throw error;
+    if (
+      error &&
+      typeof error === 'object' &&
+      'name' in error &&
+      (error.name === 'AbortError' || error.name === 'TimeoutError')
+    )
+      throw new AiStepError('AI provider request timed out', true, undefined, 'timeout');
     // HTTP transport errors are sanitized, never leak URL, headers or provider body.
-    throw new AiStepError('AI provider network request failed or timed out', true);
+    throw new AiStepError('AI provider network request failed', true, undefined, 'provider_unavailable');
   } finally {
     clearTimeout(timer);
     directInFlight--;
@@ -106,14 +113,20 @@ export function parseChatResponse(value: unknown): ProviderResult {
   const raw = object(value);
   const choice = object(Array.isArray(raw.choices) ? raw.choices[0] : undefined);
   const message = object(choice.message);
-  if (
-    message.refusal ||
-    ['length', 'content_filter', 'tool_calls'].includes(String(choice.finish_reason))
-  ) {
-    throw new AiStepError('AI provider refused, truncated or returned an unsupported response');
-  }
+  const finish = String(choice.finish_reason || '');
+  if (message.refusal || finish === 'content_filter')
+    throw new AiStepError(
+      'AI provider refused to process this content',
+      false,
+      undefined,
+      'policy_refusal'
+    );
+  if (finish === 'tool_calls')
+    throw new AiStepError('AI provider returned an unsupported tool-call response');
   return {
     text: typeof message.content === 'string' ? message.content : undefined,
+    // Output hitting max-tokens is a truncation FLAG, not an error (spec §5).
+    truncated: finish === 'length' ? true : undefined,
     usage: reportedUsage(raw.usage, 'prompt_tokens', 'completion_tokens'),
   };
 }
@@ -156,8 +169,15 @@ export async function callProvider(
           { 'x-api-key': request.apiKey, 'anthropic-version': '2023-06-01' }
         )
       );
-      if (['max_tokens', 'refusal'].includes(String(raw.stop_reason)))
-        throw new AiStepError('AI provider refused or truncated its response');
+      const stop = String(raw.stop_reason || '');
+      if (stop === 'refusal')
+        throw new AiStepError(
+          'AI provider refused to process this content',
+          false,
+          undefined,
+          'policy_refusal'
+        );
+      const anthropicTruncated = stop === 'max_tokens' ? true : undefined;
       const blocks = Array.isArray(raw.content) ? raw.content.map(object) : [];
       return {
         ...(schema
@@ -172,6 +192,7 @@ export async function callProvider(
                 .filter((t) => typeof t === 'string')
                 .join(''),
             }),
+        truncated: anthropicTruncated,
         usage: reportedUsage(raw.usage, 'input_tokens', 'output_tokens'),
       };
     }

@@ -2,10 +2,14 @@
 export { default as EmailMetaData } from './EmailMetaData';
 export { default as SolanaMetaData } from './SolanaMetaData';
 export { default as WebhookMetaData } from './WebhookMetaData';
+export { default as WebhookActionMetaData } from './WebhookActionMetaData';
 export { default as GmailMetaData } from './GmailMetaData';
 export { default as GoogleSheetsMetaData } from './GoogleSheetsMetaData';
 export { default as GoogleCalendarMetaData } from './GoogleCalendarMetaData';
 export { default as ScheduleMetaData } from './ScheduleMetaData';
 export { GitHubMetaData } from './GitHubMetaData';
+export { default as TelegramMetaData } from './TelegramMetaData';
+export { default as WhatsAppMetaData } from './WhatsAppMetaData';
+export { default as TelegramActionMetaData } from './TelegramActionMetaData';
 export { default as AiMetaData } from './AiMetaData';
 export { default as DiscordMetaData } from './DiscordMetaData';

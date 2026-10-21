@@ -4,6 +4,7 @@ import redis from '@repo/redis';
 import { enqueueRun } from '@repo/runs';
 
 const mockValuesGet = jest.fn();
+const mockSpreadsheetGet = jest.fn();
 const mockRefreshAccessToken = jest.fn();
 const mockSetCredentials = jest.fn();
 
@@ -18,6 +19,7 @@ jest.mock('googleapis', () => ({
     },
     sheets: jest.fn().mockImplementation(() => ({
       spreadsheets: {
+        get: (...args: any[]) => mockSpreadsheetGet(...args),
         values: { get: (...args: any[]) => mockValuesGet(...args) },
       },
     })),
@@ -65,7 +67,15 @@ describe('GoogleSheetsPoller.poll - Seam 1', () => {
         },
         include: {
           server: true,
-          zap: true,
+          zap: {
+            include: {
+              trigger: {
+                include: {
+                  trigger: true,
+                },
+              },
+            },
+          },
         },
       });
       expect(result).toEqual({
@@ -141,10 +151,23 @@ describe('GoogleSheetsPoller.poll - Seam 1', () => {
       const result = await poller.poll();
 
       // Verify ZapRun enqueues for both rows with correct domain structure
+      // (grilled T2 contract: rowNumber/rowData/rowArray/event + legacy aliases)
       expect(enqueueRun).toHaveBeenCalledTimes(2);
       expect(enqueueRun).toHaveBeenNthCalledWith(1, {
         zapId: 'zap-1',
         metadata: {
+          spreadsheetId: 'sheet-123',
+          spreadsheetName: null,
+          sheetName: 'Sheet1',
+          rowNumber: 2,
+          rowData: {
+            Name: 'Alice',
+            Email: 'alice@example.com',
+            Amount: '100',
+          },
+          rowArray: ['Alice', 'alice@example.com', '100'],
+          event: 'created',
+          timestamp: expect.any(String),
           row_number: 2,
           row_data: {
             Name: 'Alice',
@@ -153,10 +176,23 @@ describe('GoogleSheetsPoller.poll - Seam 1', () => {
           },
         },
         source: 'google-sheets.poll',
+        dedup: { scope: 'sheets', key: expect.any(String) },
       });
       expect(enqueueRun).toHaveBeenNthCalledWith(2, {
         zapId: 'zap-1',
         metadata: {
+          spreadsheetId: 'sheet-123',
+          spreadsheetName: null,
+          sheetName: 'Sheet1',
+          rowNumber: 3,
+          rowData: {
+            Name: 'Bob',
+            Email: 'bob@example.com',
+            Amount: '',
+          },
+          rowArray: ['Bob', 'bob@example.com'],
+          event: 'created',
+          timestamp: expect.any(String),
           row_number: 3,
           row_data: {
             Name: 'Bob',
@@ -165,6 +201,7 @@ describe('GoogleSheetsPoller.poll - Seam 1', () => {
           },
         },
         source: 'google-sheets.poll',
+        dedup: { scope: 'sheets', key: expect.any(String) },
       });
 
       // Verify Redis hash storage
@@ -250,6 +287,17 @@ describe('GoogleSheetsPoller.poll - Seam 1', () => {
       expect(enqueueRun).toHaveBeenCalledWith({
         zapId: 'zap-1',
         metadata: {
+          spreadsheetId: 'sheet-123',
+          spreadsheetName: null,
+          sheetName: 'Sheet1',
+          rowNumber: 2,
+          rowData: {
+            Name: 'Alice',
+            Email: 'alice.new@example.com',
+          },
+          rowArray: ['Alice', 'alice.new@example.com'],
+          event: 'updated',
+          timestamp: expect.any(String),
           row_number: 2,
           row_data: {
             Name: 'Alice',
@@ -257,6 +305,7 @@ describe('GoogleSheetsPoller.poll - Seam 1', () => {
           },
         },
         source: 'google-sheets.poll',
+        dedup: { scope: 'sheets', key: expect.any(String) },
       });
 
       // New hash should be written to Redis
@@ -325,5 +374,179 @@ describe('GoogleSheetsPoller.poll - Seam 1', () => {
       expect(result.processed).toBe(0);
       expect(enqueueRun).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('GoogleSheetsPoller — T2 grilled spec (docs/ask-matt, round 4)', () => {
+  let poller: GoogleSheetsPoller;
+
+  const baseServer = {
+    id: 'server-1',
+    refreshToken: 'mock-refresh-token',
+    accessToken: 'mock-access-token',
+    tokenExpiry: new Date(Date.now() + 60 * 60 * 1000),
+  };
+
+  const triggerWithType = (type?: string) => ({
+    id: 'trigger-1',
+    zapId: 'zap-1',
+    spreadsheetId: 'sheet-123',
+    sheetName: 'Sheet1',
+    isActive: true,
+    lastPolledAt: null,
+    server: baseServer,
+    zap: {
+      id: 'zap-1',
+      isActive: true,
+      ...(type ? { trigger: { trigger: { type } } } : {}),
+    },
+  });
+
+  beforeEach(() => {
+    poller = new GoogleSheetsPoller();
+    jest.clearAllMocks();
+    (enqueueRun as jest.Mock).mockResolvedValue({ status: 'queued', zapRunId: 'run-1' });
+    mockSpreadsheetGet.mockResolvedValue({
+      data: { properties: { title: 'Leads Q4' } },
+    });
+  });
+
+  it("New Row mode: fires only on appends — an in-place edit just refreshes the hash", async () => {
+    (client.googleSheetsTrigger.findMany as jest.Mock).mockResolvedValue([
+      triggerWithType('Google Sheets New Row'),
+    ]);
+    mockValuesGet.mockResolvedValue({
+      data: {
+        values: [
+          ['Name', 'Email'],
+          ['Alice', 'alice@example.com'],
+          ['Bob', 'bob@example.com'],
+        ],
+      },
+    });
+    // Row 2 exists (changed content), row 3 is brand new
+    (redis.hget as jest.Mock).mockImplementation(async (_key: string, rowKey: string) =>
+      rowKey === '2' ? 'old-hash-for-row-2' : null
+    );
+
+    const result = await poller.poll();
+
+    expect(enqueueRun).toHaveBeenCalledTimes(1);
+    const call = (enqueueRun as jest.Mock).mock.calls[0][0];
+    expect(call.metadata.event).toBe('created');
+    expect(call.metadata.rowNumber).toBe(3);
+    expect(result.processed).toBe(1);
+    // Edited row still refreshes its hash (so it won't count as "new" later)
+    expect(redis.hset).toHaveBeenCalledWith(
+      'sheets:trigger:trigger-1:rowhash',
+      expect.objectContaining({ '2': expect.any(String) })
+    );
+  });
+
+  it('New Row mode: contract carries spreadsheetName, sheetName, rowArray and event', async () => {
+    (client.googleSheetsTrigger.findMany as jest.Mock).mockResolvedValue([
+      triggerWithType('Google Sheets New Row'),
+    ]);
+    mockValuesGet.mockResolvedValue({
+      data: { values: [['Name'], ['Carol']] },
+    });
+    (redis.hget as jest.Mock).mockResolvedValue(null);
+
+    await poller.poll();
+
+    expect(mockSpreadsheetGet).toHaveBeenCalledWith({
+      spreadsheetId: 'sheet-123',
+      fields: 'properties.title',
+    });
+    expect(enqueueRun).toHaveBeenCalledTimes(1);
+    const { metadata } = (enqueueRun as jest.Mock).mock.calls[0][0];
+    expect(metadata).toMatchObject({
+      spreadsheetId: 'sheet-123',
+      spreadsheetName: 'Leads Q4',
+      sheetName: 'Sheet1',
+      rowNumber: 2,
+      rowData: { Name: 'Carol' },
+      rowArray: ['Carol'],
+      event: 'created',
+      row_number: 2,
+      row_data: { Name: 'Carol' },
+    });
+    expect(typeof metadata.timestamp).toBe('string');
+  });
+
+  it('Headerless sheet: all-numeric first row is data with col_N keys + rowArray', async () => {
+    (client.googleSheetsTrigger.findMany as jest.Mock).mockResolvedValue([
+      triggerWithType('Google Sheets New Row'),
+    ]);
+    mockValuesGet.mockResolvedValue({
+      data: {
+        values: [
+          ['101', '250'], // numeric first row = headerless data
+          ['102', '300'],
+        ],
+      },
+    });
+    (redis.hget as jest.Mock).mockResolvedValue(null);
+
+    const result = await poller.poll();
+
+    expect(result.processed).toBe(2);
+    expect(enqueueRun).toHaveBeenCalledTimes(2);
+    const first = (enqueueRun as jest.Mock).mock.calls[0][0].metadata;
+    expect(first.rowNumber).toBe(1);
+    expect(first.rowData).toEqual({ col_1: '101', col_2: '250' });
+    expect(first.rowArray).toEqual(['101', '250']);
+    const second = (enqueueRun as jest.Mock).mock.calls[1][0].metadata;
+    expect(second.rowNumber).toBe(2);
+    expect(second.rowData).toEqual({ col_1: '102', col_2: '300' });
+  });
+
+  it('never fires fully-empty interior rows (they are not events)', async () => {
+    (client.googleSheetsTrigger.findMany as jest.Mock).mockResolvedValue([
+      triggerWithType('Google Sheets New Row'),
+    ]);
+    mockValuesGet.mockResolvedValue({
+      data: {
+        values: [
+          ['Name'],
+          ['Alice'],
+          [], // empty interior row
+          ['   '], // whitespace-only row
+          ['Bob'],
+        ],
+      },
+    });
+    (redis.hget as jest.Mock).mockResolvedValue(null);
+
+    const result = await poller.poll();
+
+    expect(result.processed).toBe(2);
+    expect(enqueueRun).toHaveBeenCalledTimes(2);
+    const rows = (enqueueRun as jest.Mock).mock.calls.map(
+      (c: any[]) => c[0].metadata.rowNumber
+    );
+    expect(rows).toEqual([2, 5]);
+  });
+
+  it('legacy zaps without a recognized type keep new+updated behavior', async () => {
+    (client.googleSheetsTrigger.findMany as jest.Mock).mockResolvedValue([
+      triggerWithType(undefined),
+    ]);
+    mockValuesGet.mockResolvedValue({
+      data: {
+        values: [['Name'], ['Alice'], ['Bob']],
+      },
+    });
+    (redis.hget as jest.Mock).mockImplementation(async (_key: string, rowKey: string) =>
+      rowKey === '2' ? 'old-hash-for-row-2' : null
+    );
+
+    const result = await poller.poll();
+
+    expect(result.processed).toBe(2);
+    const events = (enqueueRun as jest.Mock).mock.calls.map(
+      (c: any[]) => c[0].metadata.event
+    );
+    expect(events).toEqual(['updated', 'created']);
   });
 });

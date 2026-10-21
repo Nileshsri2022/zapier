@@ -117,7 +117,7 @@ test('preview uses literal input, real shared normalization and budget without a
 
 test('preview rejects caps, unavailable models and exhausted budgets before dispatch', async () => {
   for (const raw of [
-    { ...config, input: 'x'.repeat(20001) },
+    { ...config, input: 'x'.repeat(50001) }, // Q-AI-04: sample input cap is 50,000 chars
     { ...config, model: 'not-allowed' },
     { ...config, maxOutputTokens: 2001 },
   ]) {

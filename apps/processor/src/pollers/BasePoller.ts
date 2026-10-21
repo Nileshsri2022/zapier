@@ -83,12 +83,20 @@ export abstract class BasePoller {
    * The module owns the active-Zap check, the ZapRun + outbox transaction and
    * the best-effort dispatch, so pollers no longer duplicate that logic.
    * Returns null when the run was skipped (Zap missing or inactive).
+   *
+   * `dedup` (optional) gives crash-safe idempotency across re-polls — e.g.
+   * Google Sheets keys on row+event+content hash.
    */
-  protected async createZapRun(zapId: string, metadata: any): Promise<string | null> {
+  protected async createZapRun(
+    zapId: string,
+    metadata: any,
+    dedup?: { scope: string; key: string }
+  ): Promise<string | null> {
     const result = await enqueueRun({
       zapId,
       metadata,
       source: `${this.name}.poll`,
+      ...(dedup && { dedup }),
     });
 
     if (result.status !== 'queued') {

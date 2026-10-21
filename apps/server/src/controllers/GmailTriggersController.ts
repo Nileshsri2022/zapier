@@ -64,11 +64,22 @@ export const createGmailTrigger = async (req: Request, res: Response): Promise<a
     const userId = req.id;
     const { serverId, zapId, triggerType, watchedLabels, senderFilter, subjectFilter, metadata } =
       req.body;
+    const searchQuery =
+      typeof req.body.searchQuery === 'string' ? req.body.searchQuery.trim() : undefined;
 
     // Validate required fields
     if (!serverId || !zapId || !triggerType) {
       return res.status(400).json({
         message: 'Server ID, Zap ID, and trigger type are required',
+      });
+    }
+
+    // Grilled validation (Q-GMAIL-01): a matching-search trigger without a
+    // query would either never fire or fan out the whole mailbox — reject at
+    // the door.
+    if (triggerType === 'matching_search' && !searchQuery) {
+      return res.status(400).json({
+        message: 'searchQuery is required for the matching_search trigger type',
       });
     }
 
@@ -109,7 +120,9 @@ export const createGmailTrigger = async (req: Request, res: Response): Promise<a
         watchedLabels: watchedLabels || [],
         senderFilter,
         subjectFilter,
-        metadata,
+        // searchQuery rides in metadata (no schema migration needed) so
+        // shouldTrigger can read it alongside the other filters.
+        metadata: { ...(metadata || {}), ...(searchQuery ? { searchQuery } : {}) },
       },
     });
 
@@ -164,6 +177,18 @@ export const updateGmailTrigger = async (req: Request, res: Response): Promise<a
     const userId = req.id;
     const { triggerId } = req.params;
     const { triggerType, watchedLabels, senderFilter, subjectFilter, metadata } = req.body;
+    const searchQuery =
+      typeof req.body.searchQuery === 'string' ? req.body.searchQuery.trim() : undefined;
+
+    if (
+      (triggerType === 'matching_search' || searchQuery !== undefined) &&
+      triggerType === 'matching_search' &&
+      !searchQuery
+    ) {
+      return res.status(400).json({
+        message: 'searchQuery is required for the matching_search trigger type',
+      });
+    }
 
     const gmailTrigger = await client.gmailTrigger.updateMany({
       where: {
@@ -178,6 +203,9 @@ export const updateGmailTrigger = async (req: Request, res: Response): Promise<a
         ...(senderFilter !== undefined && { senderFilter }),
         ...(subjectFilter !== undefined && { subjectFilter }),
         ...(metadata && { metadata }),
+        ...(searchQuery !== undefined && {
+          metadata: { ...((metadata as any) || {}), searchQuery },
+        }),
       },
     });
 

@@ -189,7 +189,13 @@ export default function Page() {
             {data.total > 0 &&
               data?.zaps?.map((zap: TZap, index) => {
                 // @ts-ignore
-                const url = `${HOOKS_URL}/hooks/${session?.user?.id}/${zap.id}`;
+                const hookMeta: any =
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (zap as any).trigger?.metadata || {};
+                const baseUrl = `${HOOKS_URL}/hooks/${session?.user?.id}/${zap.id}`;
+                // Rotated hooks carry prodHookId in trigger metadata — the
+                // base URL is revoked the moment one exists (T5 Q-WHT-05).
+                const url = hookMeta.prodHookId ? `${baseUrl}/${hookMeta.prodHookId}` : baseUrl;
 
                 return (
                   <tr key={zap.id}>
@@ -235,6 +241,20 @@ export default function Page() {
                     <td className="dash-td">
                       <div className="dash-url-row">
                         <span className="dash-url">{url}</span>
+                        {hookMeta.testHookId && (
+                          <button
+                            type="button"
+                            className="dash-url dash-url--test"
+                            title="Copy Test URL (stores samples, never runs the Zap)"
+                            onClick={() =>
+                              handleUrlCopy(
+                                `${HOOKS_URL}/hooks/test/${session?.user?.id}/${zap.id}/${hookMeta.testHookId}`
+                              )
+                            }
+                          >
+                            Test URL
+                          </button>
+                        )}
                         <svg
                           onClick={() => handleUrlCopy(url)}
                           xmlns="http://www.w3.org/2000/svg"
@@ -376,7 +396,9 @@ export default function Page() {
           {data.total > 0 &&
             data?.zaps?.map((zap: TZap, index) => {
               // @ts-ignore
-              const url = `${HOOKS_URL}/hooks/${session?.user?.id}/${zap.id}`;
+              const hookMeta: any = (zap as any).trigger?.metadata || {};
+              const baseUrl = `${HOOKS_URL}/hooks/${session?.user?.id}/${zap.id}`;
+              const url = hookMeta.prodHookId ? `${baseUrl}/${hookMeta.prodHookId}` : baseUrl;
 
               return (
                 <div key={zap.id} className="dash-card">

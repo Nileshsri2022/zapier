@@ -16,12 +16,16 @@ import {
   EmailMetaData,
   SolanaMetaData,
   WebhookMetaData,
+  WebhookActionMetaData,
   GmailMetaData,
   GoogleSheetsMetaData,
   GoogleCalendarMetaData,
   ScheduleMetaData,
   GitHubMetaData,
   DiscordMetaData,
+  TelegramMetaData,
+  WhatsAppMetaData,
+  TelegramActionMetaData,
 } from './metadata';
 
 // APPS and types are now imported from ./modal/
@@ -31,11 +35,13 @@ const Modal = ({
   setIsVisible,
   onClick,
   initialAiAction,
+  zapId,
 }: {
   initialAiAction?: TSelectedAction;
   isVisible: number;
   setIsVisible: Dispatch<SetStateAction<number>>;
   onClick?: (selectedItem: any) => void;
+  zapId?: string;
 }) => {
   const [availableItems, setAvailableItems] = useState<AvailableItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<any>(
@@ -59,7 +65,9 @@ const Modal = ({
   const [connectingBot, setConnectingBot] = useState(false);
 
   const handleSaveMetaData = (data: any) => {
-    onClick && onClick({ ...selectedItem, metadata: data });
+    // Merge — step-3 forms must not drop keys threaded earlier (botId,
+    // serverId, hook ids...).
+    onClick && onClick({ ...selectedItem, metadata: { ...(selectedItem?.metadata || {}), ...data } });
     resetModal();
   };
 
@@ -214,17 +222,21 @@ const Modal = ({
       selectedItem.type === 'Solana' ||
       selectedItem.type === 'AI Transform' ||
       selectedItem.type === 'Discord Send Message' ||
-      selectedItem.type.startsWith('Schedule'); // Add Schedule
+      selectedItem.type.startsWith('Schedule') ||
+      selectedItem.type.startsWith('Telegram'); // T7: chat-type filter
 
     if (needsMetadata) {
-      // Add serverId to metadata for OAuth apps
+      // Preserve metadata threaded in the account step (botId for Telegram)
+      // and add serverId for OAuth apps.
+      let nextItem = itemWithAccount;
       if (
         selectedApp?.id === 'sheets' ||
         selectedApp?.id === 'gmail' ||
         selectedApp?.id === 'calendar'
       ) {
-        setSelectedItem({ ...selectedItem, serverId: selectedServerId });
+        nextItem = { ...nextItem, serverId: selectedServerId };
       }
+      setSelectedItem(nextItem);
       setStep(3);
     } else {
       onClick && onClick(itemWithAccount);
@@ -567,7 +579,12 @@ const Modal = ({
             Back to event selection
           </button>
           {selectedItem?.type === 'Webhook' ? (
-            <WebhookMetaData handleClick={handleSaveMetaData} />
+            // Step 1 = incoming catch hook (T5); later steps = outbound HTTP action (A4).
+            isVisible === 1 ? (
+              <WebhookMetaData handleClick={handleSaveMetaData} zapId={zapId} />
+            ) : (
+              <WebhookActionMetaData handleClick={handleSaveMetaData} />
+            )
           ) : selectedItem?.type?.includes('Google Sheets') ? (
             <GoogleSheetsMetaData
               handleClick={handleSaveMetaData}
@@ -589,7 +606,25 @@ const Modal = ({
                 .replace(' ', '')}
             />
           ) : selectedItem?.type?.startsWith('GitHub') ? (
-            <GitHubMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} />
+            <GitHubMetaData
+              handleClick={handleSaveMetaData}
+              selectedType={selectedItem?.type}
+              zapId={zapId}
+            />
+          ) : selectedItem?.type?.startsWith('Telegram') ? (
+            <TelegramMetaData handleClick={handleSaveMetaData} />
+          ) : selectedItem?.type?.startsWith('Telegram') ? (
+            // A6: Telegram Send action — text/photo/document, parse mode, options.
+            <TelegramActionMetaData
+              handleClick={handleSaveMetaData}
+              botId={(selectedItem?.metadata as any)?.botId}
+            />
+          ) : selectedItem?.type?.includes('Gmail') ? (
+            <GmailMetaData
+              handleClick={handleSaveMetaData}
+              selectedType={selectedItem?.type}
+              preSelectedServerId={selectedServerId}
+            />
           ) : (
             <div className="modal-notice">No configuration needed</div>
           )}
@@ -626,6 +661,9 @@ const Modal = ({
             <SolanaMetaData handleClick={handleSaveMetaData} />
           ) : selectedItem?.type?.includes('Gmail') ? (
             <GmailMetaData handleClick={handleSaveMetaData} selectedType={selectedItem?.type} />
+          ) : selectedItem?.type?.startsWith('WhatsApp') ? (
+            // A5: WhatsApp Send action — sender picker, template/freeform.
+            <WhatsAppMetaData handleClick={handleSaveMetaData} />
           ) : selectedItem?.type === 'Discord Send Message' ? (
             <DiscordMetaData handleClick={handleSaveMetaData} />
           ) : (

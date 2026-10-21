@@ -1,9 +1,56 @@
 import { Router, Request, Response } from 'express';
 import client from '@repo/db';
 import { authMiddleware } from '../middlewares';
-import { computeNextRun } from '../services/schedule';
+import { computeNextRun, validateCron, normalizeCron, previewNextFires, ScheduleSpec } from '../services/schedule';
 
 const router = Router();
+
+/**
+ * POST /api/schedule/preview
+ * T8 M5 — next-fires preview before save (5-field cron + presets).
+ * Deliberately unauthenticated: pure computation over caller-supplied
+ * fields (no user data), so the editor can preview before the Zap exists.
+ */
+router.post('/preview', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const {
+      scheduleType,
+      hour,
+      minute,
+      dayOfWeek,
+      dayOfMonth,
+      timezone,
+      cron,
+      cronExpression,
+      count,
+    } = req.body || {};
+
+    const rawCron = typeof cron === 'string' ? cron : cronExpression;
+    const spec: ScheduleSpec = {
+      scheduleType: scheduleType || (rawCron ? 'cron' : ''),
+      hour: hour ?? null,
+      minute: minute ?? 0,
+      dayOfWeek: dayOfWeek ?? null,
+      dayOfMonth: dayOfMonth ?? null,
+      timezone: timezone || 'UTC',
+      cronExpression: null,
+    };
+
+    if (spec.scheduleType === 'cron') {
+      const check = validateCron(String(rawCron ?? ''));
+      if (!check.valid) {
+        return res.status(400).json({ error: check.error, fires: [] });
+      }
+      spec.cronExpression = check.normalized as string;
+    }
+
+    const n = Math.min(Math.max(Number(count) || 5, 1), 10);
+    return res.json({ fires: previewNextFires(spec, n), cron: spec.cronExpression });
+  } catch (error: any) {
+    console.error('Schedule preview error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
 
 /**
  * GET /api/schedule/:zapId
@@ -51,10 +98,19 @@ router.post('/', authMiddleware, async (req: Request, res: Response): Promise<an
       return res.status(400).json({ error: 'zapId and scheduleType are required' });
     }
 
-    // Validate scheduleType
-    const validTypes = ['minutely', 'hourly', 'daily', 'weekly', 'monthly'];
+    // Validate scheduleType (T8: 'cron' = custom 5-field M5)
+    const validTypes = ['minutely', 'hourly', 'daily', 'weekly', 'monthly', 'cron'];
     if (!validTypes.includes(scheduleType)) {
       return res.status(400).json({ error: 'Invalid scheduleType' });
+    }
+
+    let cronExpression: string | null = null;
+    if (scheduleType === 'cron') {
+      const check = validateCron(String(req.body.cronExpression ?? req.body.cron ?? ''));
+      if (!check.valid) {
+        return res.status(400).json({ error: check.error });
+      }
+      cronExpression = check.normalized as string;
     }
 
     // Verify Zap ownership
@@ -68,10 +124,12 @@ router.post('/', authMiddleware, async (req: Request, res: Response): Promise<an
 
     // Calculate initial nextRunAt
     const nextRunAt = computeNextRun(
-      { scheduleType, hour, minute, dayOfWeek, dayOfMonth, timezone },
+      { scheduleType, hour, minute, dayOfWeek, dayOfMonth, cronExpression, timezone },
       new Date()
     );
 
+    // Upsert replaces the whole schedule atomically — a mode change cancels
+    // prior occurrences (no orphan fires; T8 §5).
     const schedule = await client.scheduledTrigger.upsert({
       where: { zapId },
       update: {
@@ -80,6 +138,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response): Promise<an
         minute: minute || 0,
         dayOfWeek: dayOfWeek ?? null,
         dayOfMonth: dayOfMonth ?? null,
+        cronExpression,
         timezone: timezone || 'UTC',
         nextRunAt,
         isActive: true,
@@ -91,6 +150,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response): Promise<an
         minute: minute || 0,
         dayOfWeek: dayOfWeek ?? null,
         dayOfMonth: dayOfMonth ?? null,
+        cronExpression,
         timezone: timezone || 'UTC',
         nextRunAt,
       },

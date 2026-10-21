@@ -1,9 +1,20 @@
 import { AiConnectionError } from '@repo/ai-connections';
+
+/** Spec §5 error classes (A1): failures are classified, not generic strings. */
+export type AiErrorCode =
+  | 'validation'
+  | 'config'
+  | 'malformed_output'
+  | 'policy_refusal'
+  | 'timeout'
+  | 'provider_unavailable';
+
 export class AiStepError extends Error {
   constructor(
     message: string,
     public readonly retryable = false,
-    public readonly status?: number
+    public readonly status?: number,
+    public readonly code?: AiErrorCode
   ) {
     super(message);
     this.name = 'AiStepError';

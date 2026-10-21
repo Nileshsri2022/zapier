@@ -82,6 +82,15 @@
   word-break: break-all;
 }
 
+.dash-url--test {
+  border: 0;
+  background: transparent;
+  color: hsl(var(--brand-primary));
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .dash-status {
   display: inline-flex;
   align-items: center;
