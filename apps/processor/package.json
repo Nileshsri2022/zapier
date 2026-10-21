@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "dist/src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
+    "test:watch": "jest --watch",
     "build": "npx swc src -d dist --copy-files",
     "start": "node dist/src/index.js",
     "dev": "nodemon --exec tsx src/index.ts"
@@ -27,7 +28,10 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
-    "tsx": "^4.21.0",
-    "nodemon": "^3.1.10"
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.10",
+    "ts-jest": "^29.1.2",
+    "tsx": "^4.21.0"
   }
 }

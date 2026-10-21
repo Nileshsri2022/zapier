@@ -7,27 +7,60 @@ import Button from '../Button';
 import { API_URL } from '@/lib/config';
 import { redirectToOAuth } from '@/lib/oauth';
 
-interface GoogleSheetsMetaDataProps {
+export function extractSpreadsheetId(input: string): string {
+  if (!input) return '';
+  const match = input.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return input.trim();
+}
+
+export interface GoogleSheetsMetaDataProps {
   handleClick: (data: any) => void;
   selectedType: string;
   preSelectedServerId?: string;
+  initialData?: {
+    spreadsheetId?: string;
+    sheetName?: string;
+    serverId?: string;
+  };
+  initialServers?: Array<{ id: string; email: string }>;
+  initialLoading?: boolean;
 }
 
-const GoogleSheetsMetaData = ({
+export const GoogleSheetsMetaData = ({
   handleClick,
   selectedType,
   preSelectedServerId,
+  initialData,
+  initialServers,
+  initialLoading,
 }: GoogleSheetsMetaDataProps) => {
   const [formData, setFormData] = useState({
-    spreadsheetId: '',
-    sheetName: 'Sheet1',
-    serverId: preSelectedServerId || '',
+    spreadsheetId: initialData?.spreadsheetId || '',
+    sheetName: initialData?.sheetName || 'Sheet1',
+    serverId:
+      initialData?.serverId ||
+      preSelectedServerId ||
+      (initialServers && initialServers.length > 0 ? initialServers[0]!.id : ''),
   });
-  const [servers, setServers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [servers, setServers] = useState<any[]>(initialServers || []);
+  const [loading, setLoading] = useState(
+    initialLoading !== undefined ? initialLoading : initialServers === undefined
+  );
   const [connecting, setConnecting] = useState(false);
 
   useEffect(() => {
+    if (initialServers !== undefined) {
+      if (preSelectedServerId) {
+        setFormData((prev) => ({ ...prev, serverId: preSelectedServerId }));
+      } else if (initialServers.length > 0 && !formData.serverId) {
+        setFormData((prev) => ({ ...prev, serverId: initialServers[0]!.id }));
+      }
+      return;
+    }
+
     const fetchServers = async () => {
       try {
         const response = await axios.get(`${API_URL}/api/sheets/servers`, {
@@ -39,7 +72,7 @@ const GoogleSheetsMetaData = ({
 
         if (preSelectedServerId) {
           setFormData((prev) => ({ ...prev, serverId: preSelectedServerId }));
-        } else if (connectedServers.length > 0) {
+        } else if (connectedServers.length > 0 && !formData.serverId) {
           setFormData((prev) => ({ ...prev, serverId: connectedServers[0].id }));
         }
       } catch (error) {
@@ -50,7 +83,7 @@ const GoogleSheetsMetaData = ({
     };
 
     fetchServers();
-  }, [preSelectedServerId]);
+  }, [preSelectedServerId, initialServers]);
 
   const handleConnectGoogle = async () => {
     try {
@@ -75,11 +108,16 @@ const GoogleSheetsMetaData = ({
   };
 
   const handleFormDataChange = (e: any) => {
+    const rawValue = e.target.value;
+    const value = e.target.name === 'spreadsheetId' ? extractSpreadsheetId(rawValue) : rawValue;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [e.target.name]: value,
     });
   };
+
+  const effectiveServerId = formData.serverId || (servers.length > 0 ? servers[0]!.id : '');
+  const canSave = Boolean(formData.spreadsheetId?.trim() && effectiveServerId);
 
   if (loading) {
     return (
@@ -112,7 +150,7 @@ const GoogleSheetsMetaData = ({
           <label className="meta-form__label">Google Account</label>
           <select
             name="serverId"
-            value={formData.serverId}
+            value={effectiveServerId}
             onChange={handleFormDataChange}
             className="meta-form__input"
           >
@@ -128,6 +166,7 @@ const GoogleSheetsMetaData = ({
         label="Spreadsheet ID"
         name="spreadsheetId"
         placeholder="Enter the ID from the spreadsheet URL"
+        value={formData.spreadsheetId}
         onChange={handleFormDataChange}
       />
       <p className="meta-form__hint">
@@ -137,6 +176,7 @@ const GoogleSheetsMetaData = ({
         label="Sheet Name"
         name="sheetName"
         placeholder="Sheet1"
+        value={formData.sheetName}
         onChange={handleFormDataChange}
       />
       <div className="meta-form__panel">
@@ -146,7 +186,11 @@ const GoogleSheetsMetaData = ({
           subsequent polls detect changes.
         </p>
       </div>
-      <Button variant="secondary" onClick={() => handleClick(formData)}>
+      <Button
+        variant="secondary"
+        onClick={() => canSave && handleClick({ ...formData, serverId: effectiveServerId })}
+        disabled={!canSave}
+      >
         Save
       </Button>
     </div>
