@@ -74,8 +74,13 @@ export function buildTelegramRunPayload(
 ): Record<string, any> {
   const text = typeof message.text === 'string' ? message.text : null;
   const isCommand = text?.startsWith('/') || false;
-  const command = isCommand ? (text!.split(' ')[0] || '').split('@')[0] || null : null;
-  const commandArgs = isCommand ? text!.slice(command!.length).trim() : null;
+  // Telegram appends `@botname` in groups (privacy mode), which is where
+  // command-driven Zaps are used. The mention is addressing, not an argument, so
+  // slice by the RAW first token before dropping it — slicing by the stripped
+  // command leaves `@botname` at the head of commandArgs.
+  const firstToken = isCommand ? (text!.split(/\s/)[0] ?? '') : '';
+  const command = isCommand ? firstToken.split('@')[0] || null : null;
+  const commandArgs = isCommand ? text!.slice(firstToken.length).trim() : null;
 
   const mediaKind = MEDIA_KINDS.find((k) => message[k]);
   const mediaBlockRaw = mediaKind ? message[mediaKind] : null;
